@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 366" role="img" aria-labelledby="ttl desc" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <title id="ttl">Brewlet high-level architecture</title>
+  <desc id="desc">Two independent sources feed one worker node. In Developer/CI, mvn package and oras push publish an artifact to an OCI Registry. In the control plane, brewlet-operator generates a Deployment/Pod with runtimeClassName brewlet, and schedules and annotates the worker node. On the worker node, the shim pulls the OCI artifact from the registry; containerd-shim-brewlet hands off to runc, which runs the Sandbox (cgroup and netns) as java -jar /app/app.jar with the node JDK mounted read-only.</desc>
+  <style>
+    .box{fill:#fff;stroke:#e7dcc9;stroke-width:1;filter:url(#sh)}
+    .outer{fill:#fbf7f0;stroke:#e7dcc9;stroke-width:1;filter:url(#sh)}
+    .accent{stroke:#6F4E37;stroke-width:1.5}
+    .k8s{stroke:#326CE5;stroke-width:1.5}
+    .lane{fill:#6b5d51;font-size:12px;font-weight:700;letter-spacing:.9px}
+    .ttl{fill:#2a1f18;font-size:15px;font-weight:700}
+    .sub{fill:#6b5d51;font-size:12.5px}
+    .chip{fill:rgba(111,78,55,.09)}
+    .mono{fill:#553524;font-size:12.5px;font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace}
+    .flow{stroke:#6F4E37;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round}
+    .flab{fill:#6b5d51;font-size:11.5px;font-weight:600}
+    .mask{fill:#fffdf9}
+  </style>
+  <defs>
+    <marker id="ah" markerWidth="9" markerHeight="9" refX="6.5" refY="4" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#6F4E37"/>
+    </marker>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#553524" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+
+  <!-- ============ Flows drawn first (sit under boxes at edges) ============ -->
+  <!-- Control plane -> worker node: schedules / annotates -->
+  <path class="flow" d="M512,96 L654,96" marker-end="url(#ah)"/>
+  <text class="flab" x="583" y="86" text-anchor="middle">schedules · annotates</text>
+
+  <!-- OCI Registry -> worker node: shim pulls the artifact (routed along the base) -->
+  <path class="flow" d="M122,214 L122,338 Q122,350 134,350 L788,350 Q800,350 800,338 L800,290" marker-end="url(#ah)"/>
+  <rect class="mask" x="380" y="339" width="162" height="18"/>
+  <text class="flab" x="461" y="354" text-anchor="middle">shim pulls OCI artifact</text>
+
+  <!-- ============ Developer / CI ============ -->
+  <text class="lane" x="122" y="22" text-anchor="middle">DEVELOPER / CI</text>
+  <rect class="box" x="24" y="36" width="196" height="90" rx="10"/>
+  <text class="ttl" x="42" y="65">Build &amp; push</text>
+  <rect class="chip" x="42" y="74" width="100" height="20" rx="6"/>
+  <text class="mono" x="49" y="88.5">mvn package</text>
+  <rect class="chip" x="42" y="98" width="82" height="20" rx="6"/>
+  <text class="mono" x="49" y="112.5">oras push</text>
+  <line class="flow" x1="122" y1="126" x2="122" y2="150" marker-end="url(#ah)"/>
+  <rect class="box accent" x="24" y="152" width="196" height="62" rx="10"/>
+  <text class="ttl" x="42" y="181">OCI Registry</text>
+  <text class="sub" x="42" y="201">JAR + launch config</text>
+
+  <!-- ============ Control plane ============ -->
+  <text class="lane" x="396" y="22" text-anchor="middle">CONTROL PLANE</text>
+  <rect class="box" x="280" y="36" width="232" height="90" rx="10"/>
+  <text class="ttl" x="298" y="65">brewlet-operator</text>
+  <text class="sub" x="298" y="86">node provisioning · RuntimeClass</text>
+  <text class="sub" x="298" y="105">JavaApplication CRD</text>
+  <line class="flow" x1="396" y1="126" x2="396" y2="150" marker-end="url(#ah)"/>
+  <text class="flab" x="386" y="143" text-anchor="end">generates</text>
+  <rect class="box" x="280" y="152" width="232" height="62" rx="10"/>
+  <text class="ttl" x="298" y="181">Deployment / Pod</text>
+  <rect class="chip" x="298" y="188" width="200" height="20" rx="5"/>
+  <text class="mono" x="304" y="202.5" font-size="11.5">runtimeClassName: brewlet</text>
+
+  <!-- ============ Worker node ============ -->
+  <text class="lane" x="818" y="22" text-anchor="middle">WORKER NODE (PROVISIONED)</text>
+  <rect class="outer" x="660" y="36" width="316" height="258" rx="12"/>
+  <rect class="box" x="680" y="60" width="276" height="72" rx="9"/>
+  <text class="ttl" x="698" y="89">containerd + shim</text>
+  <rect class="chip" x="698" y="102" width="185" height="20" rx="5"/>
+  <text class="mono" x="704" y="116.5" font-size="11.5">containerd-shim-brewlet</text>
+  <line class="flow" x1="818" y1="132" x2="818" y2="156" marker-end="url(#ah)"/>
+  <text class="flab" x="808" y="149" text-anchor="end">runc</text>
+  <rect class="box k8s" x="680" y="158" width="276" height="114" rx="9"/>
+  <text class="ttl" x="698" y="187">Sandbox</text>
+  <text class="sub" x="698" y="208">cgroup + netns</text>
+  <rect class="chip" x="698" y="218" width="178" height="20" rx="5"/>
+  <text class="mono" x="704" y="232.5" font-size="11.5">java -jar /app/app.jar</text>
+  <text class="sub" x="698" y="258">node JDK mounted read-only</text>
+</svg>

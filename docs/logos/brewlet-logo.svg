@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 220" role="img" aria-label="Brewlet wordmark with a coffee-bean mark">
+  <title>Brewlet — official logo</title>
+  <defs>
+    <linearGradient id="c5drop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8A6244"/>
+      <stop offset="1" stop-color="#553524"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Coffee bean mark -->
+  <g transform="translate(110 110)">
+    <!-- bean body: two rounded lobes -->
+    <ellipse cx="0" cy="0" rx="70" ry="92" fill="url(#c5drop)" transform="rotate(-18)"/>
+    <!-- center groove -->
+    <path d="M-30 -74 C 22 -40 22 40 -30 74" fill="none" stroke="#F5E6C8" stroke-width="9"
+          stroke-linecap="round" transform="rotate(-18)" opacity="0.9"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="205" y="146" font-family="'Segoe UI',Arial,sans-serif" font-size="104" font-weight="800" letter-spacing="-2">
+    <tspan fill="#6F4E37">brew</tspan><tspan fill="#326CE5">let</tspan>
+  </text>
+
+  <!-- tagline -->
+  <text x="208" y="188" font-family="'Segoe UI',Arial,sans-serif" font-size="26" font-weight="500" letter-spacing="2" fill="#8A7A64">Java on Kubernetes</text>
+</svg>
