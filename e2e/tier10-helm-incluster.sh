@@ -12,18 +12,20 @@
 #   1. `helm install` the chart (operator + admission images side-loaded; the
 #      provisioner image is deliberately BOGUS so no host-mutating DaemonSet can
 #      ever run). CRD + webhook config + both Deployments come up.
-#   2. The chart's default (catch-all) NodeProfile drives the in-cluster
-#      operator to create the brewlet RuntimeClass and the per-profile
-#      provisioner DaemonSet (proves its runtimeclasses/daemonsets RBAC).
+#   2. Then we apply a default (catch-all) NodeProfile once the in-cluster
+#      webhook is up; this drives the in-cluster operator to create the
+#      brewlet RuntimeClass and per-profile provisioner DaemonSet (proves its
+#      runtimeclasses/daemonsets RBAC).
 #   3. Apply a JavaApplication -> the in-cluster operator reconciles it into a
 #      Deployment(+runtimeClassName: brewlet) + Service with owner refs + status
 #      (proves its javaapplications/deployments/services/status RBAC).
 #   4. The live pod webhook denies a brewlet pod requesting a JDK the (empty)
 #      fleet lacks -> NoCompatibleJDK (proves the shipped webhook + node-list
 #      RBAC + caBundle wiring reach the API server).
-#   5. The live NodeProfile validating webhook rejects an invalid profile
-#      (uncurated distribution) and a pool conflict (proves the shipped
-#      ValidatingWebhookConfiguration + its caBundle wiring).
+#   5. An uncurated JDK distribution is rejected (CRD enum at the API server,
+#      backed by the validating webhook) and a pool conflict is rejected by the
+#      live NodeProfile webhook (proves the shipped ValidatingWebhookConfiguration
+#      + its caBundle wiring).
 #
 # No brewlet pod is expected to actually RUN here (no node is provisioned ready,
 # so brewlet pods stay Pending/denied) — that path is tiers 8/9. This tier is
@@ -132,7 +134,9 @@ tier10_helm_incluster() {
   # --- helm install the shipped chart ---------------------------------------
   # provisioner image is bogus (IfNotPresent + unresolvable) so the operator's
   # DaemonSet can never run host-mutating code on the node. leader-elect off for
-  # a snappy single-replica rollout.
+  # a snappy single-replica rollout. Keep defaultProfile disabled during install:
+  # a fail-closed NodeProfile validating webhook can come up after resources are
+  # applied, so creating NodeProfiles during the same helm transaction is flaky.
   info "tier10: helm install $T10_RELEASE"
   if ! helm install "$T10_RELEASE" "$BREWLET_KUBERNETES_DIR/charts/brewlet" \
         --namespace "$T10_RELEASE_NS" \
@@ -140,6 +144,7 @@ tier10_helm_incluster() {
         --set images.admission="$T10_ADM_IMG" \
         --set images.provisioner="$T10_PROV_IMG" \
         --set images.pullPolicy=IfNotPresent \
+        --set defaultProfile.enabled=false \
         --set provisioner.jdks=temurin-21 \
         --set provisioner.launchers= \
         --set operator.leaderElect=false \
@@ -183,12 +188,31 @@ tier10_helm_incluster() {
     fail "helm(in-cluster): shipped ClusterRoleBindings present"
   fi
 
-  # --- the chart's default NodeProfile converges the cluster singletons ------
-  # The chart renders a default (catch-all) NodeProfile; the in-cluster operator
-  # reconciles it into the brewlet RuntimeClass + the per-profile provisioner
-  # DaemonSet (brewlet-node-provisioner-default). This no longer depends on a
-  # node opt-in label — we still label a node to exercise the node-state path.
-  info "tier10: default NodeProfile should drive RuntimeClass + per-profile DaemonSet"
+  # --- default NodeProfile converges the cluster singletons ------------------
+  # Apply a catch-all default profile now that the webhook endpoint is live.
+  info "tier10: apply default NodeProfile and converge RuntimeClass + per-profile DaemonSet"
+  local npboot
+  for _ in 1 2 3 4 5 6 7 8; do
+    npboot="$(kubectl apply -f - 2>&1 <<'YAML'
+apiVersion: node.brewlet.sh/v1alpha1
+kind: NodeProfile
+metadata:
+  name: default
+spec:
+  jdks:
+    - distribution: temurin
+      feature: 21
+YAML
+)"
+    [[ "$npboot" == *"created"* || "$npboot" == *"configured"* || "$npboot" == *"unchanged"* ]] && break
+    sleep 2
+  done
+  assert_contains "helm(in-cluster): default NodeProfile applied" "$npboot" "nodeprofile.node.brewlet.sh/default"
+
+  # The in-cluster operator reconciles the default profile into the brewlet
+  # RuntimeClass + the per-profile DaemonSet (brewlet-node-provisioner-default).
+  # This no longer depends on a node opt-in label — we still label a node to
+  # exercise the node-state path.
   if ! label_node "$T10_NODE" --overwrite brewlet.sh/provision=true >>"$WORK/t10-optin.log" 2>&1; then
     fail "helm(in-cluster): opt node in with brewlet.sh/provision label" "see $WORK/t10-optin.log"; return 0
   fi
@@ -286,12 +310,16 @@ YAML
   assert_contains "helm(in-cluster): live webhook denies an unsatisfiable brewlet pod (NoCompatibleJDK)" \
     "$out" "NoCompatibleJDK"
 
-  # --- the LIVE NodeProfile validating webhook must reject bad profiles ------
-  # (a) an uncurated JDK distribution -> InvalidNodeProfile. Retry: the webhook
+  # --- an uncurated JDK distribution must be rejected ------------------------
+  # (a) a distribution outside the curated set must NOT be accepted. The CRD's
+  # `enum: [temurin, microsoft]` rejects it at the API server (Unsupported
+  # value); the validating webhook also rejects it (InvalidNodeProfile / "not
+  # curated") if a request ever reaches it. Either layer failing the apply is a
+  # pass — the invariant is that the bad profile is refused. Retry: the webhook
   # endpoint's caBundle/Service can lag a beat right after install.
-  local npout
+  local npout npok=""
   for _ in 1 2 3 4 5 6 7 8; do
-    npout="$(kubectl apply -f - 2>&1 <<'YAML'
+    if npout="$(kubectl apply -f - 2>&1 <<'YAML'
 apiVersion: node.brewlet.sh/v1alpha1
 kind: NodeProfile
 metadata:
@@ -301,14 +329,25 @@ spec:
     - distribution: not-a-real-distro
       feature: 21
 YAML
-)"
-    [[ "$npout" == *InvalidNodeProfile* || "$npout" == *"not curated"* ]] && break
-    kubectl delete nodeprofile e2e-bad-distro --ignore-not-found >/dev/null 2>&1 || true
+)"; then
+      # apply unexpectedly succeeded — the profile was admitted; not a rejection.
+      kubectl delete nodeprofile e2e-bad-distro --ignore-not-found >/dev/null 2>&1 || true
+      sleep 2
+      continue
+    fi
+    if [[ "$npout" == *"Unsupported value"* || "$npout" == *InvalidNodeProfile* || "$npout" == *"not curated"* ]]; then
+      npok=1
+      break
+    fi
     sleep 2
   done
   kubectl delete nodeprofile e2e-bad-distro --ignore-not-found >/dev/null 2>&1 || true
-  assert_contains "helm(in-cluster): NodeProfile webhook rejects an uncurated JDK distribution" \
-    "$npout" "not curated"
+  if [[ -n "$npok" ]]; then
+    pass "helm(in-cluster): NodeProfile rejects an uncurated JDK distribution"
+  else
+    fail "helm(in-cluster): NodeProfile rejects an uncurated JDK distribution" \
+      "expected the apply to fail with Unsupported value / InvalidNodeProfile / \"not curated\", got: $npout"
+  fi
 
   # (b) a pool conflict: two profiles claiming the same named pool -> PoolConflict.
   # The first (valid) profile is accepted; the second collides.
