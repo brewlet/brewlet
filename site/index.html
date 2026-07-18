@@ -425,10 +425,7 @@ $ ./integration-tests/e2e/run.sh --tier 3</code></pre>
        <div class="code-card wide" data-reveal>
          <div class="code-head"><span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span><span class="code-title">your project</span></div>
          <pre><code><span class="c-cm"># Build the fat JAR and push it as an OCI artifact in one line</span>
-$ mvn package brewlet:push <span class="c-key">-Dbrewlet.image</span>=registry/app:1.4.2
-
-<span class="c-cm"># Bind it to your lifecycle in pom.xml, then just:</span>
-$ mvn deploy</code></pre>
+$ mvn package brewlet:push <span class="c-key">-Dbrewlet.image</span>=registry/app:1.4.2</code></pre>
        </div>
        <div class="hero-cta center">
           <a class="btn btn-primary" href="/docs/getting-started/">Full quick start</a>
