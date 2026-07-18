@@ -8,10 +8,12 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/brewlet/brewlet/internal/artifact"
 )
@@ -211,7 +213,29 @@ func (p Plan) Run() error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
-	return cmd.Run()
+
+	signals := make(chan os.Signal, 2)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(signals)
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	for {
+		select {
+		case err := <-done:
+			return err
+		case sig := <-signals:
+			if err := cmd.Process.Signal(sig); err != nil {
+				return <-done
+			}
+		}
+	}
 }
 
 // CommandLine returns a copy-pasteable representation of the launch.
