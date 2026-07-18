@@ -1,22 +1,13 @@
-# AppCDS (Application Class Data Sharing) — design & implementation
+# AppCDS (Application Class Data Sharing) — implementation guide
 
-> **Status.** **Phase A (build-time archive layer) is implemented, and turnkey
-> generation now ships.** The optional
-> `cds` launch-config block, the `application/vnd.brewlet.cds.layer.v1+jsa` archive
-> layer, `brewlet push --appcds-archive`, the `-Xshare:auto -XX:SharedArchiveFile`
-> launch wiring (local `run`, `bundle`, and the production shim), and the
-> deterministic JAR-mtime normalization that lets a shipped archive actually map on
-> the node (§4.4) all ship today. The Maven plugin generates archives turnkey via
-> the `brewlet:appcds` goal (§4.2). Phase A0 (base-CDS freebie) is a documented
-> property, not code. **Phase B (node-side regeneration) now ships too** — opt in
-> with the `spec.jvm.cds.regenerate` deployment field (or `brewlet run/bundle
-> --appcds-regenerate`) and the
-> node maintains a per-`(artifact, jdk-build)` archive cache driven by
-> `-XX:+AutoCreateSharedArchive`, self-healing on every central JDK patch; see
-> §4.3/§8. This note is the design + implementation writeup for the Phase 3 AppCDS
-> item (§15) and the startup discussion in
-> [SPECIFICATION §13](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#13-performance--startup)
-> (and Open Question #6).
+> **Status.** **AppCDS is fully implemented and ships today.** Brewlet supports
+> both build-time archive delivery (`application/vnd.brewlet.cds.layer.v1+jsa`,
+> `brewlet push --appcds-archive`, and Maven `brewlet:appcds`) and node-side
+> regeneration (`spec.jvm.cds.regenerate`, `brewlet run/bundle --appcds-regenerate`).
+> The launch path uses `-Xshare:auto -XX:SharedArchiveFile` across local `run`,
+> `bundle`, and the production shim, so mismatches safely fall back while preserving
+> correctness. This document describes the shipped behavior, constraints, and design
+> rationale.
 
 ---
 

@@ -78,11 +78,11 @@ nav:
   - Reference:
       - CLI reference: cli-reference.md
       - Core reference: reference.md
+      - AppCDS: appcds.md
       - JPMS support: jpms-support.md
       - Layered classpath deployment: layered-classpath-deployment.md
       - Runnable-image delivery: runnable-image.md
   - Roadmap and research:
-      - AppCDS: appcds.md
       - Multi-arch fleets: multi-arch.md
       - Supply-chain admission: supply-chain-admission.md
       - Sandbox runtimes: sandbox-runtimes.md
