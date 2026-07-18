@@ -39,9 +39,9 @@ tier3_runc() {
   fi
 
   info "running the Linux runc harness (pulls eclipse-temurin:21; ~1-3 min)"
-  if out="$(docker run --rm --privileged --platform "linux/$arch" --cgroupns=private \
-      --memory=384m --cpus=1 -v "$WORK:/work" -v "$E2E_DIR/e2e-linux.sh:/runner.sh:ro" \
-      eclipse-temurin:21 bash /runner.sh 2>&1)"; then
+  if out="$(docker run --rm -i --privileged --platform "linux/$arch" --cgroupns=private \
+      --memory=384m --cpus=1 -v "$WORK:/work" \
+      eclipse-temurin:21 bash -s <"$E2E_DIR/e2e-linux.sh" 2>&1)"; then
     printf '%s\n' "$out" >"$WORK/t3-e2e-linux.log"
     assert_contains "runc: shim built the OCI bundle on the node" "$out" "OCI runtime bundle"
     assert_contains "runc: JVM answered /hello under runc" "$out" "Hello"
@@ -56,9 +56,9 @@ tier3_runc() {
     fail "runc: Linux harness" "see $WORK/t3-e2e-linux.log"
   fi
 
-  if out="$(docker run --rm --privileged --platform "linux/$arch" --cgroupns=private \
-      --memory=384m --cpus=1 -v "$WORK:/work" -v "$E2E_DIR/mixed-runc.sh:/runner.sh:ro" \
-      eclipse-temurin:21 bash /runner.sh 2>&1)"; then
+  if out="$(docker run --rm -i --privileged --platform "linux/$arch" --cgroupns=private \
+      --memory=384m --cpus=1 -v "$WORK:/work" \
+      eclipse-temurin:21 bash -s <"$E2E_DIR/mixed-runc.sh" 2>&1)"; then
     printf '%s\n' "$out" >"$WORK/t3-mixed-runc.log"
     assert_contains "runc: mixed class-path + module-path app served /hello" "$out" "MIXED"
     assert_contains "runc: mixed app resolved the legacy class-path helper" "$out" "legacy"

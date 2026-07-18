@@ -70,6 +70,8 @@ _t8_node_arch() {
 _t8_stage_jdk() {
   local node="$1" arch="$2"
   if docker exec "$node" chroot "$T8_JDK_ROOT" /bin/java -version >/dev/null 2>&1; then
+    printf '%s\n' "$T8_JDK" | docker exec -i "$node" sh -c \
+      'cat > /opt/brewlet/jdks/.brewlet-active'
     return 0
   fi
   # A provisioner-created bare JDK home can execute from the host while still
@@ -92,7 +94,9 @@ _t8_stage_jdk() {
   docker exec "$node" sh -c \
     "test -e '$T8_JDK_ROOT/bin/java' || ln -sf ../../opt/java/openjdk/bin/java '$T8_JDK_ROOT/usr/bin/java'" \
     >>"$WORK/t8-jdk.log" 2>&1 || return 1
-  docker exec "$node" test -x "$T8_JDK_ROOT/bin/java"
+  docker exec "$node" test -x "$T8_JDK_ROOT/bin/java" || return 1
+  printf '%s\n' "$T8_JDK" | docker exec -i "$node" sh -c \
+    'cat > /opt/brewlet/jdks/.brewlet-active'
 }
 
 # _t8_patch_containerd NODE: register the brewlet runtime with the same
