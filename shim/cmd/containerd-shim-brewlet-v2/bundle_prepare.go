@@ -41,7 +41,9 @@ const (
 	// to maintain a per-(artifact, JDK-build) archive cache with
 	// -XX:+AutoCreateSharedArchive rather than consume a shipped archive. It is a
 	// deployment/fleet decision, so it lives on the pod, not in the artifact.
-	annCDSRegenerate = "brewlet.sh/cds-regenerate"
+	annCDSRegenerate   = "brewlet.sh/cds-regenerate"
+	jdkHomeMetadata    = ".brewlet-java-home"
+	jdkActiveInventory = ".brewlet-active"
 )
 
 // imageConfig is the subset of CRI image metadata the kubelet hands the shim:
@@ -89,7 +91,8 @@ type resolvedArtifact struct {
 	ClasspathHostPaths  []string // on-disk paths of the optional classpath layer tars
 	ModulepathHostPaths []string // on-disk paths of the optional modulepath layer tars
 	CDSHostPath         string   // on-disk path of the optional AppCDS archive blob, or ""
-	JDKRoot             string   // selected node-resident JDK root (e.g. /opt/brewlet/jdks/temurin-21)
+	JDKRoot             string   // selected node-resident userland root (e.g. /opt/brewlet/jdks/temurin-21)
+	JDKHome             string   // JDK or jlink runtime within JDKRoot; mounted at /opt/jdk
 	LauncherRoot        string   // node-installed launcher layer, or "" for vanilla `java`
 	LauncherName        string   // launcher the descriptor requested ("" or "java" for vanilla)
 }
@@ -108,6 +111,10 @@ func resolveArtifact(ic imageConfig) (resolvedArtifact, error) {
 	if err != nil {
 		return resolvedArtifact{}, err
 	}
+	jdkHome, err := resolveJDKHome(jdkRoot)
+	if err != nil {
+		return resolvedArtifact{}, err
+	}
 	launcherRoot, err := selectLauncher(ic.LauncherRootsDir, ic.LauncherName)
 	if err != nil {
 		return resolvedArtifact{}, err
@@ -119,6 +126,7 @@ func resolveArtifact(ic imageConfig) (resolvedArtifact, error) {
 		ModulepathHostPaths: blobs.ModulepathHostPaths,
 		CDSHostPath:         blobs.CDSHostPath,
 		JDKRoot:             jdkRoot,
+		JDKHome:             jdkHome,
 		LauncherRoot:        launcherRoot,
 		LauncherName:        ic.LauncherName,
 	}, nil
@@ -153,7 +161,7 @@ func prepareBundle(args []string) error {
 		CacheDir:    os.Getenv("BREWLET_CDS_CACHE"),
 		MetricsDir:  os.Getenv("BREWLET_METRICS_DIR"),
 	}
-	if err := kcruntime.GenerateBundleWithRegen(ra.Config, ra.JDKRoot, ra.LauncherRoot, ra.LauncherName, ra.JarHostPath, ra.ClasspathHostPaths, ra.ModulepathHostPaths, ra.CDSHostPath, bundleDir, res, nil, regen); err != nil {
+	if err := kcruntime.GenerateBundleWithRegen(ra.Config, ra.JDKHome, ra.LauncherRoot, ra.LauncherName, ra.JarHostPath, ra.ClasspathHostPaths, ra.ModulepathHostPaths, ra.CDSHostPath, bundleDir, res, nil, regen); err != nil {
 		return fmt.Errorf("generate bundle: %w", err)
 	}
 
@@ -178,12 +186,20 @@ func prepareBundle(args []string) error {
 // annotation).
 func selectJDK(rootsDir, request string) (string, error) {
 	dist, feature := parseJDKRequest(request)
+	active, err := activeJDKs(rootsDir)
+	if err != nil {
+		return "", err
+	}
 
 	// Explicit distribution: exact match only — never silently fall back to a
 	// different vendor's build.
 	if dist != "" {
-		root := filepath.Join(rootsDir, fmt.Sprintf("%s-%d", dist, feature))
-		if _, err := os.Stat(filepath.Join(root, "bin", "java")); err == nil {
+		name := fmt.Sprintf("%s-%d", dist, feature)
+		if active != nil && !active[name] {
+			return "", fmt.Errorf("NoCompatibleJDK: JDK %s is not active under %s", name, rootsDir)
+		}
+		root := filepath.Join(rootsDir, name)
+		if _, err := resolveJDKHome(root); err == nil {
 			return root, nil
 		}
 		return "", fmt.Errorf("NoCompatibleJDK: no JDK %s-%d under %s", dist, feature, rootsDir)
@@ -200,10 +216,13 @@ func selectJDK(rootsDir, request string) (string, error) {
 	var matches []string
 	for _, e := range entries {
 		name := e.Name()
+		if active != nil && !active[name] {
+			continue
+		}
 		if !strings.HasSuffix(name, suffix) {
 			continue
 		}
-		if _, err := os.Stat(filepath.Join(rootsDir, name, "bin", "java")); err == nil {
+		if _, err := resolveJDKHome(filepath.Join(rootsDir, name)); err == nil {
 			matches = append(matches, name)
 		}
 	}
@@ -212,6 +231,52 @@ func selectJDK(rootsDir, request string) (string, error) {
 		return filepath.Join(rootsDir, matches[0]), nil
 	}
 	return "", fmt.Errorf("NoCompatibleJDK: no JDK feature %d under %s", feature, rootsDir)
+}
+
+func activeJDKs(rootsDir string) (map[string]bool, error) {
+	data, err := os.ReadFile(filepath.Join(rootsDir, jdkActiveInventory))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("NoCompatibleJDK: read active inventory under %s: %w", rootsDir, err)
+	}
+	active := make(map[string]bool)
+	for _, name := range strings.Fields(string(data)) {
+		active[name] = true
+	}
+	return active, nil
+}
+
+func resolveJDKHome(root string) (string, error) {
+	home := root
+	data, err := os.ReadFile(filepath.Join(root, jdkHomeMetadata))
+	switch {
+	case err == nil:
+		inRoot := strings.TrimSpace(string(data))
+		if inRoot == "" || !filepath.IsAbs(inRoot) || filepath.Clean(inRoot) != inRoot || inRoot == string(filepath.Separator) {
+			return "", fmt.Errorf("NoCompatibleJDK: invalid %s in %s", jdkHomeMetadata, root)
+		}
+		home = filepath.Join(root, strings.TrimPrefix(inRoot, string(filepath.Separator)))
+	case !os.IsNotExist(err):
+		return "", fmt.Errorf("NoCompatibleJDK: read %s in %s: %w", jdkHomeMetadata, root, err)
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		return "", fmt.Errorf("NoCompatibleJDK: resolve root %s: %w", root, err)
+	}
+	resolvedHome, err := filepath.EvalSymlinks(home)
+	if err != nil {
+		return "", fmt.Errorf("NoCompatibleJDK: resolve Java home %s: %w", home, err)
+	}
+	rel, err := filepath.Rel(resolvedRoot, resolvedHome)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("NoCompatibleJDK: Java home %s resolves outside %s", home, root)
+	}
+	if _, err := os.Stat(filepath.Join(resolvedHome, "bin", "java")); err != nil {
+		return "", fmt.Errorf("NoCompatibleJDK: java missing from %s: %w", resolvedHome, err)
+	}
+	return resolvedHome, nil
 }
 
 // parseJDKRequest splits a brewlet.sh/jdk request into distribution and feature.

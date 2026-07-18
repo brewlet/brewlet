@@ -33,6 +33,10 @@ with the host installation entrypoint.
 | Environment variable | Default | Purpose |
 | --- | --- | --- |
 | `JDKS` | `temurin-21` | Comma-separated `<distribution>-<feature>` JDK roots |
+| `JDK_CUSTOM_SOURCE_COUNT` | `0` | Number of indexed custom JDK image sources |
+| `JDK_CUSTOM_SOURCE_<n>_TOKEN` | empty | Custom inventory token, such as `zulu-21` |
+| `JDK_CUSTOM_SOURCE_<n>_IMAGE` | empty | Fully qualified OCI image reference containing the runtime and its userland |
+| `JDK_CUSTOM_SOURCE_<n>_JAVA_HOME` | empty | Absolute JDK or jlink runtime path inside that image |
 | `LAUNCHERS` | empty | Optional launcher layers, such as `jaz` |
 | `NODE_NAME` | downward API | Kubernetes node to label |
 | `BREWLET_PREFIX` | `/opt/brewlet` | Host installation prefix |
@@ -44,8 +48,21 @@ with the host installation entrypoint.
 | `BREWLET_VALIDATE` | `true` | Run JDK smoke tests before readiness |
 | `MIRRORS` | empty | Registry mirror mappings |
 
-The curated JDK distributions are `temurin` and `microsoft`. Provisioning is
-idempotent, and installed JDK roots are made read-only for workload sharing.
+The curated JDK distributions are `temurin` and `microsoft`. A `NodeProfile` can
+also supply an image and Java home for another distribution, including a
+platform-built jlink runtime; the operator renders the indexed custom-source
+variables automatically. The provisioner copies the image's complete root
+filesystem so the sandbox has the loader and native libraries required by
+`bin/java`. The source image need not contain shell or copy tools.
+
+Provisioning is idempotent, records the source image and Java home, and
+reinstalls a token when either changes. Runtime roots retain the source image's
+filesystem modes; the shim keeps the shared lower layer and Java-home bind mount
+read-only for workloads.
+
+Copy-from-image commands run through the bundled `ctr` client in the host mount
+namespace. This is required because the provisioner connects to the host
+containerd socket and unpack mounts must be visible in the node's namespace.
 
 > The provisioner is privileged and host-mutating. Run it only on nodes
 > controlled by the platform team.

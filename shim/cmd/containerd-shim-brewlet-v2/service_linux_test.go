@@ -30,6 +30,7 @@ func testResolved() resolvedArtifact {
 		},
 		JarHostPath: "/var/lib/containerd/.../blobs/sha256/deadbeef",
 		JDKRoot:     "/opt/brewlet/jdks/temurin-21",
+		JDKHome:     "/opt/brewlet/jdks/temurin-21/opt/java/openjdk",
 	}
 }
 
@@ -114,6 +115,9 @@ func TestApplyBrewletLaunch(t *testing.T) {
 	for _, m := range spec.Mounts {
 		if m.Destination == "/opt/jdk" {
 			haveJDK = true
+			if m.Source != testResolved().JDKHome {
+				t.Errorf("/opt/jdk source = %q, want resolved Java home %q", m.Source, testResolved().JDKHome)
+			}
 		}
 		if m.Destination == "/app/app.jar" {
 			haveJar = true

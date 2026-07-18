@@ -343,7 +343,7 @@ func applyBrewletLaunch(spec *specs.Spec, ra resolvedArtifact, bundleDir string)
 			}
 			dec, err := kcruntime.DecideCDSRegen(kcruntime.RegenParams{
 				CacheDir:      cacheDir,
-				JDKRoot:       ra.JDKRoot,
+				JDKRoot:       ra.JDKHome,
 				ArtifactKey:   artifactKey,
 				SeedArchive:   seed,
 				ArchiveArgDir: kcruntime.InSandboxCDSDir,
@@ -420,11 +420,11 @@ func applyBrewletLaunch(spec *specs.Spec, ra resolvedArtifact, bundleDir string)
 	// The JDK runtime root doubles as the overlay rootfs lower layer
 	// (setupOverlayRootfs), so it already supplies the base userland the JVM
 	// links against — §5.3 requires it to be a self-contained minimal
-	// userland+JDK. We additionally bind it at a fixed /opt/jdk so JAVA_HOME is
-	// stable and distribution-independent regardless of the root's internal
-	// layout. The JAR payload is mounted read-only at /app.
+	// userland+JDK. We bind the source image's declared Java home at /opt/jdk so
+	// JAVA_HOME stays stable regardless of the runtime's internal image path.
+	// The JAR payload is mounted read-only at /app.
 	brewletMounts := []specs.Mount{
-		{Destination: "/opt/jdk", Type: "bind", Source: ra.JDKRoot, Options: []string{"rbind", "ro"}},
+		{Destination: "/opt/jdk", Type: "bind", Source: ra.JDKHome, Options: []string{"rbind", "ro"}},
 		{Destination: inSandboxJar, Type: "bind", Source: jarSource, Options: []string{"rbind", "ro"}},
 	}
 	// Optional AppCDS archive: bind-mount read-only at /app/<archive> so the

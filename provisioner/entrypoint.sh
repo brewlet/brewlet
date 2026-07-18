@@ -36,12 +36,20 @@ HOST_BIN="${HOST_BIN:-/host/usr/local/bin}"              # host /usr/local/bin (
 CONTAINERD_CONFIG="${CONTAINERD_CONFIG:-/etc/containerd/config.toml}"
 SHIM_SRC="${SHIM_SRC:-/opt/brewlet-dist/containerd-shim-brewlet-v2}"  # baked into the image
 SHIM_NAME="containerd-shim-brewlet-v2"
+CTR_SRC="${CTR_SRC:-/usr/local/bin/ctr}"
+HOST_CTR="$HOST_BIN/brewlet-ctr"
+HOST_CTR_PATH="/usr/local/bin/brewlet-ctr"
+JDK_HOME_METADATA=".brewlet-java-home"
+JDK_SOURCE_METADATA=".brewlet-source"
+JDK_ACTIVE_INVENTORY=".brewlet-active"
 
 # Declarative inventory (comma-separated). See §5.3 / §5.4.
 #   JDKS      = <distribution>-<feature>, e.g. "temurin-21,microsoft-25"
-#              (curated distributions: temurin, microsoft)
+#   JDK_CUSTOM_SOURCE_<n>_{TOKEN,IMAGE,JAVA_HOME} = copy source for each
+#              non-curated JDK; JDK_CUSTOM_SOURCE_COUNT declares the entry count
 #   LAUNCHERS = launcher names, e.g. "jaz"
 JDKS="${JDKS:-temurin-21}"
+JDK_CUSTOM_SOURCE_COUNT="${JDK_CUSTOM_SOURCE_COUNT:-0}"
 LAUNCHERS="${LAUNCHERS:-}"
 
 # JDKs and launchers are obtained exclusively via copy-from-image: the vendor's
@@ -65,6 +73,8 @@ BREWLET_CONTAINERD_RESTART="${BREWLET_CONTAINERD_RESTART:-validated}"
 # Whether to run the post-install validation smoke test at all. The profile's
 # spec.rollout.validate=false sets this to skip validation (§5.6).
 BREWLET_VALIDATE="${BREWLET_VALIDATE:-true}"
+BREWLET_PROFILE_NAME="${BREWLET_PROFILE_NAME:-default}"
+BREWLET_PROFILE_GENERATION="${BREWLET_PROFILE_GENERATION:-0}"
 
 # Registry mirrors for air-gapped / pull-through setups (§5.6): a
 # comma-separated list of "<registry-host>=<mirror-host>" pairs the operator
@@ -82,6 +92,9 @@ log()  { printf '[brewlet-provisioner] %s\n' "$*"; }
 die()  {
   printf '[brewlet-provisioner] ERROR: %s\n' "$*" >&2
   if [[ "${BREWLET_MODE}" != "cleanup" ]] && command -v kubectl >/dev/null 2>&1 && [[ -n "${NODE_NAME:-}" ]]; then
+    if command -v clear_node_advertisement >/dev/null 2>&1; then
+      clear_node_advertisement
+    fi
     kubectl annotate node "$NODE_NAME" "${ANNOTATION_PROVISION_ERROR}=$*" --overwrite >/dev/null 2>&1 || true
   fi
   exit 1
@@ -123,6 +136,46 @@ mirror_ref() {
   printf '%s' "$ref"
 }
 
+# Custom JDK sources are transported as indexed environment variables so image
+# references and paths do not need delimiter escaping.
+CUSTOM_JDK_TOKENS=("")
+CUSTOM_JDK_IMAGES=("")
+CUSTOM_JDK_JAVA_HOMES=("")
+parse_custom_jdk_sources() {
+  [[ "$JDK_CUSTOM_SOURCE_COUNT" =~ ^[0-9]+$ ]] \
+    || die "JDK_CUSTOM_SOURCE_COUNT must be a non-negative integer"
+
+  local i token_var image_var home_var token image java_home existing
+  for ((i = 0; i < JDK_CUSTOM_SOURCE_COUNT; i++)); do
+    token_var="JDK_CUSTOM_SOURCE_${i}_TOKEN"
+    image_var="JDK_CUSTOM_SOURCE_${i}_IMAGE"
+    home_var="JDK_CUSTOM_SOURCE_${i}_JAVA_HOME"
+    token="$(printenv "$token_var" 2>/dev/null || true)"
+    image="$(printenv "$image_var" 2>/dev/null || true)"
+    java_home="$(printenv "$home_var" 2>/dev/null || true)"
+    [[ -n "$token" && -n "$image" && -n "$java_home" ]] \
+      || die "custom JDK source ${i} requires ${token_var}, ${image_var}, and ${home_var}"
+    [[ "$token" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?-[1-9][0-9]*$ ]] \
+      || die "custom JDK source ${i} token must be a safe <distribution>-<feature> value"
+    [[ "$image" != *"://"* && "$image" != *[[:space:]]* && "$image" == */* ]] \
+      || die "custom JDK source ${i} image must be a fully qualified OCI reference"
+    local image_host="${image%%/*}"
+    [[ "$image_host" == "localhost" || "$image_host" == *.* || "$image_host" == *:* ]] \
+      || die "custom JDK source ${i} image must include an explicit registry host"
+    [[ "$java_home" == /* && "$java_home" != *[[:space:]]* \
+       && "$java_home" != "/" && "$java_home" != */ \
+       && "$java_home" != *"//"* && "$java_home" != *"/./"* \
+       && "$java_home" != *"/../"* && "$java_home" != *"/." && "$java_home" != *"/.." ]] \
+      || die "custom JDK source ${i} javaHome must be a clean absolute path below /"
+    for existing in "${CUSTOM_JDK_TOKENS[@]}"; do
+      [[ "$existing" != "$token" ]] || die "duplicate custom JDK source for ${token}"
+    done
+    CUSTOM_JDK_TOKENS+=("$token")
+    CUSTOM_JDK_IMAGES+=("$image")
+    CUSTOM_JDK_JAVA_HOMES+=("$java_home")
+  done
+}
+
 # Map `uname -m` to the OCI platform token (used only for logging here; the copy
 # runs on the node so `ctr` selects the matching image platform automatically).
 host_arch_oci() {
@@ -131,6 +184,21 @@ host_arch_oci() {
     aarch64|arm64)  echo "arm64" ;;
     *) die "unsupported architecture: $(uname -m)" ;;
   esac
+}
+
+# Run the bundled ctr from the host mount namespace. Pull/unpack operations apply
+# mounts in the caller's namespace; using the pod namespace with the host socket
+# makes containerd return host paths the client cannot see.
+host_ctr() {
+  [[ -x "$HOST_CTR" ]] || die "host ctr helper not installed at $HOST_CTR"
+  command -v nsenter >/dev/null || die "nsenter not found (required for host containerd operations)"
+  nsenter --target 1 --mount -- "$HOST_CTR_PATH" \
+    --address "$CONTAINERD_ADDRESS" --namespace "$CONTAINERD_NAMESPACE" "$@"
+}
+
+host_exec() {
+  command -v nsenter >/dev/null || die "nsenter not found (required for host operations)"
+  nsenter --target 1 --mount -- "$@"
 }
 
 # ---------------------------------------------------------------------------
@@ -164,52 +232,146 @@ require_cgroup_v2() {
 # ---------------------------------------------------------------------------
 install_shim() {
   [[ -x "$SHIM_SRC" ]] || die "shim binary not found in image at $SHIM_SRC"
+  [[ -x "$CTR_SRC" ]] || die "ctr binary not found in image at $CTR_SRC"
   mkdir -p "$PREFIX/bin" "$HOST_BIN"
   # /opt/brewlet/bin is the canonical location; /usr/local/bin is on containerd's
   # PATH so runtime_type = io.containerd.brewlet.v2 resolves the shim binary.
   install -m 0755 "$SHIM_SRC" "$PREFIX/bin/$SHIM_NAME"
   install -m 0755 "$SHIM_SRC" "$HOST_BIN/$SHIM_NAME"
-  log "installed shim -> $PREFIX/bin/$SHIM_NAME and $HOST_BIN/$SHIM_NAME"
+  install -m 0755 "$CTR_SRC" "$HOST_CTR"
+  log "installed shim and host ctr helper"
 }
 
 # ---------------------------------------------------------------------------
-# Step 2 — install JDK runtime roots.  A root is complete once
-# /opt/brewlet/jdks/<dist>-<feature>/bin/java exists (§5.3).
+# Step 2 — install JDK runtime roots. Each inventory directory is a complete
+# image rootfs plus metadata pointing at the JDK or jlink runtime within it.
 # ---------------------------------------------------------------------------
+jdk_home_in_root() {
+  local root="$1"
+  if [[ -f "$root/$JDK_HOME_METADATA" ]]; then
+    cat "$root/$JDK_HOME_METADATA"
+  else
+    printf '/'
+  fi
+}
+
+jdk_java() {
+  local root="$1" java_home="$2" mounted=false rc
+  shift 2
+  mkdir -p "$root/proc" 2>/dev/null || return 1
+  if ! mountpoint -q "$root/proc"; then
+    mount -t proc proc "$root/proc" || return 1
+    mounted=true
+  fi
+  if chroot "$root" "${java_home%/}/bin/java" "$@"; then
+    rc=0
+  else
+    rc=$?
+  fi
+  if [[ "$mounted" == true ]]; then
+    umount "$root/proc" || return 1
+  fi
+  return "$rc"
+}
+
+jdk_root_complete() {
+  local root="$1" java_home
+  [[ -d "$root" ]] || return 1
+  java_home="$(jdk_home_in_root "$root")"
+  [[ -x "$root${java_home%/}/bin/java" ]] || return 1
+  jdk_java "$root" "$java_home" -version >/dev/null 2>&1
+}
+
 install_jdk() {
-  local spec="$1" dist feature dest
-  dist="${spec%%-*}"; feature="${spec##*-}"
+  local spec="$1" dist feature dest stage retired
+  [[ "$spec" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?-[1-9][0-9]*$ ]] \
+    || die "invalid JDK token '${spec}'; expected <distribution>-<positive-feature>"
+  dist="${spec%-*}"; feature="${spec##*-}"
   dest="$PREFIX/jdks/${dist}-${feature}"
-  if [[ -x "$dest/bin/java" ]]; then
+  resolve_jdk_source "$dist" "$feature"
+  if jdk_root_complete "$dest" &&
+    [[ -f "$dest/$JDK_SOURCE_METADATA" ]] &&
+    cmp -s <(printf '%s\n%s\n' "$JDK_SOURCE_IMAGE" "$JDK_SOURCE_JAVA_HOME") "$dest/$JDK_SOURCE_METADATA"; then
     log "JDK ${spec} already present at $dest — skipping"
     return 0
   fi
+  stage="${dest}.staging.$$"
+  chmod -R u+w "$stage" 2>/dev/null || true
+  rm -rf "$stage"
   log "installing JDK ${spec} via copy-from-image -> $dest"
-  mkdir -p "$dest"
-  jdk_from_image "$dist" "$feature" "$dest"
-  [[ -x "$dest/bin/java" ]] || die "JDK ${spec} install did not produce $dest/bin/java"
-  log "JDK ${spec} ready: $("$dest/bin/java" -version 2>&1 | head -1)"
+  mkdir -p "$stage"
+  jdk_from_image "$dist" "$feature" "$stage"
+  jdk_root_complete "$stage" || die "JDK ${spec} install did not produce a runnable root"
+  local java_home; java_home="$(jdk_home_in_root "$stage")"
+  log "JDK ${spec} ready: $(jdk_java "$stage" "$java_home" -version 2>&1 | head -1)"
+
+  if [[ -e "$dest" ]]; then
+    retired="${dest}.retired.$(date +%s).$$"
+    mv "$dest" "$retired" || die "could not retain the previous JDK ${spec} root"
+  fi
+  if ! mv "$stage" "$dest"; then
+    [[ -n "${retired:-}" && -e "$retired" ]] && mv "$retired" "$dest" || true
+    die "could not activate the new JDK ${spec} root"
+  fi
 }
 
-# Copy-from-image: pull the vendor's official JDK image via the host containerd
-# and copy the JDK tree out onto the host, so no package manager touches the host.
-jdk_from_image() {
-  local dist="$1" feature="$2" dest="$3" image src
+JDK_SOURCE_IMAGE=""
+JDK_SOURCE_JAVA_HOME=""
+resolve_jdk_source() {
+  local dist="$1" feature="$2" token="${1}-${2}" i
+  JDK_SOURCE_IMAGE=""
+  JDK_SOURCE_JAVA_HOME=""
   case "$dist" in
-    microsoft) image="mcr.microsoft.com/openjdk/jdk:${feature}-ubuntu"; src="/usr/lib/jvm/msopenjdk-${feature}" ;;
-    temurin)   image="docker.io/library/eclipse-temurin:${feature}"; src="/opt/java/openjdk" ;;
-    *) die "distribution '${dist}' is not curated; supported: temurin, microsoft" ;;
+    microsoft)
+      JDK_SOURCE_IMAGE="mcr.microsoft.com/openjdk/jdk:${feature}-ubuntu"
+      JDK_SOURCE_JAVA_HOME="/usr/lib/jvm/msopenjdk-${feature}"
+      ;;
+    temurin)
+      JDK_SOURCE_IMAGE="docker.io/library/eclipse-temurin:${feature}"
+      JDK_SOURCE_JAVA_HOME="/opt/java/openjdk"
+      ;;
+    *)
+      for i in "${!CUSTOM_JDK_TOKENS[@]}"; do
+        if [[ "${CUSTOM_JDK_TOKENS[$i]}" == "$token" ]]; then
+          JDK_SOURCE_IMAGE="${CUSTOM_JDK_IMAGES[$i]}"
+          JDK_SOURCE_JAVA_HOME="${CUSTOM_JDK_JAVA_HOMES[$i]}"
+          break
+        fi
+      done
+      [[ -n "$JDK_SOURCE_IMAGE" && -n "$JDK_SOURCE_JAVA_HOME" ]] \
+        || die "distribution '${dist}' is not curated and ${token} has no custom JDK source"
+      ;;
   esac
-  command -v ctr >/dev/null || die "ctr not found in image (required for copy-from-image)"
-  local ctr="ctr --address ${CONTAINERD_ADDRESS} --namespace ${CONTAINERD_NAMESPACE}"
-  image="$(mirror_ref "$image")"
+  JDK_SOURCE_IMAGE="$(mirror_ref "$JDK_SOURCE_IMAGE")"
+}
+
+# Copy-from-image: pull and mount the source image through host containerd, then
+# copy its complete userland root. The shim uses that root as the sandbox lower
+# layer and mounts source.javaHome at /opt/jdk. Mount/copy avoids requiring a
+# shell or package tools in custom jlink images.
+jdk_from_image() {
+  local dist="$1" feature="$2" dest="$3" image src mount_dir
+  resolve_jdk_source "$dist" "$feature"
+  image="$JDK_SOURCE_IMAGE"
+  src="$JDK_SOURCE_JAVA_HOME"
   log "  pulling $image"
-  $ctr image pull "$image" >/dev/null
-  $ctr run --rm --net-host \
-    --mount "type=bind,src=${dest},dst=/out,options=rbind:rw" \
-    "$image" "brewlet-jdk-copy-${dist}-${feature}" \
-    cp -a "${src}/." /out/
-  chmod -R a-w "$dest" 2>/dev/null || true
+  host_ctr image pull "$image" >/dev/null
+  mount_dir="$PREFIX/.image-mount-${dist}-${feature}"
+  host_exec mkdir -p "$mount_dir"
+  if ! host_ctr images mount "$image" "$mount_dir" >/dev/null; then
+    host_exec rmdir "$mount_dir" >/dev/null 2>&1 || true
+    die "could not mount JDK source image $image"
+  fi
+  if ! host_exec cp -a "$mount_dir/." "$dest/"; then
+    host_ctr images unmount "$mount_dir" >/dev/null 2>&1 || true
+    host_exec rmdir "$mount_dir" >/dev/null 2>&1 || true
+    die "could not copy JDK source image $image"
+  fi
+  host_ctr images unmount "$mount_dir" >/dev/null
+  host_exec rmdir "$mount_dir" >/dev/null 2>&1 || true
+  mkdir -p "$dest/proc"
+  printf '%s\n' "$src" >"$dest/$JDK_HOME_METADATA"
+  printf '%s\n%s\n' "$image" "$src" >"$dest/$JDK_SOURCE_METADATA"
 }
 
 # ---------------------------------------------------------------------------
@@ -233,12 +395,11 @@ install_launcher() {
       # jaz ships preinstalled in the Microsoft Build of OpenJDK images, so copy
       # it out via the host containerd; otherwise fall back to a binary baked into
       # the provisioner image at /opt/brewlet-dist/launchers/jaz.
-      if command -v ctr >/dev/null; then
-        local ctr="ctr --address ${CONTAINERD_ADDRESS} --namespace ${CONTAINERD_NAMESPACE}"
+      if [[ -x "$HOST_CTR" ]]; then
         local image="mcr.microsoft.com/openjdk/jdk:25-ubuntu"
         image="$(mirror_ref "$image")"
-        $ctr image pull "$image" >/dev/null
-        $ctr run --rm --net-host \
+        host_ctr image pull "$image" >/dev/null
+        host_ctr run --rm --net-host \
           --mount "type=bind,src=${dest},dst=/out,options=rbind:rw" \
           "$image" "brewlet-launcher-copy-jaz" cp -a /usr/bin/jaz /out/bin/jaz
       elif [[ -x /opt/brewlet-dist/launchers/jaz ]]; then
@@ -301,14 +462,15 @@ validate_runtime() {
     log "validation disabled (BREWLET_VALIDATE=false); skipping smoke test"
     return 0
   fi
-  local spec dist feature javabin
+  local spec dist feature root java_home
   IFS=',' read -ra _jdks <<<"$JDKS"
   for spec in "${_jdks[@]}"; do
     [[ -n "$spec" ]] || continue
-    dist="${spec%%-*}"; feature="${spec##*-}"
-    javabin="$PREFIX/jdks/${dist}-${feature}/bin/java"
-    [[ -x "$javabin" ]] || die "validation failed: $javabin missing for ${spec}"
-    "$javabin" -version >/dev/null 2>&1 || die "validation failed: '${javabin} -version' errored for ${spec}"
+    dist="${spec%-*}"; feature="${spec##*-}"
+    root="$PREFIX/jdks/${dist}-${feature}"
+    java_home="$(jdk_home_in_root "$root")"
+    jdk_root_complete "$root" \
+      || die "validation failed: '${java_home%/}/bin/java -version' errored inside ${root} for ${spec}"
   done
   log "validation passed: all JDK roots smoke-tested"
 }
@@ -369,11 +531,12 @@ json_escape() {
 # (minor) version / architecture straight from the JDK via -XshowSettings. Prints
 # nothing (returns non-zero) when the root's java binary is missing.
 jdk_info_obj() {
-  local spec="$1" dist feature javabin props ver vendor arch
-  dist="${spec%%-*}"; feature="${spec##*-}"
-  javabin="$PREFIX/jdks/${dist}-${feature}/bin/java"
-  [[ -x "$javabin" ]] || return 1
-  props="$("$javabin" -XshowSettings:properties -version 2>&1 || true)"
+  local spec="$1" dist feature root java_home props ver vendor arch
+  dist="${spec%-*}"; feature="${spec##*-}"
+  root="$PREFIX/jdks/${dist}-${feature}"
+  java_home="$(jdk_home_in_root "$root")"
+  jdk_root_complete "$root" || return 1
+  props="$(jdk_java "$root" "$java_home" -XshowSettings:properties -version 2>&1 || true)"
   ver="$(printf '%s\n'    "$props" | sed -n 's/^[[:space:]]*java\.version[[:space:]]*=[[:space:]]*//p' | head -1)"
   vendor="$(printf '%s\n' "$props" | sed -n 's/^[[:space:]]*java\.vendor[[:space:]]*=[[:space:]]*//p'  | head -1)"
   arch="$(printf '%s\n'   "$props" | sed -n 's/^[[:space:]]*os\.arch[[:space:]]*=[[:space:]]*//p'      | head -1)"
@@ -410,11 +573,12 @@ label_node() {
   jdks_info="$(jdks_info_json "${_jdks[@]}")"
   log "labelling node ${NODE_NAME} ready; jdks=${jdk_ann} launchers=${launcher_ann}"
   log "advertising jdks-info=${jdks_info}"
-  kubectl label   node "$NODE_NAME" brewlet.sh/runtime=ready --overwrite
   kubectl annotate node "$NODE_NAME" \
     "brewlet.sh/jdks=${jdk_ann}" \
     "brewlet.sh/jdks-info=${jdks_info}" \
-    "brewlet.sh/launchers=${launcher_ann}" --overwrite
+    "brewlet.sh/launchers=${launcher_ann}" \
+    "brewlet.sh/profile=${BREWLET_PROFILE_NAME}" \
+    "brewlet.sh/profile-generation=${BREWLET_PROFILE_GENERATION}" --overwrite || return 1
 
   # Per-capability labels drive the admission webhook's nodeAffinity so the
   # scheduler skips incompatible nodes (annotations can't drive nodeAffinity).
@@ -434,7 +598,36 @@ label_node() {
     done
   fi
   log "advertising scheduling labels: ${caps[*]}"
-  kubectl label node "$NODE_NAME" "${caps[@]}" --overwrite
+  kubectl label node "$NODE_NAME" "${caps[@]}" --overwrite || return 1
+  kubectl label node "$NODE_NAME" brewlet.sh/runtime=ready --overwrite || return 1
+}
+
+clear_node_advertisement() {
+  command -v kubectl >/dev/null || return 0
+  local old_jdks old_launchers caps=()
+  old_jdks="$(kubectl get node "$NODE_NAME" -o jsonpath='{.metadata.annotations.brewlet\.sh/jdks}' 2>/dev/null || true)"
+  old_launchers="$(kubectl get node "$NODE_NAME" -o jsonpath='{.metadata.annotations.brewlet\.sh/launchers}' 2>/dev/null || true)"
+  IFS=',' read -ra _old_jdks <<<"$old_jdks"
+  for j in "${_old_jdks[@]}"; do
+    [[ -n "$j" ]] || continue
+    caps+=( "brewlet.sh/jdk.${j}-" "brewlet.sh/jdk-feature.${j##*-}-" )
+  done
+  IFS=',' read -ra _old_launchers <<<"$old_launchers"
+  for l in "${_old_launchers[@]}"; do
+    [[ -n "$l" ]] && caps+=( "brewlet.sh/launcher.${l}-" )
+  done
+  kubectl label node "$NODE_NAME" brewlet.sh/runtime- "${caps[@]}" >/dev/null 2>&1 || return 1
+  kubectl annotate node "$NODE_NAME" \
+    brewlet.sh/jdks- brewlet.sh/jdks-info- brewlet.sh/launchers- \
+    brewlet.sh/profile- brewlet.sh/profile-generation- \
+    "${ANNOTATION_PROVISION_ERROR}-" >/dev/null 2>&1 || return 1
+}
+
+write_active_jdk_inventory() {
+  local tmp="$PREFIX/jdks/${JDK_ACTIVE_INVENTORY}.tmp.$$"
+  mkdir -p "$PREFIX/jdks"
+  tr ',' '\n' <<<"$JDKS" >"$tmp"
+  mv "$tmp" "$PREFIX/jdks/$JDK_ACTIVE_INVENTORY"
 }
 
 # ---------------------------------------------------------------------------
@@ -463,8 +656,8 @@ unpatch_containerd() {
 }
 
 remove_shim() {
-  rm -f "$PREFIX/bin/$SHIM_NAME" "$HOST_BIN/$SHIM_NAME"
-  log "removed shim binaries"
+  rm -f "$PREFIX/bin/$SHIM_NAME" "$HOST_BIN/$SHIM_NAME" "$HOST_CTR"
+  log "removed shim binaries and host ctr helper"
 }
 
 unlabel_node() {
@@ -473,6 +666,7 @@ unlabel_node() {
   # Drop readiness + inventory annotations and the runtime-ready label.
   kubectl annotate node "$NODE_NAME" \
     brewlet.sh/jdks- brewlet.sh/jdks-info- brewlet.sh/launchers- \
+    brewlet.sh/profile- brewlet.sh/profile-generation- \
     "${ANNOTATION_PROVISION_ERROR}-" >/dev/null 2>&1 || true
   kubectl label node "$NODE_NAME" brewlet.sh/runtime- >/dev/null 2>&1 || true
 
@@ -514,6 +708,7 @@ cleanup_node() {
 
 main() {
   parse_mirrors
+  parse_custom_jdk_sources
 
   if [[ "${BREWLET_MODE}" == "cleanup" ]]; then
     cleanup_node
@@ -521,11 +716,13 @@ main() {
   fi
 
   log "provisioning node ${NODE_NAME} (arch $(host_arch_oci), copy-from-image)"
+  clear_node_advertisement || die "could not remove stale node readiness before provisioning"
   require_cgroup_v2
   install_shim
 
   IFS=',' read -ra jdk_list <<<"$JDKS"
   for j in "${jdk_list[@]}"; do [[ -n "$j" ]] && install_jdk "$j"; done
+  write_active_jdk_inventory
 
   if [[ -n "$LAUNCHERS" ]]; then
     IFS=',' read -ra launcher_list <<<"$LAUNCHERS"
@@ -535,7 +732,7 @@ main() {
   patch_containerd
   maybe_reload_containerd
   verify_shim
-  label_node
+  label_node || die "could not publish node runtime inventory"
   # Clear any stale provision-error from a previous failed attempt now we're good.
   command -v kubectl >/dev/null && kubectl annotate node "$NODE_NAME" "${ANNOTATION_PROVISION_ERROR}-" >/dev/null 2>&1 || true
   log "node ${NODE_NAME} provisioned successfully"
@@ -545,4 +742,6 @@ main() {
   exec sleep infinity
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

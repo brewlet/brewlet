@@ -23,6 +23,7 @@ binaries: ## Build the CLI and containerd shim into bin/
 
 test: ## Run all tests with the race detector
 	go test -race ./...
+	bash provisioner/entrypoint_test.sh
 
 vet: ## Run Go static analysis
 	go vet ./...

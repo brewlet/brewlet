@@ -36,7 +36,7 @@ ARG CONTAINERD_VERSION=2.0.5
 # (copy-from-image). The socket is bind-mounted from the host at runtime; the
 # `ctr` client itself is baked in here so it is always present and version-matched.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends bash curl ca-certificates procps \
+ && apt-get install -y --no-install-recommends bash curl ca-certificates procps util-linux \
  && curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" \
       -o /usr/local/bin/kubectl \
  && chmod 0755 /usr/local/bin/kubectl \
