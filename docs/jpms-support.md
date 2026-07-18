@@ -101,7 +101,7 @@ These are frequently conflated; Brewlet treats them very differently:
 ## 3. Alignment with the Brewlet model
 
 Brewlet's thesis: ship only the developer's bytecode; the JDK installation lives on the node,
-shared and patched centrally (see the [project README](../README.md) and
+shared and patched centrally (see the [project landing page](/) and
 [concepts](concepts.md)). Testing each JPMS flavor against that thesis:
 
 - **Modular JAR + module path — aligns perfectly.** The artifact is still just

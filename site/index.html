@@ -47,7 +47,7 @@
         <a href="#compare">Compare</a>
         <a href="#repositories">Repositories</a>
         <a href="#faq">FAQ</a>
-        <a href="https://github.com/brewlet/site/tree/main/docs">Docs</a>
+        <a href="/docs/">Docs</a>
         <a class="btn btn-ghost" href="https://github.com/brewlet">
           <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
           GitHub
@@ -431,8 +431,8 @@ $ mvn package brewlet:push <span class="c-key">-Dbrewlet.image</span>=registry/a
 $ mvn deploy</code></pre>
        </div>
        <div class="hero-cta center">
-          <a class="btn btn-primary" href="https://github.com/brewlet/site/blob/main/docs/getting-started.md">Full quick start</a>
-          <a class="btn btn-ghost" href="https://github.com/brewlet/site/tree/main/docs">Read the docs</a>
+          <a class="btn btn-primary" href="/docs/getting-started/">Full quick start</a>
+          <a class="btn btn-ghost" href="/docs/">Read the docs</a>
         </div>
       </div>
     </section>
@@ -447,7 +447,7 @@ $ mvn deploy</code></pre>
         </details>
         <details>
           <summary>Does my app run differently?</summary>
-          <p>No. It runs via the canonical <code>java -jar app.jar</code>. Spring Boot, Quarkus, JMX, OTel, JFR, and shutdown hooks all behave normally. A layered Spring Boot build (thin JAR + dependency layers) and JPMS modules run too &mdash; there's a <a href="https://github.com/brewlet/site/blob/main/docs/spring-petclinic.md">Spring PetClinic</a> walkthrough.</p>
+          <p>No. It runs via the canonical <code>java -jar app.jar</code>. Spring Boot, Quarkus, JMX, OTel, JFR, and shutdown hooks all behave normally. A layered Spring Boot build (thin JAR + dependency layers) and JPMS modules run too &mdash; there's a <a href="/docs/spring-petclinic/">Spring PetClinic</a> walkthrough.</p>
         </details>
         <details>
           <summary>How are CPU/memory limits enforced?</summary>
@@ -455,11 +455,11 @@ $ mvn deploy</code></pre>
         </details>
         <details>
           <summary>What about cold start: isn't the JVM slow?</summary>
-          <p>The JDK installation already lives on the node and is shared across pods; each pod still runs in its own JVM process, so nothing pulls a JVM per pod, and only the small JAR moves over the network. <strong>AppCDS is built in:</strong> a class-data archive ships as an artifact layer (<code>brewlet:appcds</code>) and the JVM memory-maps it on launch, or the node can regenerate one on first run via <code>spec.jvm.cds.regenerate</code>. See the <a href="https://github.com/brewlet/site/blob/main/docs/appcds.md">AppCDS docs</a>.</p>
+          <p>The JDK installation already lives on the node and is shared across pods; each pod still runs in its own JVM process, so nothing pulls a JVM per pod, and only the small JAR moves over the network. <strong>AppCDS is built in:</strong> a class-data archive ships as an artifact layer (<code>brewlet:appcds</code>) and the JVM memory-maps it on launch, or the node can regenerate one on first run via <code>spec.jvm.cds.regenerate</code>. See the <a href="/docs/appcds/">AppCDS docs</a>.</p>
         </details>
         <details>
           <summary>Does it work on mixed-architecture node pools?</summary>
-          <p>Yes. The provisioner installs a JDK matching each node's architecture, and portable JARs schedule anywhere. A JAR with native (JNI) bits can declare an <code>arch</code> constraint so admission steers it onto matching <code>amd64</code>/<code>arm64</code> nodes (or denies it with <code>NoCompatibleArch</code>). See the <a href="https://github.com/brewlet/site/blob/main/docs/multi-arch.md">multi-arch docs</a>.</p>
+          <p>Yes. The provisioner installs a JDK matching each node's architecture, and portable JARs schedule anywhere. A JAR with native (JNI) bits can declare an <code>arch</code> constraint so admission steers it onto matching <code>amd64</code>/<code>arm64</code> nodes (or denies it with <code>NoCompatibleArch</code>). See the <a href="/docs/multi-arch/">multi-arch docs</a>.</p>
         </details>
         <details>
           <summary>Which JDKs can I target?</summary>
@@ -499,7 +499,7 @@ $ mvn deploy</code></pre>
         <p class="muted">Java on Kubernetes, for real this time.</p>
       </div>
       <nav aria-label="Footer">
-        <a href="https://github.com/brewlet/site/tree/main/docs">Documentation</a>
+        <a href="/docs/">Documentation</a>
         <a href="https://github.com/brewlet/specs/blob/main/SPECIFICATION.md">Specification</a>
         <a href="https://github.com/brewlet">GitHub</a>
         <a href="./LICENSE">MIT License</a>

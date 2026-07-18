@@ -91,7 +91,7 @@ dedup for free — without a Dockerfile.
 ## 3. Alignment with the Brewlet model
 
 Brewlet's thesis: ship only the developer's bytecode; the JDK installation lives on the node,
-shared and patched centrally (see the [project README](../README.md) and
+shared and patched centrally (see the [project landing page](/) and
 [concepts](concepts.md)). Layered classpath deployment fits cleanly:
 
 - **Still only bytecode.** The layers contain JARs — application classes and library

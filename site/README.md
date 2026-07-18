@@ -29,13 +29,25 @@ those components are independently versioned in the repositories below.
 
 ## Local preview
 
+Landing page:
+
 ```bash
 python3 -m http.server 8099
 ```
 
 Then open <http://localhost:8099>.
 
+Documentation site (`/docs/` with left navigation):
+
+```bash
+python3 -m pip install mkdocs mkdocs-material
+mkdocs serve
+```
+
+Then open <http://localhost:8000/docs/>.
+
 ## Deployment
 
 Pushes to `main` that change the web assets, documentation, workshop, or Pages
-workflow deploy the repository root through GitHub Actions.
+workflow build and deploy the static landing page plus a rendered MkDocs site at
+`/docs/`.

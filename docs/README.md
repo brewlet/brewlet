@@ -4,7 +4,7 @@
 app (a fat JAR, a layered classpath, or a module), no Dockerfile, no base image.**
 
 This directory is the complete, task-oriented documentation for Brewlet. If you
-want the elevator pitch and the "why", start with the [project README](../README.md);
+want the elevator pitch and the "why", start with the [project landing page](/);
 if you want the deep architecture and design rationale, read the
 [SPECIFICATION](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md). These pages sit in between: they tell you how
 to actually **install, configure, deploy, tune, and operate** Brewlet.
