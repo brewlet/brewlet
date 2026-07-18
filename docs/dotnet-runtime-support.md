@@ -116,7 +116,8 @@ later is incremental. This threads through the spec as follows.
 6. Admission: match family/version and inject nodeAffinity (`NoCompatibleRuntime`).
 7. CRD: generic `Application` with `spec.runtime` (keep `JavaApplication` alias).
 8. CLI: `brewlet push` for .NET artifacts; MSBuild/`dotnet publish` helper (future).
-9. A demo .NET app + an e2e path analogous to `make demo` / `make e2e-linux`.
+9. A demo .NET fixture and dedicated local/runc tiers in
+   `brewlet/integration-tests`.
 
 ## Open decisions & non-goals
 

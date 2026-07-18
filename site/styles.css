@@ -379,6 +379,13 @@ code {
 .card {
   padding: 4px 0;
 }
+.card[href] {
+  color: inherit;
+}
+.card[href]:hover {
+  color: var(--coffee);
+  text-decoration: none;
+}
 .card-icon {
   display: inline-flex;
   align-items: center;

@@ -9,6 +9,14 @@ if you want the deep architecture and design rationale, read the
 [SPECIFICATION](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md). These pages sit in between: they tell you how
 to actually **install, configure, deploy, tune, and operate** Brewlet.
 
+Brewlet is a multi-repository project. Runtime commands in these guides refer to
+[`brewlet/brewlet`](https://github.com/brewlet/brewlet), Kubernetes resources to
+[`brewlet/kubernetes`](https://github.com/brewlet/kubernetes), Maven goals to
+[`brewlet/maven-plugin`](https://github.com/brewlet/maven-plugin), architecture
+contracts to [`brewlet/specs`](https://github.com/brewlet/specs), and runnable
+examples to
+[`brewlet/integration-tests`](https://github.com/brewlet/integration-tests).
+
 > ⚠️ **Status.** Brewlet has a working implementation spanning Phases 0–3
 > (artifact format, containerd shim, Helm packaging, operator, `JavaApplication`
 > CRD, `brewlet` CLI, Maven plugin, AppCDS, and multi-arch scheduling). It is **not

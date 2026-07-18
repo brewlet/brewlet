@@ -5,6 +5,8 @@
 
 This repository contains the [brewlet.sh](https://brewlet.sh) static website,
 user-facing documentation, workshop material, and Brewlet branding assets.
+It contains no runtime, Kubernetes, plugin, specification, or test implementation;
+those components are independently versioned in the repositories below.
 
 ## Contents
 

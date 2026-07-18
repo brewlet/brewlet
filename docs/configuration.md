@@ -87,8 +87,9 @@ helm install brewlet ./charts/brewlet \
 
 ## Operator flags
 
-From [`operator/README.md`](https://github.com/brewlet/kubernetes/blob/main/operator/README.md). When you install via
-Helm, the chart populates these for you.
+These flags are implemented by
+[`cmd/manager`](https://github.com/brewlet/kubernetes/tree/main/cmd/manager).
+When you install via Helm, the chart populates them for you.
 
 | Flag | Default | Meaning |
 |---|---|---|
@@ -101,7 +102,7 @@ Helm, the chart populates these for you.
 | `--health-probe-bind-address` | `:8081` | Health/readiness endpoint. |
 
 ```bash
-./operator/bin/manager --namespace=brewlet \
+./bin/operator --namespace=brewlet \
   --provisioner-image=ghcr.io/brewlet/node-provisioner:0.1.0 \
   --jdks=temurin-21,microsoft-25 --launchers=jaz
 ```
@@ -110,9 +111,11 @@ Helm, the chart populates these for you.
 
 ## Node-provisioner environment variables
 
-From [`provisioner/README.md`](https://github.com/brewlet/kubernetes/blob/main/provisioner/README.md). The operator sets
-these on the DaemonSet it manages; you only touch them directly if you hand-wire the
-DaemonSet.
+The provisioner implementation and environment contract live in the core
+runtime's
+[`provisioner/README.md`](https://github.com/brewlet/brewlet/blob/main/provisioner/README.md).
+The Kubernetes operator sets these variables on the DaemonSet it manages; you
+only touch them directly if you hand-wire the DaemonSet.
 
 | Env var | Default | Meaning |
 |---|---|---|
@@ -132,7 +135,7 @@ DaemonSet.
 
 ## Admission webhook
 
-The [`brewlet-admission`](https://github.com/brewlet/kubernetes/tree/main/operator/cmd/admission/) webhook is
+The [`brewlet-admission`](https://github.com/brewlet/kubernetes/tree/main/cmd/admission/) webhook is
 mutating+validating. For every pod on CREATE with `runtimeClassName: brewlet` it:
 
 - **stamps** `brewlet.sh/artifact-ref` (and `brewlet.sh/artifact-digest` when the

@@ -194,5 +194,5 @@ discipline so the new startup accelerators don't undermine portability.
   [jdk-management](jdk-management.md#architecture-mapping-multi-arch),
   [observability](observability.md#day2-multi-arch-fleets),
   [appcds.md](appcds.md);
-  `Makefile`, `provisioner/entrypoint.sh`,
-  `operator/internal/admission/mutate.go`.
+  core `Makefile` and `provisioner/entrypoint.sh`,
+  Kubernetes `internal/admission/mutate.go`.

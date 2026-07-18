@@ -47,7 +47,8 @@ Two related but distinct supply-chain controls, both Sigstore/OCI-native:
 Both bind to the **manifest digest** (`sha256:…`). That is the crucial property for
 Brewlet: the shim already resolves the JAR from containerd's content store *by
 digest* (§6.4), and the admission webhook already stamps that digest
-(`brewlet.sh/artifact-digest`, `operator/internal/brewlet/labels.go`).
+(`brewlet.sh/artifact-digest`,
+`brewlet/kubernetes/internal/brewlet/labels.go`).
 
 ### 2.2 Do Brewlet artifacts actually support this?
 
@@ -135,7 +136,7 @@ For clusters without a policy engine, ship an **opt-in** verifying webhook
    `UntrustedSigner`, `MissingProvenance`).
 
 **This must NOT be folded into the existing mutating webhook** (`PodMutator`,
-`operator/internal/admission/webhook.go`). That webhook is deliberately
+`brewlet/kubernetes/internal/admission/webhook.go`). That webhook is deliberately
 `failurePolicy: Ignore` (fail-*open*) so a webhook outage never wedges deployments
 (§4.3, `values.yaml`). A *security* gate must be fail-*closed* — an outage should
 deny, not silently bypass. Reconcile the tension by making verification a **second,
@@ -243,5 +244,5 @@ beside the digest resolution Brewlet already performs.
 - Brewlet: [SPECIFICATION §11 (security)](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#11-security-model),
   [§8.3 (admission webhook)](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md), [security.md](security.md),
   [building & publishing](building-and-publishing.md);
-  `operator/internal/admission/webhook.go`, `.../mutate.go`,
-  `internal/artifact/artifact.go`.
+  `brewlet/kubernetes/internal/admission/{webhook,mutate}.go`,
+  `brewlet/brewlet/internal/artifact/artifact.go`.

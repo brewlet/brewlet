@@ -136,8 +136,9 @@ kubectl get node node-1 -o jsonpath='{.metadata.annotations.brewlet\.sh/launcher
 # java,jaz
 ```
 
-See [`provisioner/README.md`](https://github.com/brewlet/kubernetes/blob/main/provisioner/README.md) for the provisioner
-mechanics.
+See the core runtime's
+[`provisioner/README.md`](https://github.com/brewlet/brewlet/blob/main/provisioner/README.md)
+for the provisioner mechanics.
 
 ---
 

@@ -1,152 +1,103 @@
 # Getting started (local proof of concept)
 
-The [core repository](https://github.com/brewlet/brewlet) proves the whole Brewlet model end-to-end on your
-laptop — no Kubernetes cluster required. In a couple of minutes you will:
+Brewlet is developed across separate repositories. The core repository contains
+the runtime code, the Kubernetes repository contains the control plane, and the
+integration-tests repository owns fixture applications and cross-component
+orchestration.
 
-1. Build a dependency-free demo Java HTTP app into a self-executable `app.jar`.
-2. Push **only that JAR** as an OCI artifact (no Dockerfile).
-3. Run it directly from the artifact with a node-resident JDK.
-4. Exercise the **real** mechanism — `shim → runc → java -jar` under real cgroup
-   limits — exactly as it happens on a provisioned Kubernetes node.
-
----
+This guide uses the integration harness so every command matches the same flow CI
+validates.
 
 ## Prerequisites
 
-| Tool | Why | Notes |
+| Tool | Why | Required for |
 |---|---|---|
-| **JDK 21+** | Builds the demo JAR and acts as the "node JDK" for the local run | Any OpenJDK build (Temurin, Microsoft, Corretto, Zulu…). |
-| **Go 1.26+** | Builds the `brewlet` CLI and the shim | |
-| **Docker** | Runs the real-Linux `runc` demo under cgroups | Only needed for `make e2e-linux`. |
+| **JDK 21+** | Builds and runs the fixture applications | Local CLI and runc tiers |
+| **Go 1.26+** | Builds the CLI and shim | Local CLI and runc tiers |
+| **Docker** | Provides Linux, runc, and cgroups on any host | runc tier only |
 
-Point `JAVA_HOME` at any JDK 21+:
+Point `JAVA_HOME` at a JDK 21 or newer:
 
 ```bash
 export JAVA_HOME="$HOME/.sdkman/candidates/java/current"   # or any JDK 21+
 ```
 
-Clone the core repository. All commands below run from its root:
+## Create a workspace
 
----
-
-## Layer 1 — the developer experience (ship only a JAR)
+Clone the independently versioned repositories as siblings:
 
 ```bash
+mkdir brewlet-workspace
+cd brewlet-workspace
+
 git clone https://github.com/brewlet/brewlet.git
-cd brewlet
-
-make app     # build demo-app/target/app.jar (the self-executable demo)
-make build   # build ./bin/brewlet and ./bin/containerd-shim-brewlet-v2
-make demo    # push the JAR as an artifact -> run it on this machine -> curl it
+git clone https://github.com/brewlet/kubernetes.git
+git clone https://github.com/brewlet/integration-tests.git
 ```
 
-`make demo` runs three steps that mirror the real developer flow:
-
-1. `brewlet push app.jar demo/hello:1.0.0` — ships **only the JAR** as an OCI
-   artifact. No Dockerfile, no base image.
-2. `brewlet inspect demo/hello:1.0.0` — shows the artifact manifest and the JVM
-   launch config.
-3. `brewlet run demo/hello:1.0.0` — pulls the artifact and launches `java -jar`
-   using the node JDK (`JAVA_HOME`).
-
-You should see something like:
-
-```
-[brewlet] launch: java -jar /…/app/app.jar
-$ curl localhost:8080/hello
-Hello from a JAR running directly on the node via Brewlet!
-```
-
-> **Note.** Resource *enforcement* needs cgroups, which the local run doesn't set
-> up — that's what Layer 2 demonstrates. Brewlet injects no JVM tuning flags; the
-> container-aware JDK reads the sandbox cgroup limits and any tuning is user-supplied
-> via descriptor `jvm.args`. See [Resource tuning](resource-tuning.md).
-
-Run an arbitrary artifact in the foreground and pass extra JVM args:
+The harness discovers sibling checkouts automatically. For a different layout,
+set explicit paths:
 
 ```bash
-make run REF=demo/hello:1.0.0
-# or, directly, with extra args after a literal --:
-./bin/brewlet run demo/hello:1.0.0 -- -Dspring.profiles.active=dev
+export BREWLET_CORE_DIR=/path/to/brewlet
+export BREWLET_KUBERNETES_DIR=/path/to/kubernetes
 ```
 
----
+It never changes component branches. Check out the revisions you want to test
+before running it; `CORE_REF` and `KUBERNETES_REF` are informational for local
+runs and select checkout refs in GitHub Actions.
 
-## Layer 2 — the real mechanism (shim → runc → java -jar under cgroups)
+## Layer 1: ship and run only a JAR
+
+From the workspace directory:
 
 ```bash
-make e2e-linux   # requires Docker
+./integration-tests/e2e/run.sh --tier 2
 ```
 
-This runs the actual shim core inside a privileged Linux container: it disassembles
-the artifact into an OCI runtime bundle and executes it with **runc**, so `java -jar`
-runs as **PID 1** under real cgroup limits and a node-resident JDK — exactly what the
-containerd shim does on a provisioned node.
+Tier 2:
 
-The demo pins `--cpus=1 --memory=384m`, and the app reports what the JVM actually
-sees inside the sandbox:
+1. Builds `brewlet` and `containerd-shim-brewlet-v2` from the core checkout.
+2. Builds the dependency-free Java fixture from `integration-tests/fixtures/`.
+3. Pushes only its JAR into a local OCI layout.
+4. Inspects and runs the artifact with the JDK from `JAVA_HOME`.
+5. Emits an OCI runtime bundle and validates its CPU and memory settings.
+6. Repeats the flow for layered classpath and JPMS applications.
 
-```
-shim Create(): disassemble artifact → OCI runtime bundle
-shim Start():  runc run … → java -jar runs as PID 1 (Temurin 21.0.11)
-$ curl localhost:8080/info
-availableProcessors = 1       (real cgroup CPU limit, --cpus=1)
-memory.max          = 384Mi   (real cgroup memory limit)
-```
-
-The architecture is auto-detected from your host (`arm64`/`amd64`), so this runs
-natively on Apple Silicon and x86_64 alike. Override with `make e2e-linux ARCH=amd64`.
-
----
-
-## Inspect the OCI runtime bundle by hand
-
-Want to see exactly what the shim feeds to runc? Emit the bundle yourself:
+The printed work directory contains logs, OCI layouts, binaries, and generated
+bundles. Set `E2E_WORK` to retain them at a known path:
 
 ```bash
-make bundle REF=demo/hello:1.0.0
-# equivalently:
-./bin/brewlet bundle demo/hello:1.0.0 --cpu 2 --memory 512Mi --out ./bundle
-cat ./bundle/config.json
+E2E_WORK=/tmp/brewlet-e2e ./integration-tests/e2e/run.sh --tier 2
 ```
 
-On a Linux node the shim runs the equivalent of `runc run -b ./bundle brewlet-<id>`.
-
----
-
-## Cluster artifacts (optional, from your laptop)
-
-Even without the operator you can apply the raw cluster objects to a cluster:
+## Layer 2: run through shim, runc, and cgroups
 
 ```bash
-kubectl apply -f deploy/runtimeclass.yaml
-kubectl apply -f deploy/javaapplication-crd.yaml
-kubectl apply -f deploy/sample-javaapplication.yaml   # or deploy/raw-deployment.yaml
+./integration-tests/e2e/run.sh --tier 3
 ```
 
-For the full cluster experience (operator + provisioner + webhook via Helm), see
-[Installation](installation.md).
+Tier 3 cross-compiles the shim for Linux and runs it in a privileged container.
+The shim assembles the OCI bundle and `runc` launches Java as PID 1 under a
+1-CPU, 384 MiB cgroup. The fixture reports the limits observed from inside the
+JVM. The same tier verifies both `java -jar` and JPMS module-path launches.
 
----
+## Build a component directly
 
-## Clean up
+Use each repository's own build from its root:
 
 ```bash
-make clean   # removes bin/, oci/, bundle/, demo-app/target/
+(cd brewlet && make check)
+(cd kubernetes && make ci)
 ```
 
----
-
-## What just happened?
-
-- You shipped **only** `app.jar` — the JDK came from the node in every case.
-- The Layer 1 run used your `JAVA_HOME` JDK; the Layer 2 run used a JDK inside the
-  Docker image, mounted read-only into a runc sandbox with real cgroup limits.
-- This is the same code path the containerd shim uses on a real Kubernetes node.
+These commands validate their respective repositories only. Use the integration
+harness whenever behavior crosses the core/Kubernetes boundary.
 
 ## Next steps
 
-- Understand the pieces: [Concepts & architecture](concepts.md).
-- Publish your own app: [Building & publishing OCI artifacts](building-and-publishing.md).
-- Enable Brewlet on a cluster: [Installation](installation.md).
-- All CLI flags: [CLI reference](cli-reference.md).
+- [Installation](installation.md) — install the Kubernetes components.
+- [Building and publishing](building-and-publishing.md) — publish your own app.
+- [Concepts and architecture](concepts.md) — understand component boundaries.
+- [Integration-test runbook](https://github.com/brewlet/integration-tests#readme) —
+  run individual Kubernetes and application tiers.

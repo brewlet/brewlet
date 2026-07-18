@@ -45,9 +45,10 @@
         <a href="#how">How it works</a>
         <a href="#proof">Proof</a>
         <a href="#compare">Compare</a>
+        <a href="#repositories">Repositories</a>
         <a href="#faq">FAQ</a>
         <a href="https://github.com/brewlet/site/tree/main/docs">Docs</a>
-        <a class="btn btn-ghost" href="https://github.com/brewlet/brewlet">
+        <a class="btn btn-ghost" href="https://github.com/brewlet">
           <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
           GitHub
         </a>
@@ -72,7 +73,7 @@
           </p>
           <div class="hero-cta" data-reveal data-reveal-delay="3">
             <a class="btn btn-primary" href="#quickstart">Get started</a>
-            <a class="btn btn-ghost" href="https://github.com/brewlet/brewlet">View on GitHub</a>
+            <a class="btn btn-ghost" href="https://github.com/brewlet">View on GitHub</a>
           </div>
           <div class="hero-badges" data-reveal data-reveal-delay="3">
             <span class="badge">runc-grade isolation</span>
@@ -365,23 +366,60 @@ $ curl orders:8080/info
       </div>
     </section>
 
+    <!-- REPOSITORIES -->
+    <section class="section alt" id="repositories">
+      <div class="container">
+        <h2 data-reveal>One project, focused repositories</h2>
+        <p class="section-lede" data-reveal>
+          Brewlet is not a monorepo. Each component has its own release and build,
+          while the integration harness tests selected revisions together.
+        </p>
+        <div class="cards">
+          <a class="card" href="https://github.com/brewlet/brewlet" data-reveal>
+            <h3>Core runtime</h3>
+            <p>CLI, OCI artifacts, containerd shim, and node provisioner.</p>
+          </a>
+          <a class="card" href="https://github.com/brewlet/kubernetes" data-reveal>
+            <h3>Kubernetes</h3>
+            <p>Operator, admission webhooks, APIs, manifests, and Helm chart.</p>
+          </a>
+          <a class="card" href="https://github.com/brewlet/maven-plugin" data-reveal>
+            <h3>Maven plugin</h3>
+            <p>Build and publish Brewlet applications from Maven.</p>
+          </a>
+          <a class="card" href="https://github.com/brewlet/specs" data-reveal>
+            <h3>Specifications</h3>
+            <p>Architecture contracts and enhancement proposals.</p>
+          </a>
+          <a class="card" href="https://github.com/brewlet/integration-tests" data-reveal>
+            <h3>Integration tests</h3>
+            <p>Cross-repository test orchestration and fixture applications.</p>
+          </a>
+          <a class="card" href="https://github.com/brewlet/site" data-reveal>
+            <h3>Site and docs</h3>
+            <p>This website, user guides, workshop, and brand assets.</p>
+          </a>
+        </div>
+      </div>
+    </section>
+
     <!-- QUICK START -->
     <section class="section" id="quickstart">
       <div class="container">
         <h2 data-reveal>Quick start</h2>
-        <p class="section-lede">Requirements: a JDK 21+, Go 1.26+, and Docker (for the real-Linux runc demo).</p>
+        <p class="section-lede">Clone the core, Kubernetes, and integration-test repositories as siblings. Requirements: JDK 21+ and Go 1.26+; Docker is needed only for the real-Linux runc tier.</p>
         <div class="code-card wide" data-reveal>
           <div class="code-head"><span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span><span class="code-title">terminal</span></div>
-          <pre><code>$ cd src
+          <pre><code>$ mkdir brewlet-workspace &amp;&amp; cd brewlet-workspace
+$ git clone https://github.com/brewlet/brewlet.git
+$ git clone https://github.com/brewlet/kubernetes.git
+$ git clone https://github.com/brewlet/integration-tests.git
 
-<span class="c-cm"># 1. Build the demo self-executable JAR and the tooling</span>
-$ make app build
+<span class="c-cm"># Local CLI + node-resident JVM: build, push, inspect, run, and bundle</span>
+$ ./integration-tests/e2e/run.sh --tier 2
 
-<span class="c-cm"># 2. Layer 1 — ship only a JAR, run it on this machine, curl it</span>
-$ make demo
-
-<span class="c-cm"># 3. Layer 2 — the real mechanism: shim → runc → java -jar under cgroups</span>
-$ make e2e-linux</code></pre>
+<span class="c-cm"># Real Linux mechanism: shim → runc → java under cgroup limits</span>
+$ ./integration-tests/e2e/run.sh --tier 3</code></pre>
         </div>
        <p class="section-lede" data-reveal>Already have a Maven app? Publish it straight from your build with the <a href="https://github.com/brewlet/maven-plugin">Brewlet Maven plugin</a> (no CLI, no Dockerfile):</p>
        <div class="code-card wide" data-reveal>
@@ -393,7 +431,7 @@ $ mvn package brewlet:push <span class="c-key">-Dbrewlet.image</span>=registry/a
 $ mvn deploy</code></pre>
        </div>
        <div class="hero-cta center">
-          <a class="btn btn-primary" href="https://github.com/brewlet/brewlet#quick-start">Full quick start</a>
+          <a class="btn btn-primary" href="https://github.com/brewlet/site/blob/main/docs/getting-started.md">Full quick start</a>
           <a class="btn btn-ghost" href="https://github.com/brewlet/site/tree/main/docs">Read the docs</a>
         </div>
       </div>
@@ -444,7 +482,7 @@ $ mvn deploy</code></pre>
         <h2>Because your Java app should just run. ☕</h2>
         <p>Push a JAR, schedule a pod, serve real traffic under cgroup limits. Explore it, run it, contribute.</p>
         <div class="hero-cta center">
-          <a class="btn btn-primary" href="https://github.com/brewlet/brewlet">Star on GitHub</a>
+          <a class="btn btn-primary" href="https://github.com/brewlet">Explore the repositories</a>
           <a class="btn btn-ghost" href="https://github.com/brewlet/specs/blob/main/SPECIFICATION.md">Read the spec</a>
         </div>
       </div>
@@ -463,7 +501,7 @@ $ mvn deploy</code></pre>
       <nav aria-label="Footer">
         <a href="https://github.com/brewlet/site/tree/main/docs">Documentation</a>
         <a href="https://github.com/brewlet/specs/blob/main/SPECIFICATION.md">Specification</a>
-        <a href="https://github.com/brewlet/brewlet">GitHub</a>
+        <a href="https://github.com/brewlet">GitHub</a>
         <a href="./LICENSE">MIT License</a>
       </nav>
     </div>

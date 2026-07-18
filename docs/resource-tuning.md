@@ -18,9 +18,10 @@ JDKs are cgroup-v2 aware and read those limits directly.
 | `resources.limits.memory` | `memory.max` | `-XX:+UseContainerSupport` (default on) reads the cgroup and sizes the heap. |
 | `resources.limits.cpu` | `cpu.max` (quota/period) | The cgroup-aware JDK auto-detects available processors from the quota; GC/JIT thread counts scale accordingly. |
 
-You can see this for real in the local PoC: `make e2e-linux` pins `--cpus=1
---memory=384m` and the app reports `availableProcessors = 1` and `memory.max =
-384Mi` from *inside* the JVM. See [Getting started](getting-started.md).
+You can see this for real in integration-test tier 3. Its Linux/runc harness pins
+`--cpus=1 --memory=384m`, and the app reports `availableProcessors = 1` and
+`memory.max = 384Mi` from *inside* the JVM. See
+[Getting started](getting-started.md).
 
 > **cgroup v2 is required.** The provisioner refuses cgroup v1-only nodes, so the
 > container-awareness above always holds on a ready node.

@@ -100,7 +100,7 @@ patch age).
 
 Standardize on `brewlet_` prefix and consistent labels (`node`, `dist`, `feature`,
 `launcher`, `reason`, `phase`) drawn from the existing vocabulary in
-`operator/internal/brewlet/labels.go` so metrics line up with the annotations
+`brewlet/kubernetes/internal/brewlet/labels.go` so metrics line up with the annotations
 operators already query in [observability.md](observability.md#watching-the-fleet).
 
 ---
@@ -175,7 +175,7 @@ compatible, are cold starts healthy, and how stale is my centrally-patched JDK?*
 - Brewlet: [SPECIFICATION §12](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#12-networking-observability-day-2),
   [observability.md](observability.md), [security.md](security.md),
   [appcds.md](appcds.md);
-  `shim/cmd/containerd-shim-brewlet-v2/service_linux.go`,
-  `provisioner/entrypoint.sh`,
-  `operator/internal/admission/webhook.go`,
-  `operator/internal/brewlet/labels.go`.
+  `brewlet/brewlet/shim/cmd/containerd-shim-brewlet-v2/service_linux.go`,
+  `brewlet/brewlet/provisioner/entrypoint.sh`,
+  `brewlet/kubernetes/internal/admission/webhook.go`,
+  `brewlet/kubernetes/internal/brewlet/labels.go`.

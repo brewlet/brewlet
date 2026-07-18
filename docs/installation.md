@@ -113,7 +113,7 @@ cd kubernetes
 kubectl apply -f deploy/node-provisioner.yaml
 
 # 2. The operator ServiceAccount + RBAC + Deployment:
-kubectl apply -f operator/config/operator.yaml
+kubectl apply -f config/operator.yaml
 
 # 3. Opt nodes in. The standalone provisioner DaemonSet schedules onto nodes
 #    carrying this LABEL — it drives nodeAffinity, so it must be a label, not an
@@ -126,7 +126,7 @@ debugging), passing the same inventory the chart would set:
 
 ```bash
 make operator-build
-./operator/bin/manager \
+./bin/operator \
   --namespace=brewlet \
   --provisioner-image=<registry>/node-provisioner:<tag> \
   --jdks=temurin-21,microsoft-25 \

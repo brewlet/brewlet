@@ -422,9 +422,9 @@ in the PoC:
 | Unpack dependency tars to `/app/lib` (local run + runc bundle) | `AssembleSandbox` / `GenerateBundleWithLauncher` in `internal/runtime` |
 | Shim resolves dependency-layer blob paths (layout + containerd) | `shim/cmd/containerd-shim-brewlet-v2/{resolver,bundle_prepare}.go` |
 | CLI `push --classpath-layer TAR` (repeatable); `run`/`bundle` wire it | `cmd/brewlet/main.go` |
-| Maven plugin model parity (`Entry.classPath`, media-type constant) | `brewlet-maven-plugin/.../model/Entry.java`, `.../oci/MediaTypes.java` |
-| Maven plugin **auto-splits the POM dependency tree** into reproducible `classpath.layer.v1+tar` layers (`brewlet.layered`) | `brewlet-maven-plugin/.../util/LayerBuilder.java`, `.../util/TarWriter.java`, `.../AbstractBrewletMojo.java` |
-| **Map a Spring Boot repackaged layered JAR onto generic classpath layers** (thin app JAR + per-group dependency layers, via structural steps — *no `layers.idx` parsing*) | `spring-petclinic/layered-build.sh` (real upstream Spring PetClinic) |
+| Maven plugin model parity (`Entry.classPath`, media-type constant) | [`brewlet/maven-plugin`](https://github.com/brewlet/maven-plugin): `src/main/java/sh/brewlet/maven/plugin/{model,oci}` |
+| Maven plugin **auto-splits the POM dependency tree** into reproducible `classpath.layer.v1+tar` layers (`brewlet.layered`) | [`brewlet/maven-plugin`](https://github.com/brewlet/maven-plugin): `src/main/java/sh/brewlet/maven/plugin/util` |
+| **Map a Spring Boot repackaged layered JAR onto generic classpath layers** (thin app JAR + per-group dependency layers, via structural steps — *no `layers.idx` parsing*) | [`brewlet/integration-tests`](https://github.com/brewlet/integration-tests/blob/main/fixtures/spring-petclinic/layered-build.sh) fixture |
 
 Verified end-to-end: a thin `app.jar` (application classes only) loads a class from a
 dependency JAR delivered in a `classpath.layer.v1+tar` and unpacked to `/app/lib`.

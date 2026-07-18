@@ -217,5 +217,6 @@ For `run`, the launched JVM's exit code propagates as the process exit status.
 ## See also
 
 - [Building & publishing](building-and-publishing.md) — the developer workflow.
-- [Getting started](getting-started.md) — `make demo` / `make e2e-linux` wrap these.
+- [Getting started](getting-started.md) — integration-test tiers 2 and 3 exercise
+  these commands against a selected core checkout.
 - [Reference](reference.md) — media types, schema, and well-known paths.

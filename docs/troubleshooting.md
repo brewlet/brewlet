@@ -157,12 +157,15 @@ grep -A2 runtimes.brewlet /etc/containerd/config.toml
 
 ## Local PoC issues
 
-- **`make app` fails** — check `JAVA_HOME` points at a JDK 21+.
-- **`make build` fails** — need Go 1.26+.
-- **`make e2e-linux` fails** — needs Docker; it runs a privileged Linux container.
-  Override arch with `make e2e-linux ARCH=amd64` if needed.
-- **Non-Linux dev host** — only the portable bundle-assembly core builds; use
-  `make e2e-linux` / `brewlet bundle` to exercise the runc path. See
+- **The harness cannot find a component checkout** — clone `brewlet/brewlet` and
+  `brewlet/kubernetes` beside `integration-tests`, or set `BREWLET_CORE_DIR` and
+  `BREWLET_KUBERNETES_DIR`.
+- **Tier 2 cannot build a fixture** — check `JAVA_HOME` points at a full JDK 21+.
+- **Core or Kubernetes build fails** — Go 1.26+ is required.
+- **Tier 3 skips or fails before runc** — Docker must be installed and reachable;
+  the tier runs a privileged Linux container.
+- **Non-Linux dev host** — only the portable bundle-assembly core builds locally;
+  use integration-test tier 3 to exercise the Linux/runc path. See
   [Getting started](getting-started.md).
 
 ---
