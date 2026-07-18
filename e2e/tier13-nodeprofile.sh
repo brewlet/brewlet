@@ -33,6 +33,7 @@ _t13_cleanup() {
     --ignore-not-found >/dev/null 2>&1 || true
   kubectl delete runtimeclass brewlet --ignore-not-found >/dev/null 2>&1 || true
   kubectl delete ns "$T13_NS" --ignore-not-found --wait=false >/dev/null 2>&1 || true
+  wait_for bash -c "! kubectl get namespace '$T13_NS' >/dev/null 2>&1" || true
   kubectl delete crd nodeprofiles.node.brewlet.sh javaapplications.apps.brewlet.sh \
     --ignore-not-found --wait=false >/dev/null 2>&1 || true
   if [[ -n "$T13_NODE" ]]; then

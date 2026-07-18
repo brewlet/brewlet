@@ -74,6 +74,17 @@ _t14_curl_retry() {
   return 1
 }
 
+_t14_ensure_operator_namespace() {
+  local deleting
+  deleting="$(kubectl get namespace "$T14_NS_OP" \
+    -o jsonpath='{.metadata.deletionTimestamp}' 2>/dev/null || true)"
+  if [[ -n "$deleting" ]]; then
+    wait_for bash -c "! kubectl get namespace '$T14_NS_OP' >/dev/null 2>&1" || return 1
+  fi
+  kubectl create namespace "$T14_NS_OP" >/dev/null 2>&1 || true
+  kubectl get namespace "$T14_NS_OP" >/dev/null 2>&1
+}
+
 tier14_custom_jdk() {
   section "Tier 14 — custom JDK NodeProfile (Azul Zulu)"
   if ! have kubectl || ! k8s_reachable; then skip "tier14: custom JDK" "no reachable cluster"; return 0; fi
@@ -111,7 +122,10 @@ tier14_custom_jdk() {
   fi
 
   # Install APIs and the provisioner's node-patching identity.
-  kubectl create namespace "$T14_NS_OP" >/dev/null 2>&1 || true
+  if ! _t14_ensure_operator_namespace; then
+    fail "tier14: prepare operator namespace" "namespace $T14_NS_OP remained terminating"
+    return 0
+  fi
   if kubectl apply -f "$BREWLET_KUBERNETES_DIR/deploy/nodeprofile-crd.yaml" >"$WORK/t14-control.log" 2>&1 &&
     kubectl apply -f "$BREWLET_KUBERNETES_DIR/deploy/javaapplication-crd.yaml" >>"$WORK/t14-control.log" 2>&1 &&
     kubectl wait --for=condition=Established --timeout=30s crd/nodeprofiles.node.brewlet.sh >>"$WORK/t14-control.log" 2>&1; then
