@@ -25,8 +25,11 @@ public final class OrdersApp {
         int port = Integer.getInteger("server.port", 8080);
         HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
 
-        server.createContext("/hello", exchange ->
-                respond(exchange, 200, Greeter.greeting() + "\n"));
+        server.createContext("/hello", exchange -> {
+            boolean mixed = !System.getProperty("java.class.path", "").isEmpty();
+            String greeting = mixed ? "MIXED: " + Greeter.greeting() : Greeter.greeting();
+            respond(exchange, 200, greeting + "\n");
+        });
 
         server.createContext("/info", exchange -> {
             Runtime rt = Runtime.getRuntime();
