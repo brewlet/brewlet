@@ -1,0 +1,6 @@
+# Keep the provisioner image build context small and reproducible.
+bin/
+oci/
+bundle/
+**/*_test.go
+.git/

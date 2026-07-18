@@ -1,0 +1,10 @@
+# Go and Brewlet build outputs
+/bin/
+/oci/
+/bundle/
+/brewlet
+/containerd-shim-brewlet-v2
+
+# Editor and operating-system state
+.vscode/
+.DS_Store
