@@ -69,9 +69,12 @@ _t9_node_arch() {
 # bare JDK home is not enough). Idempotent: skips if already staged.
 _t9_stage_jdk() {
   local node="$1" arch="$2"
-  if docker exec "$node" test -x "$T9_JDK_ROOT/bin/java" 2>/dev/null; then
+  if docker exec "$node" chroot "$T9_JDK_ROOT" /bin/java -version >/dev/null 2>&1; then
     return 0
   fi
+  # A provisioner-created bare JDK home can execute from the host while still
+  # lacking the ELF loader and libc required when it becomes the sandbox root.
+  docker exec "$node" rm -rf "$T9_JDK_ROOT" >/dev/null 2>&1 || return 1
   local cid tarball="$WORK/t9-jdk-$arch.tar"
   if [[ ! -f "$tarball" ]]; then
     docker pull --platform "linux/$arch" "$T9_TEMURIN_IMG" >>"$WORK/t9-jdk.log" 2>&1 || return 1
