@@ -32,13 +32,24 @@ for p in $(cat /sys/fs/cgroup/cgroup.procs 2>/dev/null); do echo "$p" > /sys/fs/
 echo "+cpu +memory +pids" > /sys/fs/cgroup/cgroup.subtree_control 2>/dev/null || true
 cd /tmp/bundle-e2e
 runc run brewlet-e2e &
-for i in $(seq 1 30); do curl -sf localhost:8080/healthz >/dev/null 2>&1 && break; sleep 0.5; done
+runc_pid=$!
+ready=false
+for i in $(seq 1 30); do
+  if curl -sf localhost:8080/healthz >/dev/null 2>&1; then ready=true; break; fi
+  sleep 0.5
+done
+if [ "$ready" != true ]; then
+  echo "brewlet-e2e did not become ready" >&2
+  runc list >&2 || true
+  wait "$runc_pid" || true
+  exit 1
+fi
 echo "--- /info (cgroup limits seen by the JVM under runc) ---"
 curl -s localhost:8080/info
 echo "--- /hello ---"
 curl -s localhost:8080/hello
 runc kill brewlet-e2e KILL 2>/dev/null || true
-sleep 1
+wait "$runc_pid" || true
 runc delete --force brewlet-e2e 2>/dev/null || true
 echo "== done =="
 
@@ -63,12 +74,23 @@ touch /tmp/bundle-mod/rootfs/app/orders.jar
 echo "== shim Start(): runc runs java -p <module-path> -m <module> under cgroups =="
 cd /tmp/bundle-mod
 runc run brewlet-e2e-mod &
-for i in $(seq 1 30); do curl -sf localhost:8080/healthz >/dev/null 2>&1 && break; sleep 0.5; done
+runc_pid=$!
+ready=false
+for i in $(seq 1 30); do
+  if curl -sf localhost:8080/healthz >/dev/null 2>&1; then ready=true; break; fi
+  sleep 0.5
+done
+if [ "$ready" != true ]; then
+  echo "brewlet-e2e-mod did not become ready" >&2
+  runc list >&2 || true
+  wait "$runc_pid" || true
+  exit 1
+fi
 echo "--- modular /hello (produced by the com.example.greeter module on the module path) ---"
 curl -s localhost:8080/hello
 echo "--- modular /info (both modules resolved) ---"
 curl -s localhost:8080/info
 runc kill brewlet-e2e-mod KILL 2>/dev/null || true
-sleep 1
+wait "$runc_pid" || true
 runc delete --force brewlet-e2e-mod 2>/dev/null || true
 echo "== modular done =="
