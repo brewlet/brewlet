@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "mainJar": "orders-api.jar",
+  "entry": {
+    "mode": "jar"
+  },
+  "enablePreview": true,
+  "addOpens": [
+    "java.base/java.lang=ALL-UNNAMED"
+  ],
+  "systemProperties": {
+    "file.encoding": "UTF-8"
+  }
+}

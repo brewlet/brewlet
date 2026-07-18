@@ -1,0 +1,207 @@
+package sh.brewlet.maven.plugin.oci;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import sh.brewlet.maven.plugin.model.JvmConfig;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Writes a Brewlet OCI artifact to a local OCI image-layout directory
+ * ({@code target/brewlet/oci}). The layout is compatible with the Go
+ * store used by the PoC CLI ({@code src/internal/artifact/artifact.go}).
+ *
+ * <p>Layout on disk:
+ * <pre>
+ * oci/
+ *   oci-layout
+ *   index.json
+ *   blobs/sha256/&lt;hex&gt;
+ * </pre>
+ */
+public class LocalStore {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+            .enable(SerializationFeature.INDENT_OUTPUT);
+
+    private final Path root;
+
+    public LocalStore(Path root) {
+        this.root = root;
+    }
+
+    public Path getRoot() { return root; }
+
+    /** Returns the blobs/sha256 directory, creating it if needed. */
+    private Path blobsDir() throws IOException {
+        Path dir = root.resolve("blobs").resolve("sha256");
+        Files.createDirectories(dir);
+        return dir;
+    }
+
+    /**
+     * Writes {@code content} to the blob store and returns its descriptor
+     * (digest + size; mediaType is set by the caller).
+     */
+    public OciDescriptor writeBlob(byte[] content) throws IOException {
+        String digest = sha256Hex(content);
+        String hexPart = digest.substring("sha256:".length());
+        Path blobFile = blobsDir().resolve(hexPart);
+        if (!Files.exists(blobFile)) {
+            Files.write(blobFile, content);
+        }
+        return new OciDescriptor(null, digest, content.length);
+    }
+
+    /**
+     * Assembles and writes the full Brewlet OCI artifact:
+     * <ol>
+     *   <li>Serializes {@code cfg} as the config blob.</li>
+     *   <li>Writes the JAR bytes as the layer blob.</li>
+     *   <li>Builds the OCI manifest and writes it.</li>
+     *   <li>Updates {@code index.json}.</li>
+     * </ol>
+     *
+     * @param ref     OCI reference ({@code name:tag} or full registry ref)
+     * @param cfg     launch descriptor
+     * @param jarPath path to the JAR file
+     * @param extraAnnotations extra OCI annotations for the manifest (may be null)
+     * @return descriptor of the written manifest
+     */
+    public OciDescriptor push(String ref, JvmConfig cfg, Path jarPath,
+                              Map<String, String> extraAnnotations) throws IOException {
+        return push(ref, cfg, jarPath, List.of(), extraAnnotations);
+    }
+
+    /**
+     * Assembles and writes the full Brewlet OCI artifact, optionally with one or
+     * more classpath (dependency) layers appended after the main JAR layer for
+     * layered class-path deployment. See
+     * https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md.
+     *
+     * @param ref              OCI reference ({@code name:tag} or full registry ref)
+     * @param cfg              launch descriptor
+     * @param jarPath          path to the (thin) application JAR file
+     * @param classpathLayers  ordered dependency layers (may be empty)
+     * @param extraAnnotations extra OCI annotations for the manifest (may be null)
+     * @return descriptor of the written manifest
+     */
+    public OciDescriptor push(String ref, JvmConfig cfg, Path jarPath,
+                              List<ArtifactLayer> classpathLayers,
+                              Map<String, String> extraAnnotations) throws IOException {
+        // 1. Config blob
+        byte[] cfgBytes = MAPPER.writeValueAsBytes(cfg);
+        OciDescriptor cfgDesc = writeBlob(cfgBytes);
+        cfgDesc.setMediaType(MediaTypes.CONFIG_MEDIA_TYPE);
+
+        // 2. JAR layer blob
+        byte[] jarBytes = Files.readAllBytes(jarPath);
+        OciDescriptor jarDesc = writeBlob(jarBytes);
+        jarDesc.setMediaType(MediaTypes.JAR_LAYER_MEDIA_TYPE);
+        jarDesc.setAnnotations(Map.of(MediaTypes.ANNOTATION_TITLE, cfg.getMainJar()));
+
+        // 2b. Classpath (dependency) layers — stable → volatile, each its own blob.
+        List<OciDescriptor> layers = new ArrayList<>();
+        layers.add(jarDesc);
+        if (classpathLayers != null) {
+            for (ArtifactLayer layer : classpathLayers) {
+                OciDescriptor desc = writeBlob(layer.tar());
+                desc.setMediaType(layer.mediaType());
+                desc.setAnnotations(Map.of(MediaTypes.ANNOTATION_TITLE, layer.name()));
+                layers.add(desc);
+            }
+        }
+
+        // 3. OCI Manifest
+        OciManifest manifest = new OciManifest();
+        manifest.setArtifactType(MediaTypes.ARTIFACT_TYPE);
+        manifest.setConfig(cfgDesc);
+        manifest.setLayers(layers);
+        if (extraAnnotations != null && !extraAnnotations.isEmpty()) {
+            manifest.setAnnotations(extraAnnotations);
+        }
+
+        byte[] manifestBytes = MAPPER.writeValueAsBytes(manifest);
+        OciDescriptor manifestDesc = writeBlob(manifestBytes);
+        manifestDesc.setMediaType(MediaTypes.OCI_MANIFEST_MEDIA_TYPE);
+        manifestDesc.setArtifactType(MediaTypes.ARTIFACT_TYPE);
+        manifestDesc.setAnnotations(Map.of(MediaTypes.ANNOTATION_REF_NAME, ref));
+
+        // 4. index.json
+        upsertIndex(manifestDesc);
+
+        // 5. oci-layout marker
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("oci-layout"),
+                "{\"imageLayoutVersion\":\"1.0.0\"}\n");
+
+        return manifestDesc;
+    }
+
+    private void upsertIndex(OciDescriptor newEntry) throws IOException {
+        OciIndex idx = readIndex();
+        List<OciDescriptor> manifests = idx.getManifests() == null
+                ? new ArrayList<>()
+                : new ArrayList<>(idx.getManifests());
+
+        String ref = newEntry.getAnnotations() != null
+                ? newEntry.getAnnotations().get(MediaTypes.ANNOTATION_REF_NAME)
+                : null;
+
+        // Remove any existing entry for the same ref
+        if (ref != null) {
+            manifests.removeIf(m -> m.getAnnotations() != null
+                    && ref.equals(m.getAnnotations().get(MediaTypes.ANNOTATION_REF_NAME)));
+        }
+        manifests.add(newEntry);
+        idx.setManifests(manifests);
+
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("index.json"), MAPPER.writeValueAsString(idx));
+    }
+
+    private OciIndex readIndex() {
+        Path indexFile = root.resolve("index.json");
+        if (Files.exists(indexFile)) {
+            try {
+                return MAPPER.readValue(indexFile.toFile(), OciIndex.class);
+            } catch (IOException e) {
+                // Fall through: return empty index
+            }
+        }
+        OciIndex idx = new OciIndex();
+        idx.setSchemaVersion(2);
+        idx.setMediaType(MediaTypes.OCI_INDEX_MEDIA_TYPE);
+        return idx;
+    }
+
+    /**
+     * Returns the absolute path to a blob file given its digest
+     * ({@code "sha256:<hex>"}).
+     */
+    public Path blobPath(String digest) {
+        return root.resolve("blobs").resolve("sha256")
+                   .resolve(digest.substring("sha256:".length()));
+    }
+
+    public static String sha256Hex(byte[] data) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(data);
+            StringBuilder sb = new StringBuilder("sha256:");
+            for (byte b : hash) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
+    }
+}
