@@ -22,10 +22,9 @@
 #   4. The live pod webhook denies a brewlet pod requesting a JDK the (empty)
 #      fleet lacks -> NoCompatibleJDK (proves the shipped webhook + node-list
 #      RBAC + caBundle wiring reach the API server).
-#   5. An uncurated JDK distribution is rejected (CRD enum at the API server,
-#      backed by the validating webhook) and a pool conflict is rejected by the
-#      live NodeProfile webhook (proves the shipped ValidatingWebhookConfiguration
-#      + its caBundle wiring).
+#   5. A custom JDK distribution without its required source is rejected, and a
+#      pool conflict is rejected by the live NodeProfile webhook (proves the
+#      shipped ValidatingWebhookConfiguration + its caBundle wiring).
 #
 # No brewlet pod is expected to actually RUN here (no node is provisioned ready,
 # so brewlet pods stay Pending/denied) — that path is tiers 8/9. This tier is
@@ -67,6 +66,7 @@ _t10_cleanup() {
   kubectl delete mutatingwebhookconfiguration brewlet-admission --ignore-not-found >/dev/null 2>&1 || true
   kubectl delete validatingwebhookconfiguration brewlet-nodeprofiles --ignore-not-found >/dev/null 2>&1 || true
   kubectl delete ns "$T10_NS" --ignore-not-found --wait=false >/dev/null 2>&1 || true
+  wait_for bash -c "! kubectl get namespace '$T10_NS' >/dev/null 2>&1" || true
   if [[ -n "$T10_NODE" ]]; then
     label_node "$T10_NODE" brewlet.sh/provision- >/dev/null 2>&1 || true
   fi
@@ -310,20 +310,18 @@ YAML
   assert_contains "helm(in-cluster): live webhook denies an unsatisfiable brewlet pod (NoCompatibleJDK)" \
     "$out" "NoCompatibleJDK"
 
-  # --- an uncurated JDK distribution must be rejected ------------------------
-  # (a) a distribution outside the curated set must NOT be accepted. The CRD's
-  # `enum: [temurin, microsoft]` rejects it at the API server (Unsupported
-  # value); the validating webhook also rejects it (InvalidNodeProfile / "not
-  # curated") if a request ever reaches it. Either layer failing the apply is a
-  # pass — the invariant is that the bad profile is refused. Retry: the webhook
-  # endpoint's caBundle/Service can lag a beat right after install.
+  # --- a custom JDK distribution must declare its source ---------------------
+  # Uncurated distributions are supported when source.image and source.javaHome
+  # are present. This profile intentionally omits source and must be rejected by
+  # the CRD or validating webhook. Retry because the webhook endpoint's
+  # caBundle/Service can lag briefly after install.
   local npout npok=""
   for _ in 1 2 3 4 5 6 7 8; do
     if npout="$(kubectl apply -f - 2>&1 <<'YAML'
 apiVersion: node.brewlet.sh/v1alpha1
 kind: NodeProfile
 metadata:
-  name: e2e-bad-distro
+  name: e2e-missing-jdk-source
 spec:
   jdks:
     - distribution: not-a-real-distro
@@ -331,22 +329,23 @@ spec:
 YAML
 )"; then
       # apply unexpectedly succeeded — the profile was admitted; not a rejection.
-      kubectl delete nodeprofile e2e-bad-distro --ignore-not-found >/dev/null 2>&1 || true
+      kubectl delete nodeprofile e2e-missing-jdk-source --ignore-not-found >/dev/null 2>&1 || true
       sleep 2
       continue
     fi
-    if [[ "$npout" == *"Unsupported value"* || "$npout" == *InvalidNodeProfile* || "$npout" == *"not curated"* ]]; then
+    if [[ "$npout" == *"source must be omitted for curated distributions and provided for custom distributions"* ||
+          "$npout" == *"source is required for non-curated distribution"* ]]; then
       npok=1
       break
     fi
     sleep 2
   done
-  kubectl delete nodeprofile e2e-bad-distro --ignore-not-found >/dev/null 2>&1 || true
+  kubectl delete nodeprofile e2e-missing-jdk-source --ignore-not-found >/dev/null 2>&1 || true
   if [[ -n "$npok" ]]; then
-    pass "helm(in-cluster): NodeProfile rejects an uncurated JDK distribution"
+    pass "helm(in-cluster): NodeProfile rejects a custom JDK without source"
   else
-    fail "helm(in-cluster): NodeProfile rejects an uncurated JDK distribution" \
-      "expected the apply to fail with Unsupported value / InvalidNodeProfile / \"not curated\", got: $npout"
+    fail "helm(in-cluster): NodeProfile rejects a custom JDK without source" \
+      "expected the apply to fail because source is required, got: $npout"
   fi
 
   # (b) a pool conflict: two profiles claiming the same named pool -> PoolConflict.

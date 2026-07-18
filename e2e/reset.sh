@@ -77,6 +77,10 @@ scrub_cluster_objects() {
   for ns in "${E2E_FIXED_NS[@]}"; do
     kubectl delete ns "$ns" --ignore-not-found --wait=false >/dev/null 2>&1 || true
   done
+  for ns in "${E2E_FIXED_NS[@]}"; do
+    wait_for bash -c "! kubectl get namespace '$ns' >/dev/null 2>&1" ||
+      warn "reset: namespace '$ns' is still terminating"
+  done
 }
 
 # detect_leftovers: print a short list of brewlet cluster-scoped leftovers, if
