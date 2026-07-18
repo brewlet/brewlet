@@ -83,6 +83,11 @@ jobs:
             java: true
             cluster: true
             helm: false
+          - name: Custom JDK NodeProfile (tier 14)
+            tiers: --tier 14
+            java: true
+            cluster: true
+            helm: false
     steps:
       - name: Check out integration harness
         uses: actions/checkout@v7

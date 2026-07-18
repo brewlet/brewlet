@@ -15,7 +15,7 @@ component repositories:
 ## Layout
 
 ```text
-e2e/       runner, reset helper, shared library, and tiers 1-13
+e2e/       runner, reset helper, shared library, and tiers 1-14
 fixtures/  repository-owned Java demo applications and PetClinic build fixture
 .github/   cross-repository GitHub Actions matrix
 ```
@@ -40,7 +40,7 @@ uses them to select checkout refs.
 ## Running
 
 ```bash
-./e2e/run.sh                 # all 13 tiers
+./e2e/run.sh                 # all 14 tiers
 ./e2e/run.sh --list          # tier catalog
 ./e2e/run.sh --tier 4        # one tier
 ./e2e/run.sh --reset         # remove Brewlet test state from the active cluster
@@ -63,5 +63,6 @@ an exercised capability fails. The suite covers:
 | 10-11 | installed Helm stack and webhook resilience | Kubernetes |
 | 12 | runnable image pulled and unpacked by kubelet | core + fixtures |
 | 13 | NodeProfile lifecycle | Kubernetes |
+| 14 | custom JDK NodeProfile through a live Azul Zulu workload | both + fixtures |
 
 See [AGENTS.md](AGENTS.md) for cluster requirements, cleanup, and troubleshooting.
