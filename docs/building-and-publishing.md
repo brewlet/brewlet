@@ -124,9 +124,10 @@ brewlet push ./target/orders.jar demo/orders:1.0 --module-layer mods.tar
 
 produces `java -p /app/orders.jar:/app/mods -m com.acme.orders`.
 
-> `jlink` runtime images and `jmod` files remain out of scope by design — they
-> bundle a JVM, which is exactly what Brewlet removes. See the
-> [JPMS support note](jpms-support.md).
+> Do not publish a `jlink` runtime or `.jmod` files in the application artifact.
+> Platform administrators can provide a shared jlink runtime and approved module
+> set through `NodeProfile`; see [JDK management](jdk-management.md#shared-jlink-runtimes)
+> and the [JPMS support note](jpms-support.md).
 
 ### Layered (thin JAR) apps
 

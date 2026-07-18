@@ -26,10 +26,10 @@ Closes the research asked for in the "Research JPMS support and capabilities" is
   anticipated in the spec: a directory of JARs mounted at `/app/mods` that becomes
   the `--module-path`. This is a small extension of the artifact format, not a new
   runtime.
-- **`jlink` custom runtime images and `jmod` files are explicitly out of scope.**
-  A jlink image *bundles a JVM*, which is the exact thing Brewlet exists to remove
-  from the artifact. Teams that truly need a self-contained runtime image should use
-  an ordinary container instead (Brewlet is additive — see the project FAQ).
+- **Per-application `jlink` images and `jmod` artifact payloads are out of
+  scope.** Administrators may instead install one shared, centrally controlled
+  jlink runtime per node pool through a
+  [`NodeProfile`](jdk-management.md#shared-jlink-runtimes).
 
 ---
 
@@ -94,7 +94,7 @@ These are frequently conflated; Brewlet treats them very differently:
 |---|---|---|---|
 | **Modular JAR** | An ordinary JAR with a `module-info.class` at its root. | ✅ Yes — `java -p … -m …`. | **In scope** (this doc). |
 | **`jmod` file** | A build/link-time package format (native libs, config, headers). **Not runnable** with `java -jar`/`-m`; consumed by `jlink`. | ❌ | Out of scope. |
-| **`jlink` runtime image** | A *self-contained* directory tree that **includes a stripped JVM** plus the app modules; launched via its own `bin/java` or a jpackage app-image. | ❌ It *is* the runtime. | **Out of scope** — contradicts "the JDK lives on the node". |
+| **`jlink` runtime image** | A self-contained Java runtime containing a selected module set. | ✅ when installed as a shared `NodeProfile` runtime. | Supported as a platform-managed runtime; not as an application artifact. |
 
 ---
 
@@ -108,16 +108,16 @@ shared and patched centrally (see the [project landing page](/) and
   JAR bytes; the module path is resolved *against the JAR(s) we already mount at
   `/app`*, and the node JDK does the launching. Nothing about JPMS requires a
   bundled runtime. The only difference from today is the argv the shim assembles.
-- **`jlink` image — anti-aligned.** A jlink image embeds a JVM. Shipping it would
-  re-introduce exactly the "JVM copy in every artifact" that Brewlet removes, and
-  it would ignore the node's shared, centrally-patched JDK. If a team wants a
-  bespoke runtime image, that is a normal container workload, which Brewlet
-  deliberately leaves alone (it only intercepts `runtimeClassName: brewlet`).
+- **`jlink` image — placement matters.** Shipping one in every application
+  artifact re-introduces the duplicated JVM Brewlet removes. Installing one shared
+  runtime through `NodeProfile`, however, keeps patching and the approved module
+  set under central platform control.
 - **`jmod` — not a runtime artifact at all.** It only feeds `jlink`. No runtime
   support is meaningful.
 
-**Conclusion:** Brewlet should support **modular JARs launched on the module
-path**, and should *not* attempt to ship jlink/jmod images.
+**Conclusion:** Brewlet supports **modular JARs launched on the module path** and
+shared administrator-provided jlink runtimes. It does not ship jlink runtimes or
+`.jmod` files inside application artifacts.
 
 ---
 
@@ -132,7 +132,8 @@ path**, and should *not* attempt to ship jlink/jmod images.
 | Mixed class path + module path | ❌ | ✅ | `entry.classPath` + module path (§6.3). |
 | Automatic modules (plain JAR on `-p`) | ❌ | ✅ | Works once a module path exists; name from `Automatic-Module-Name` or filename. |
 | `--add-modules` / `--add-opens` / `--add-reads` | ✅¹ | ✅ | ¹ `--add-modules`, `--add-opens`, and `--add-exports` are first-class artifact fields (`addModules`, `addOpens`, `addExports`); `--add-reads` and other exotic flags go through descriptor `jvm.args`. |
-| `jlink` runtime image | ❌ | ❌ (by design) | Use a container instead. |
+| Shared `NodeProfile` jlink runtime | N/A | ✅ | Platform-managed runtime and module set; application remains a JAR. |
+| Per-application `jlink` runtime | ❌ | ❌ (by design) | Duplicates the JVM in the application artifact. |
 | `jmod` packaging | ❌ | ❌ (by design) | Build-time only. |
 
 ---
@@ -277,10 +278,12 @@ The tooling implements module detection and layout end to end:
 > `module-info.class` at its root (the default output of a normal
 > `maven-compiler-plugin`/`maven-jar-plugin` build with a `module-info.java` in
 > the module). It should **not** produce a `.jmod` file (via the `jmod` tool) or
-> a `jlink` runtime image (via `maven-jlink-plugin`/`jpackage`): `.jmod` is a
+> a per-application `jlink` runtime image (via
+> `maven-jlink-plugin`/`jpackage`): `.jmod` is a
 > link-time-only package format that `java --module-path`/`-m` refuses to run,
-> and a `jlink` image bundles its own JVM — the exact thing Brewlet removes (see
-> §2.3, §3). In short, the shippable JPMS artifact is a **modular JAR**.
+> and a per-application `jlink` image duplicates the JVM. In short, the shippable
+> JPMS artifact is a **modular JAR**; a platform team may separately provision a
+> shared jlink runtime through `NodeProfile`.
 
 ---
 
@@ -294,8 +297,9 @@ The tooling implements module detection and layout end to end:
    `…/modulepath.layer.v1+tar` layer is unpacked to `/app/mods` and defaults the
    module path accordingly (attached via `brewlet push --module-layer` or the Maven
    `layered` flag), resolving the rest of Open Question #3.
-3. **`jlink`/`jmod` are a non-goal** — a bundled runtime is what Brewlet removes; such
-   workloads use ordinary containers (see §2.3 and SPECIFICATION §16 Q3).
+3. **Runtime payloads remain a non-goal** — application artifacts do not carry
+   `jlink`/`jmod` payloads. Shared jlink runtimes are managed as node inventory
+   through `NodeProfile` (see §2.3 and SPECIFICATION §16 Q3).
 
 None of this requires changes to the shim's isolation, the provisioner, the
 RuntimeClass, or the resource→JVM mapping. JPMS is an **argv-and-artifact-layout**

@@ -36,9 +36,9 @@ Question #3; this one targets the far more common non-modular, class-path app.
 - **This is additive and fully backward compatible.** A single fat JAR
   (`entry.mode: jar`) stays the default and the recommended path for most teams. Layer
   splitting is an opt-in optimization for large or frequently-rebuilt services.
-- **`jlink`/`jmod` images remain out of scope** for the same reason as in the JPMS
-  note — they bundle a JVM, which Brewlet exists to remove. Layering is about *how the
-  same class files are packed into OCI layers*, not about bundling a runtime.
+- **Per-application `jlink`/`jmod` payloads remain out of scope.** Layering is
+  about how application class files are packed, independent of the full JDK or
+  shared jlink runtime selected from node inventory.
 
 ---
 
@@ -122,7 +122,8 @@ concrete design for the `classpath.layer.v1+tar` media type the spec already nam
 | Cross-app dependency dedup | ❌ | ✅ | Identical dependency layer digest is stored once. |
 | Explicit classpath ordering | ❌ | ✅ | `entry.classPath` array (§5). |
 | Module path layering (`-p /app/mods`) | ❌ | ✅ | Covered by the [JPMS note](jpms-support.md); parallel mechanism (§8). |
-| `jlink` runtime image | ❌ | ❌ (by design) | Bundles a JVM — use a container. |
+| Shared `NodeProfile` jlink runtime | N/A | N/A | Supported independently as node inventory. |
+| Per-application `jlink` runtime | ❌ | ❌ (by design) | Duplicates the JVM in the artifact. |
 | `jmod` packaging | ❌ | ❌ (by design) | Build-time only. |
 
 ---
@@ -382,7 +383,8 @@ Question #3 for the mixed case.
   tar*; reproducibility of the JAR contents themselves is your build's responsibility.
 - **No isolation, provisioner, RuntimeClass, or resource-mapping changes.** Layering is
   purely artifact layout + argv.
-- **`jlink`/`jmod` images stay out of scope** (they bundle a JVM) — see the
+- **Per-application `jlink`/`jmod` payloads stay out of scope.** Shared
+  `NodeProfile` jlink runtimes are independent of artifact layering; see the
   [JPMS note §2.2](jpms-support.md).
 - **The fat JAR stays first-class.** Layering is opt-in; small or infrequently-rebuilt
   services should keep shipping a single `entry.mode: jar` artifact.

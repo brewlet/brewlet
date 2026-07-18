@@ -51,7 +51,7 @@ with `--set key=value` or a values file.
 | `images.provisioner` | `ghcr.io/brewlet/node-provisioner:0.1.0` | Provisioner image the operator runs. |
 | `images.admission` | `ghcr.io/brewlet/admission:0.1.0` | Admission webhook image. |
 | `images.pullPolicy` | `IfNotPresent` | Image pull policy for all components. |
-| `provisioner.jdks` | `temurin-21,microsoft-25` | Comma-separated `<dist>-<feature>` JDK roots to install on every opted-in node ([§JDK management](jdk-management.md)). |
+| `provisioner.jdks` | `temurin-21,microsoft-25` | Comma-separated curated `<dist>-<feature>` roots, or a structured list with `source.image` and `source.javaHome` for custom distributions ([§JDK management](jdk-management.md#custom-distributions-azul-zulu-example)). |
 | `provisioner.launchers` | `jaz` | Comma-separated launcher layers ([§Launchers](launchers.md)). Empty = vanilla `java` only. |
 | `provisioner.rollout.maxUnavailable` | `null` | Bounds the default profile's provisioner DaemonSet rolling update. `null` keeps the DaemonSet default (proposal 0002). |
 | `provisioner.rollout.validate` | `true` | Gate node readiness on the post-install JDK smoke test (`java -version` per root). Renders the provisioner `BREWLET_VALIDATE` env. |
@@ -119,7 +119,9 @@ only touch them directly if you hand-wire the DaemonSet.
 
 | Env var | Default | Meaning |
 |---|---|---|
-| `JDKS` | `temurin-21` | Comma-separated `<distribution>-<feature>` roots to install. Curated distributions: `temurin`, `microsoft`. |
+| `JDKS` | `temurin-21` | Comma-separated `<distribution>-<feature>` roots to install. |
+| `JDK_CUSTOM_SOURCE_COUNT` | `0` | Number of indexed custom source entries rendered by the operator. |
+| `JDK_CUSTOM_SOURCE_<n>_{TOKEN,IMAGE,JAVA_HOME}` | *(empty)* | Internal operator-to-provisioner transport for custom `NodeProfile` JDK sources. Configure `spec.jdks[].source`, not these variables directly. |
 | `LAUNCHERS` | *(empty)* | Comma-separated launcher layers to stage (e.g. `jaz`). `java` is implicit. |
 | `NODE_NAME` | (downward API) | The node to label; injected from `spec.nodeName`. |
 | `BREWLET_PREFIX` | `/opt/brewlet` | Host install prefix (`bin/`, `jdks/`, `launchers/`). |

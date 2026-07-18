@@ -91,6 +91,18 @@ make helm-lint        # helm lint charts/brewlet
 make helm-template    # render to stdout
 ```
 
+### Upgrading
+
+Helm does not upgrade CRDs placed under a chart's `crds/` directory. Before
+upgrading an existing Brewlet installation to a release that adds custom JDK or
+jlink runtime sources, apply that release's `NodeProfile` CRD explicitly:
+
+```bash
+cd kubernetes
+kubectl apply -f deploy/nodeprofile-crd.yaml
+helm upgrade brewlet ./charts/brewlet -f values.yaml
+```
+
 ### What the chart deploys vs. what the operator creates
 
 | Deployed by the chart | Created/reconciled by the operator at runtime |

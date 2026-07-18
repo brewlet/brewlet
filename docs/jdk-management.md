@@ -22,14 +22,18 @@ Related: [Configuration](configuration.md) · [Launchers](launchers.md) ·
   root. The launcher request follows the same pattern (`spec.jvm.launcher` /
   `brewlet.sh/launcher`) and may be omitted for vanilla `java`.
 - On every opted-in node, the provisioner materializes each declared JDK as a
-  **read-only, shared** root at:
+  **read-only, shared image root** at:
 
   ```
-  /opt/brewlet/jdks/<distribution>-<feature>/bin/java
+  /opt/brewlet/jdks/<distribution>-<feature>/
   ```
 
-- That exact path is what the shim's `selectJDK` resolves when a pod requests a
-  JDK. The operator/webhook validates descriptor requests, injects node affinity
+- The root contains the source image's complete userland plus
+  `.brewlet-java-home`, which records the JDK or jlink runtime location inside
+  that root. The shim uses the complete root as the sandbox filesystem and
+  bind-mounts the recorded Java home at the stable `/opt/jdk` path.
+- The inventory path is what the shim's `selectJDK` resolves when a pod requests
+  a JDK. The operator/webhook validates descriptor requests, injects node affinity
   for matching capability labels, and propagates the annotations onto the OCI
   runtime spec. The shim reads those annotations at launch; if `brewlet.sh/jdk` is
   absent it defaults to feature 21, selecting the lexically-first installed
@@ -121,31 +125,115 @@ kubectl get nodes \
 ## Installation: copy-from-image
 
 Brewlet obtains every JDK root **copy-from-image**: the provisioner pulls the
-vendor's official JDK image through the **host** containerd and copies the JDK tree
-onto the host `hostPath` — no package manager ever touches the host, and no vendor
-tarball endpoints need to be reachable. It requires the containerd socket mount
+vendor's official JDK image through the **host** containerd, mounts its unpacked
+root, and copies the complete userland onto the host `hostPath` — no package
+manager ever touches the host, and no vendor tarball endpoints need to be
+reachable. It requires the containerd socket and host mount namespace access
 (already wired into the DaemonSet).
 
 ```bash
 ctr --address /run/containerd/containerd.sock --namespace k8s.io image pull "$image"
-ctr run --rm --mount type=bind,src=/opt/brewlet/jdks/<dist>-<feature>,dst=/out,options=rbind:rw \
-   "$image" <name> cp -a /opt/java/openjdk/. /out/
+ctr --address /run/containerd/containerd.sock --namespace k8s.io images mount "$image" /tmp/jdk-root
+cp -a /tmp/jdk-root/. /opt/brewlet/jdks/<dist>-<feature>/
+ctr --address /run/containerd/containerd.sock --namespace k8s.io images unmount /tmp/jdk-root
 ```
 
-The curated distribution → image map:
+The built-in distribution → image map:
 
 | `distribution` | Image |
 |---|---|
 | `temurin` | `eclipse-temurin:<feature>` |
 | `microsoft` | `mcr.microsoft.com/openjdk/jdk:<feature>-ubuntu` |
 
-`temurin` and `microsoft` are the curated distributions; **only these two
-canonical names are accepted** and any other name fails fast. Adding a distribution
-(Corretto, Zulu, …) is a one-line image mapping in the provisioner. Pulls go by image
-reference, so mirror these images into your own registry for air-gapped clusters.
+`temurin` and `microsoft` are curated: their image and Java-home mappings are
+built into the provisioner. Pulls go by image reference, so mirror these images
+into your own registry for air-gapped clusters.
 
 Because images are content-addressable (pulled by digest through containerd), you
 get integrity end-to-end without a separate checksum step.
+
+### Custom distributions: Azul Zulu example
+
+A Kubernetes administrator can install any image-packaged JDK by declaring its
+fully qualified OCI image and the absolute Java-home path inside that image:
+
+```yaml
+apiVersion: node.brewlet.sh/v1alpha1
+kind: NodeProfile
+metadata:
+  name: zulu
+spec:
+  nodePool:
+    names: ["zulu-workers"]
+  jdks:
+    - distribution: zulu
+      feature: 21
+      source:
+        image: docker.io/library/azul-zulu:21
+        javaHome: /usr/lib/jvm/zulu21
+  rollout:
+    validate: true
+    containerdRestart: validated
+```
+
+The Docker Official `azul-zulu:21` image is multi-architecture and exposes
+`JAVA_HOME=/usr/lib/jvm/zulu21`. Brewlet pulls the platform matching each node,
+copies that root to `/opt/brewlet/jdks/zulu-21`, runs `java -version`, and only
+then advertises `brewlet.sh/jdk.zulu-21=true`.
+
+For production:
+
+1. Pin `source.image` by multi-architecture manifest digest.
+2. Verify the image covers every architecture in the selected node pool.
+3. Verify `source.javaHome/bin/java` exists in every platform variant.
+4. Add the source registry host to `spec.registry.mirrors` when nodes use an
+   internal mirror.
+
+Curated distributions must omit `source`; custom distributions must provide it.
+The distribution name becomes part of node labels and must be a lowercase
+DNS-1123 label.
+
+### Shared jlink runtimes
+
+A custom source may be a platform-owned **jlink runtime image** instead of a full
+vendor JDK. This preserves Brewlet's model: applications still ship only JARs,
+while one centrally patched runtime and module set is installed once per node
+pool. It does not support embedding a separate jlink runtime in each application
+artifact.
+
+For example, a platform team can build a runtime containing approved JDK modules
+and an organization module:
+
+```dockerfile
+FROM eclipse-temurin:21-jdk AS build
+COPY platform-modules/ /platform-modules/
+RUN jlink \
+    --module-path "$JAVA_HOME/jmods:/platform-modules" \
+    --add-modules java.base,java.logging,java.net.http,com.example.platform \
+    --strip-debug --no-man-pages --no-header-files --compress=zip-6 \
+    --output /runtime
+
+FROM debian:bookworm-slim
+COPY --from=build /runtime /opt/java/runtime
+```
+
+Publish each required architecture under one multi-architecture image reference,
+then configure the runtime exactly like another custom distribution:
+
+```yaml
+spec:
+  jdks:
+    - distribution: platform
+      feature: 21
+      source:
+        image: registry.example.com/java/platform-runtime@sha256:<manifest-digest>
+        javaHome: /opt/java/runtime
+```
+
+The final image must contain the operating-system loader and libraries needed by
+`javaHome/bin/java`; Brewlet uses its complete root as the sandbox userland. The
+image does not need `sh`, `cp`, or `tar`. Rebuild and roll out the shared image
+when its JDK patch level or centrally approved module set changes.
 
 There is no distribution-name aliasing and no `lts`/`latest` feature shortcut:
 the `<distribution>-<feature>` token is taken verbatim so the root path and the
@@ -196,10 +284,11 @@ For a *patch* within the same feature (e.g. `21.0.3 → 21.0.4`), re-provisionin
 root replaces the shared JDK installation; pods pick it up on their next restart. Because roots
 are read-only and shared, no per-pod pull/unpack happens.
 
-> **Idempotency.** The provisioner treats a root as present once
-> `<dist>-<feature>/bin/java` exists and skips it. To force a re-install of a patched
-> root, remove the existing directory on the node (or bump to a version that lands in
-> a different `<dist>-<feature>` path) before re-provisioning.
+> **Idempotency.** The provisioner treats a root as present once the Java home
+> recorded by `<dist>-<feature>/.brewlet-java-home` contains a runnable `bin/java`.
+> To force a re-install of a patched root, remove the existing directory on the
+> node (or bump to a version that lands in a different `<dist>-<feature>` path)
+> before re-provisioning.
 
 ---
 
@@ -214,8 +303,8 @@ as needed.
 
 ## Known limitations (PoC)
 
-- **Curated distributions are `temurin` and `microsoft`.** Others (Corretto, Zulu…)
-  need a one-line image mapping added to the provisioner.
+- Custom images must expose the same Java-home path on every architecture in the
+  selected node pool.
 - **A requested `<feature>` must be published as an image** by the chosen vendor for
   the node's architecture.
 - **containerd reload is `SIGHUP`.** On some distros a full `systemctl restart
