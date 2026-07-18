@@ -1,0 +1,68 @@
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap");
+
+:root {
+  --brewlet-coffee: #6f4e37;
+  --brewlet-coffee-dark: #553524;
+  --brewlet-coffee-deep: #3b241a;
+  --brewlet-k8s: #326ce5;
+  --brewlet-cream: #f5e6c8;
+  --brewlet-cream-soft: #fbf4e6;
+  --brewlet-ink: #2a1f18;
+  --brewlet-muted: #6b5d51;
+  --brewlet-line: #e7dcc9;
+  --brewlet-bg: #fffdf9;
+
+  --md-primary-fg-color: var(--brewlet-coffee);
+  --md-primary-fg-color--light: #8a6244;
+  --md-primary-fg-color--dark: var(--brewlet-coffee-dark);
+  --md-accent-fg-color: var(--brewlet-k8s);
+  --md-default-bg-color: var(--brewlet-bg);
+  --md-default-fg-color: var(--brewlet-ink);
+  --md-default-fg-color--light: var(--brewlet-muted);
+  --md-typeset-a-color: var(--brewlet-k8s);
+}
+
+body {
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+}
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4,
+.md-typeset h5,
+.md-typeset h6,
+.md-header__title,
+.md-nav__title {
+  font-family: "Bricolage Grotesque", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.md-header {
+  background: rgba(255, 253, 249, 0.9);
+  border-bottom: 1px solid var(--brewlet-line);
+  color: var(--brewlet-ink);
+}
+
+.md-header__button,
+.md-header__topic,
+.md-search__icon,
+.md-search__input::placeholder {
+  color: var(--brewlet-ink);
+}
+
+.md-tabs {
+  background: var(--brewlet-coffee-deep);
+}
+
+.md-sidebar,
+.md-nav,
+.md-nav__source,
+.md-search__form {
+  background: var(--brewlet-cream-soft);
+}
+
+.md-typeset code {
+  background: rgba(111, 78, 55, 0.09);
+  color: var(--brewlet-coffee-dark);
+  border-radius: 6px;
+}
