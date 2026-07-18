@@ -1,0 +1,3 @@
+fixtures/**/target/
+fixtures/spring-petclinic/.checkout/
+.DS_Store
