@@ -6,6 +6,8 @@ containerd Runtime v2 shim, and node provisioner.
 
 - [Brewlet specification](https://github.com/brewlet/specs)
 - [User documentation](https://github.com/brewlet/site)
+- [Kubernetes platform components](https://github.com/brewlet/kubernetes)
+- [Cross-repository integration tests](https://github.com/brewlet/integration-tests)
 
 ## Repository layout
 
@@ -18,8 +20,10 @@ containerd Runtime v2 shim, and node provisioner.
 | `shim/` | containerd Runtime v2 shim and portable bundle preparation |
 | `provisioner/` | Linux node-provisioner image and host installation entrypoint |
 
-The Kubernetes operator, deployment manifests, Helm charts, examples, and
-end-to-end suites live in their dedicated Brewlet organization repositories.
+The Kubernetes operator, deployment manifests, and Helm chart live in
+[`brewlet/kubernetes`](https://github.com/brewlet/kubernetes). Fixture applications
+and end-to-end suites live in
+[`brewlet/integration-tests`](https://github.com/brewlet/integration-tests).
 
 ## Requirements
 
