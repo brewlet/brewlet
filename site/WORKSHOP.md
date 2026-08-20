@@ -141,14 +141,24 @@ Run only the capability you want to inspect:
 ./integration-tests/e2e/run.sh --tier 13   # NodeProfile lifecycle
 ```
 
-For Maven publishing, install the plugin from the monorepo and use its goals from
-an application project:
+For a registry-free Maven smoke test, install the plugin from the monorepo and
+use the included demo application to build a local OCI image layout:
 
 ```bash
-(cd maven-plugin && mvn install)
-mvn package sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:push \
-  -Dbrewlet.image=registry.example.com/team/app:1.0.0
+mvn -f maven-plugin/pom.xml install
+mvn -f integration-tests/fixtures/demo-app/pom.xml package \
+  sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:config \
+  sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:build \
+  -Dbrewlet.image=demo/hello:maven-workshop
+
+test -f integration-tests/fixtures/demo-app/target/brewlet/jvm-config.json
+test -f integration-tests/fixtures/demo-app/target/brewlet/oci/index.json
 ```
+
+The second command builds `target/app.jar`, infers its `Main-Class`, writes the
+Brewlet launch config, and assembles a runnable multi-architecture OCI image
+without contacting a registry. Use the plugin's `push` goal instead of `build`
+when you have a real registry reference and credentials.
 
 ## 7. Validate changes
 
