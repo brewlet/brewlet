@@ -23,8 +23,8 @@
 # docs/runnable-image.md and SPECIFICATION.md §4.
 #
 # WHAT THIS TIER ASSERTS (beyond tier 9's serving/cgroup checks):
-#   (0) `ctr images unpack` of the runnable image SUCCEEDS — the exact operation
-#       that fails for a native artifact — so containerd/kubelet can use it.
+#   (0) containerd unpacks the runnable image successfully — explicitly through
+#       `ctr images unpack` on containerd 1.x or during import on containerd 2.x.
 #   (1) the pod's container `image:` is the brewlet artifact ref ITSELF (not a
 #       placeholder), and the pod reaches Ready — i.e. kubelet pulled/unpacked it.
 #   (2) the running JVM serves real Service traffic and is cgroup-aware.
@@ -145,11 +145,6 @@ tier12_runnable_image() {
   if ! node_schedulable "$T12_NODE"; then
     skip "tier12: runnable image pulled by kubelet" "only provisionable node ($T12_NODE) is unschedulable (NoSchedule taint); need an untainted worker node"; return 0
   fi
-  # This tier hinges on `ctr images unpack`; some trimmed containerd CLIs (e.g.
-  # Docker Desktop's node ctr) omit it. SKIP with a clear reason rather than FAIL.
-  if ! ctr_supports_unpack "$T12_NODE"; then
-    skip "tier12: runnable image pulled by kubelet" "node ctr on $T12_NODE lacks 'images unpack' (Docker Desktop containerd); need kind/CI"; return 0
-  fi
   local arch; arch="$(_t9_node_arch "$T12_NODE")"
   if [[ -z "$arch" ]]; then skip "tier12: runnable image pulled by kubelet" "unknown node arch"; return 0; fi
   info "tier12: node=$T12_NODE arch=$arch"
@@ -205,20 +200,31 @@ PY
       fail "tier12: import runnable image into node content store" "see $WORK/t12-import.log"; return 0
     fi
   fi
+  local cri_ref="$T12_REF"
+  if [[ "${T12_REF%%/*}" != *.* && "${T12_REF%%/*}" != *:* && "${T12_REF%%/*}" != "localhost" ]]; then
+    cri_ref="docker.io/$T12_REF"
+    docker exec "$T12_NODE" ctr -n k8s.io images tag "$T12_REF" "$cri_ref" >>"$WORK/t12-import.log" 2>&1 || true
+  fi
 
   # (0) THE decisive assertion: containerd can UNPACK the brewlet image — the
-  # operation that fails for a native artifact's custom media types. This is
-  # exactly what kubelet does on PullImage; doing it explicitly makes the
-  # imported image usable with imagePullPolicy: Never.
-  if docker exec "$T12_NODE" ctr -n k8s.io images unpack --platform "linux/$arch" "$T12_REF" >>"$WORK/t12-import.log" 2>&1; then
-    pass "tier12: containerd UNPACKED the brewlet image (standard tar+gzip layers) — the step that ImagePullBackOffs for a native artifact"
+  # operation that fails for a native artifact's custom media types. containerd
+  # 1.x exposes a separate unpack command; containerd 2.x unpacks during import
+  # by default and exposes --no-unpack only to opt out.
+  if ctr_supports_unpack "$T12_NODE"; then
+    if docker exec "$T12_NODE" ctr -n k8s.io images unpack --platform "linux/$arch" "$T12_REF" >>"$WORK/t12-import.log" 2>&1; then
+      pass "tier12: containerd UNPACKED the brewlet image (standard tar+gzip layers) — the step that ImagePullBackOffs for a native artifact"
+    else
+      fail "tier12: containerd unpack of the runnable image" "see $WORK/t12-import.log"; return 0
+    fi
+  elif docker exec "$T12_NODE" ctr -n k8s.io images import --help 2>/dev/null | grep -q -- "--no-unpack"; then
+    pass "tier12: containerd import UNPACKED the brewlet image by default (containerd 2.x)"
   else
-    fail "tier12: containerd unpack of the runnable image" "see $WORK/t12-import.log"; return 0
+    fail "tier12: containerd unpack capability" "node ctr supports neither explicit unpack nor import-time unpack"; return 0
   fi
-  if docker exec "$T12_NODE" ctr -n k8s.io images ls -q 2>/dev/null | grep -q "$T12_REF"; then
-    pass "tier12: runnable image present in the node's k8s.io content store ($T12_REF)"
+  if docker exec "$T12_NODE" crictl inspecti "$cri_ref" >/dev/null 2>&1; then
+    pass "tier12: runnable image registered with CRI ($cri_ref)"
   else
-    fail "tier12: runnable image registered with CRI" "image $T12_REF not in ctr images ls"
+    fail "tier12: runnable image registered with CRI" "image $cri_ref not available through crictl"; return 0
   fi
 
   # --- provision the node (reuse tier 9's generic helpers) ------------------

@@ -140,6 +140,9 @@ func TestPushRunnableImageIsKubeletPullable(t *testing.T) {
 	if len(imgCfg.RootFS.DiffIDs) != len(man.Layers) {
 		t.Fatalf("diff_ids = %d, want %d (one per layer)", len(imgCfg.RootFS.DiffIDs), len(man.Layers))
 	}
+	if len(imgCfg.Config.Entrypoint) != 1 || imgCfg.Config.Entrypoint[0] != "/brewlet" {
+		t.Fatalf("entrypoint = %v, want [/brewlet] placeholder for CRI", imgCfg.Config.Entrypoint)
+	}
 	for i, l := range man.Layers {
 		gz, err := s.ReadBlob(l.Digest)
 		if err != nil {

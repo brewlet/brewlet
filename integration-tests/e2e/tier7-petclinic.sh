@@ -208,10 +208,15 @@ tier7_petclinic() {
       elif ! docker info >/dev/null 2>&1; then
         skip "tier7: layered shim -> runc" "docker daemon not reachable"
       else
-        rm -rf "$WORK/oci"
-        cp -R "$lstore" "$WORK/oci"
+        # Use a fresh mount root instead of replacing the fat-JAR store path.
+        # Docker Desktop can retain the old directory inode across bind mounts.
+        local lrwork="$WORK/layered-runc"
+        rm -rf "$lrwork"
+        mkdir -p "$lrwork/bin"
+        cp "$WORK/bin/shim-linux" "$lrwork/bin/"
+        cp -R "$lstore" "$lrwork/oci"
         if out="$(docker run --rm --privileged --platform "linux/$arch" --cgroupns=private \
-          --memory=768m --cpus=1 -v "$WORK:/work" \
+          --memory=768m --cpus=1 -v "$lrwork:/work" \
           -v "$E2E_DIR/petclinic-layered-runc.sh:/runner.sh:ro" \
           eclipse-temurin:21 bash /runner.sh 2>&1)"; then
           printf '%s\n' "$out" >"$WORK/t7-petclinic-layered-runc.log"

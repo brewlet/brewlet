@@ -145,6 +145,27 @@ public class LocalStore {
         return manifestDesc;
     }
 
+    /** Writes a preassembled runnable image as a tagged OCI image-layout entry. */
+    public OciDescriptor pushRunnableImage(String ref, RunnableImageBuilder.Result image)
+            throws IOException {
+        for (RunnableImageBuilder.Blob blob : image.blobs) {
+            writeBlob(blob.data());
+        }
+        for (RunnableImageBuilder.Blob manifest : image.manifests) {
+            writeBlob(manifest.data());
+        }
+
+        OciDescriptor indexDesc = writeBlob(image.indexBytes);
+        indexDesc.setMediaType(MediaTypes.OCI_INDEX_MEDIA_TYPE);
+        indexDesc.setAnnotations(Map.of(MediaTypes.ANNOTATION_REF_NAME, ref));
+        upsertIndex(indexDesc);
+
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("oci-layout"),
+                "{\"imageLayoutVersion\":\"1.0.0\"}\n");
+        return indexDesc;
+    }
+
     private void upsertIndex(OciDescriptor newEntry) throws IOException {
         OciIndex idx = readIndex();
         List<OciDescriptor> manifests = idx.getManifests() == null

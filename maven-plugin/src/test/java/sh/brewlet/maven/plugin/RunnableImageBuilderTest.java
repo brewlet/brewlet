@@ -9,6 +9,7 @@ import sh.brewlet.maven.plugin.model.JvmConfig;
 import sh.brewlet.maven.plugin.oci.ArtifactLayer;
 import sh.brewlet.maven.plugin.oci.LocalStore;
 import sh.brewlet.maven.plugin.oci.MediaTypes;
+import sh.brewlet.maven.plugin.oci.OciDescriptor;
 import sh.brewlet.maven.plugin.oci.RunnableImageBuilder;
 import sh.brewlet.maven.plugin.util.TarWriter;
 
@@ -112,6 +113,14 @@ class RunnableImageBuilderTest {
         assertEquals(List.of("amd64", "arm64"), r.arches);
         assertEquals(2, r.manifests.size());
 
+        LocalStore store = new LocalStore(tmp.resolve("oci"));
+        OciDescriptor localIndex = store.pushRunnableImage("demo/orders:1.0.0", r);
+        assertEquals(r.indexDigest, localIndex.getDigest());
+        JsonNode layoutIndex = MAPPER.readTree(tmp.resolve("oci/index.json").toFile());
+        assertEquals("demo/orders:1.0.0",
+                layoutIndex.get("manifests").get(0).get("annotations")
+                        .get(MediaTypes.ANNOTATION_REF_NAME).asText());
+
         JsonNode idx = MAPPER.readTree(r.indexBytes);
         assertEquals(MediaTypes.OCI_INDEX_MEDIA_TYPE, idx.get("mediaType").asText());
         JsonNode idxManifests = idx.get("manifests");
@@ -154,6 +163,7 @@ class RunnableImageBuilderTest {
         String cfgDigest = man.get("config").get("digest").asText();
         byte[] cfgBytes = blobByDigest(r, cfgDigest);
         JsonNode imgCfg = MAPPER.readTree(cfgBytes);
+        assertEquals("/brewlet", imgCfg.get("config").get("Entrypoint").get(0).asText());
         JsonNode diffIds = imgCfg.get("rootfs").get("diff_ids");
         assertEquals(layers.size(), diffIds.size());
         for (int i = 0; i < layers.size(); i++) {

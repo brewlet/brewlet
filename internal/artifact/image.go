@@ -82,9 +82,10 @@ const (
 var defaultRunnableArches = []string{"amd64", "arm64"}
 
 // ociImageConfig is the minimal standard OCI image config blob a runnable image
-// needs so containerd recognizes it as an image and unpacks its layers. Brewlet
-// runs the JAR via the node JDK, so the config carries no real entrypoint — the
-// launch contract lives in the manifest's JVMConfigAnnotation.
+// needs so containerd recognizes it as an image and unpacks its layers. The
+// placeholder entrypoint satisfies CRI implementations that reject an empty
+// command; the Brewlet shim replaces it with the node-JDK launch contract from
+// the manifest's JVMConfigAnnotation.
 type ociImageConfig struct {
 	Architecture string       `json:"architecture"`
 	OS           string       `json:"os"`
@@ -216,8 +217,11 @@ func (s Store) writeRunnableManifest(arch, jvmConfigJSON string, layers []runnab
 	imgCfg := ociImageConfig{
 		Architecture: arch,
 		OS:           "linux",
-		Config:       ociRunConfig{Labels: map[string]string{"sh.brewlet.runnable": "true"}},
-		RootFS:       ociRootFS{Type: "layers", DiffIDs: diffIDs},
+		Config: ociRunConfig{
+			Entrypoint: []string{"/brewlet"},
+			Labels:     map[string]string{"sh.brewlet.runnable": "true"},
+		},
+		RootFS: ociRootFS{Type: "layers", DiffIDs: diffIDs},
 	}
 	cfgBytes, err := marshalIndent(imgCfg)
 	if err != nil {

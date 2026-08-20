@@ -9,10 +9,10 @@ import java.util.Map;
 /**
  * The minimal standard OCI image config blob
  * ({@code application/vnd.oci.image.config.v1+json}) a runnable image needs so
- * containerd recognizes it as an image and unpacks its layers. Brewlet runs the
- * JAR via the node-resident JDK, so the config carries no real entrypoint — the
- * launch contract lives in the manifest's {@code brewlet.sh/jvm-config}
- * annotation. Mirrors the Go {@code ociImageConfig} in
+ * containerd recognizes it as an image and unpacks its layers. The placeholder
+ * entrypoint satisfies CRI implementations that reject an empty command; the
+ * Brewlet shim replaces it with the launch contract from the manifest's
+ * {@code brewlet.sh/jvm-config} annotation. Mirrors the Go {@code ociImageConfig} in
  * {@code src/internal/artifact/image.go}.
  *
  * <p>The critical field is {@code rootfs.diff_ids}: these MUST be the sha256 of
@@ -54,15 +54,21 @@ public class OciImageConfig {
     public RootFs getRootfs() { return rootfs; }
     public void setRootfs(RootFs rootfs) { this.rootfs = rootfs; }
 
-    /** The container run config; Brewlet only carries identifying labels. */
+    /** The container run config; Brewlet replaces the placeholder entrypoint. */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class RunConfig {
+        @JsonProperty("Entrypoint")
+        private List<String> entrypoint = List.of("/brewlet");
+
         @JsonProperty("Labels")
         private Map<String, String> labels;
 
         public RunConfig() {}
 
         public RunConfig(Map<String, String> labels) { this.labels = labels; }
+
+        public List<String> getEntrypoint() { return entrypoint; }
+        public void setEntrypoint(List<String> entrypoint) { this.entrypoint = entrypoint; }
 
         public Map<String, String> getLabels() { return labels; }
         public void setLabels(Map<String, String> labels) { this.labels = labels; }
