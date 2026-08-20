@@ -13,9 +13,9 @@ failure-mode summary is from [SPECIFICATION §14](https://github.com/brewlet/bre
 | Requested launcher not installed | Pod stays `Pending`; event `NoCompatibleLauncher`; scheduler skips nodes | [→ launcher issues](#pod-is-pending-with-nocompatiblelauncher) |
 | OCI artifact missing/unauthorized | `ImagePull`-style failure on the pod | [→ artifact pull](#imagepull-style-failure) |
 | Signature/provenance verification fails | Admission denied (if policy enabled) with a clear reason | [Security](security.md) |
-| JVM OOM | `ExitOnOutOfMemoryError` → exit → kubelet restart | [→ OOM](#pod-restarts--oomkilled) |
+| JVM OOM | `ExitOnOutOfMemoryError` → exit → kubelet restart | [→ OOM](#pod-restarts-oomkilled) |
 | Node provisioning fails | Node not labeled `ready`; condition/event `ProvisionFailed` | [→ provisioning](#node-never-becomes-ready) |
-| Shim crash | containerd reports task failure; pod restarts | [→ shim](#task--shim-failures) |
+| Shim crash | containerd reports task failure; pod restarts | [→ shim](#task-shim-failures) |
 | cgroup v1-only node | Provisioner refuses; node not marked ready | [→ provisioning](#node-never-becomes-ready) |
 
 ---
@@ -110,7 +110,7 @@ annotation). See [Launchers](launchers.md#installing-jaz-on-nodes).
 
 - The heap likely has no non-heap headroom. Set
   `-XX:MaxRAMPercentage=75.0` (not 100%) so Metaspace/threads/code-cache/direct
-  buffers fit under `limits.memory`. See [Resource tuning](resource-tuning.md#memory--leave-headroom-for-non-heap).
+  buffers fit under `limits.memory`. See [Resource tuning](resource-tuning.md#memory-leave-headroom-for-non-heap).
 - Add `-XX:+ExitOnOutOfMemoryError` so an OOM is a clean restart, not a hang.
 - Or switch to `jaz`, which sizes the heap from the cgroup automatically.
 - Raise `limits.memory` if the workload genuinely needs more.
@@ -157,9 +157,9 @@ grep -A2 runtimes.brewlet /etc/containerd/config.toml
 
 ## Local PoC issues
 
-- **The harness cannot find a component checkout** — clone `brewlet/brewlet` and
-  `brewlet/kubernetes` beside `integration-tests`, or set `BREWLET_CORE_DIR` and
-  `BREWLET_KUBERNETES_DIR`.
+- **The harness cannot find a component directory** — run it from a complete
+  `brewlet/brewlet` monorepo checkout. For external component checkouts, set
+  `BREWLET_CORE_DIR` and `BREWLET_KUBERNETES_DIR`.
 - **Tier 2 cannot build a fixture** — check `JAVA_HOME` points at a full JDK 21+.
 - **Core or Kubernetes build fails** — Go 1.26+ is required.
 - **Tier 3 skips or fails before runc** — Docker must be installed and reachable;

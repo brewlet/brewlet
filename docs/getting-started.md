@@ -1,9 +1,8 @@
 # Getting started (local proof of concept)
 
-Brewlet is developed across separate repositories. The core repository contains
-the runtime code, the Kubernetes repository contains the control plane, and the
-integration-tests repository owns fixture applications and cross-component
-orchestration.
+Brewlet is developed in one monorepo. Runtime code lives at the root, the
+Kubernetes control plane lives in `kubernetes/`, and `integration-tests/` owns
+fixture applications and cross-component orchestration.
 
 This guide uses the integration harness so every command matches the same flow CI
 validates.
@@ -39,13 +38,12 @@ export BREWLET_CORE_DIR=/path/to/brewlet
 export BREWLET_KUBERNETES_DIR=/path/to/kubernetes
 ```
 
-It never changes component branches. Check out the revisions you want to test
-before running it; `CORE_REF` and `KUBERNETES_REF` are informational for local
-runs and select checkout refs in GitHub Actions.
+The harness never changes branches. When using external checkouts, select the
+desired revisions before running it.
 
 ## Layer 1: ship and run only a JAR
 
-From the workspace directory:
+From the repository root:
 
 ```bash
 ./integration-tests/e2e/run.sh --tier 2
@@ -53,7 +51,7 @@ From the workspace directory:
 
 Tier 2:
 
-1. Builds `brewlet` and `containerd-shim-brewlet-v2` from the core checkout.
+1. Builds `brewlet` and `containerd-shim-brewlet-v2` from the monorepo root.
 2. Builds the dependency-free Java fixture from `integration-tests/fixtures/`.
 3. Pushes only its JAR into a local OCI layout.
 4. Inspects and runs the artifact with the JDK from `JAVA_HOME`.
@@ -78,17 +76,16 @@ The shim assembles the OCI bundle and `runc` launches Java as PID 1 under a
 1-CPU, 384 MiB cgroup. The fixture reports the limits observed from inside the
 JVM. The same tier verifies both `java -jar` and JPMS module-path launches.
 
-## Build a component directly
+## Validate the monorepo
 
-Use each repository's own build from its root:
+Run all host-side checks from the repository root:
 
 ```bash
-(cd brewlet && make check)
-(cd kubernetes && make ci)
+make check-all
 ```
 
-These commands validate their respective repositories only. Use the integration
-harness whenever behavior crosses the core/Kubernetes boundary.
+Cluster-backed integration tiers are separate because they require Docker,
+kubectl, and a reachable cluster.
 
 ## Next steps
 

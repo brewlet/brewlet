@@ -37,15 +37,18 @@ own registry/digests in production. Build them from source with the
 ```bash
 git clone https://github.com/brewlet/brewlet.git
 cd brewlet
-cd kubernetes
-make operator-image-push      OPERATOR_IMAGE=<registry>/operator:<tag>
-make provisioner-image-push   PROVISIONER_IMAGE=<registry>/node-provisioner:<tag>
-make admission-image-push     ADMISSION_IMAGE=<registry>/admission:<tag>
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t <registry>/operator:<tag> --push kubernetes
+docker buildx build --platform linux/amd64,linux/arm64 \
+  --build-arg CMD=admission -t <registry>/admission:<tag> --push kubernetes
+make provisioner-image-push \
+  PROVISIONER_IMAGE=<registry>/node-provisioner:<tag>
 ```
 
-`*-image-push` targets build multi-arch (`linux/amd64,linux/arm64`) via `buildx`
-and require a logged-in registry. The provisioner image compiles the shim **inside**
-the build for each target arch, so the installed shim always matches the node.
+These commands build multi-arch (`linux/amd64,linux/arm64`) images via `buildx`
+and require a logged-in registry. The provisioner image compiles the shim
+**inside** the build for each target arch, so the installed shim always matches
+the node.
 
 ---
 
@@ -57,9 +60,7 @@ reconciles the provisioner DaemonSet and the `brewlet` RuntimeClass from the cha
 values — so there is a single runtime source of truth for the JDK/launcher inventory.
 
 ```bash
-cd kubernetes
-
-helm install brewlet ./charts/brewlet \
+helm install brewlet ./kubernetes/charts/brewlet \
   --set provisioner.jdks="temurin-21,microsoft-25" \
   --set provisioner.launchers="jaz"
 
@@ -77,7 +78,7 @@ kubectl get nodes -L brewlet.sh/runtime -w
 Point the chart at your own images if you built them:
 
 ```bash
-helm install brewlet ./charts/brewlet \
+helm install brewlet ./kubernetes/charts/brewlet \
   --set images.operator=<registry>/operator:<tag> \
   --set images.provisioner=<registry>/node-provisioner:<tag> \
   --set images.admission=<registry>/admission:<tag> \
@@ -88,8 +89,8 @@ Every value is documented in [Configuration](configuration.md#helm-chart-values)
 Lint / preview the rendered manifests before installing:
 
 ```bash
-make helm-lint        # helm lint charts/brewlet
-make helm-template    # render to stdout
+make -C kubernetes helm-lint
+make -C kubernetes helm-template
 ```
 
 ### Upgrading
@@ -99,9 +100,8 @@ upgrading an existing Brewlet installation to a release that adds custom JDK or
 jlink runtime sources, apply that release's `NodeProfile` CRD explicitly:
 
 ```bash
-cd kubernetes
-kubectl apply -f deploy/nodeprofile-crd.yaml
-helm upgrade brewlet ./charts/brewlet -f values.yaml
+kubectl apply -f kubernetes/deploy/nodeprofile-crd.yaml
+helm upgrade brewlet ./kubernetes/charts/brewlet -f values.yaml
 ```
 
 ### What the chart deploys vs. what the operator creates
@@ -119,14 +119,12 @@ helm upgrade brewlet ./charts/brewlet -f values.yaml
 If you'd rather not use Helm, apply the raw manifests and run the operator directly.
 
 ```bash
-cd kubernetes
-
 # 1. Namespace + provisioner ServiceAccount/RBAC (and, if you want to hand-wire it,
 #    the provisioner DaemonSet):
-kubectl apply -f deploy/node-provisioner.yaml
+kubectl apply -f kubernetes/deploy/node-provisioner.yaml
 
 # 2. The operator ServiceAccount + RBAC + Deployment:
-kubectl apply -f config/operator.yaml
+kubectl apply -f kubernetes/config/operator.yaml
 
 # 3. Opt nodes in. The standalone provisioner DaemonSet schedules onto nodes
 #    carrying this LABEL — it drives nodeAffinity, so it must be a label, not an
@@ -138,8 +136,8 @@ You can also run the operator locally against your current kubeconfig (useful fo
 debugging), passing the same inventory the chart would set:
 
 ```bash
-make operator-build
-./bin/operator \
+make -C kubernetes operator-build
+./kubernetes/bin/operator \
   --namespace=brewlet \
   --provisioner-image=<registry>/node-provisioner:<tag> \
   --jdks=temurin-21,microsoft-25 \
@@ -195,7 +193,7 @@ See [Troubleshooting](troubleshooting.md) if a node stays `Provisioning`/`Failed
 ## Smoke test with a workload
 
 ```bash
-kubectl apply -f deploy/raw-deployment.yaml
+kubectl apply -f kubernetes/deploy/raw-deployment.yaml
 kubectl get pods -l app=hello -w
 kubectl logs -l app=hello
 ```

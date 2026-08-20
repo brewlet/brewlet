@@ -326,7 +326,7 @@ Question #3 for the mixed case.
   (e.g. `--layer deps=./lib --thin`). Parsing a framework layering manifest such as
   Spring Boot's `layers.idx` is a **non-goal** (see [§10 Non-goals](#non-goals)); the
   generic classes/deps split does not need it — see the [PetClinic interop
-  walkthrough](spring-petclinic.md#mapping-any-frameworks-layered-output).
+  walkthrough](spring-petclinic.md#layered-classpath-delivery).
 - **Maven plugin.** *Implemented:* setting `<layered>true</layered>` (or
   `-Dbrewlet.layered=true`) packs the project's resolved transitive dependency tree
   (`project.getArtifacts()`, compile+runtime scope) into reproducible
@@ -393,7 +393,7 @@ Question #3 for the mixed case.
   plugin — supporting one would oblige it to support all. Brewlet's contract is the
   generic `classpath.layer.v1+tar` format; frameworks that emit layered output map onto
   it with generic, structural steps (see the
-  [PetClinic interop walkthrough](spring-petclinic.md#mapping-any-frameworks-layered-output)).
+  [PetClinic interop walkthrough](spring-petclinic.md#layered-classpath-delivery)).
 
 ---
 
@@ -424,13 +424,13 @@ in the PoC:
 | Unpack dependency tars to `/app/lib` (local run + runc bundle) | `AssembleSandbox` / `GenerateBundleWithLauncher` in `internal/runtime` |
 | Shim resolves dependency-layer blob paths (layout + containerd) | `shim/cmd/containerd-shim-brewlet-v2/{resolver,bundle_prepare}.go` |
 | CLI `push --classpath-layer TAR` (repeatable); `run`/`bundle` wire it | `cmd/brewlet/main.go` |
-| Maven plugin model parity (`Entry.classPath`, media-type constant) | [`brewlet/maven-plugin`](https://github.com/brewlet/brewlet/tree/main/maven-plugin): `src/main/java/sh/brewlet/maven/plugin/{model,oci}` |
-| Maven plugin **auto-splits the POM dependency tree** into reproducible `classpath.layer.v1+tar` layers (`brewlet.layered`) | [`brewlet/maven-plugin`](https://github.com/brewlet/brewlet/tree/main/maven-plugin): `src/main/java/sh/brewlet/maven/plugin/util` |
-| **Map a Spring Boot repackaged layered JAR onto generic classpath layers** (thin app JAR + per-group dependency layers, via structural steps — *no `layers.idx` parsing*) | [`brewlet/integration-tests`](https://github.com/brewlet/brewlet/blob/main/integration-tests/fixtures/spring-petclinic/layered-build.sh) fixture |
+| Maven plugin model parity (`Entry.classPath`, media-type constant) | [`maven-plugin/`](https://github.com/brewlet/brewlet/tree/main/maven-plugin): `src/main/java/sh/brewlet/maven/plugin/{model,oci}` |
+| Maven plugin **auto-splits the POM dependency tree** into reproducible `classpath.layer.v1+tar` layers (`brewlet.layered`) | [`maven-plugin/`](https://github.com/brewlet/brewlet/tree/main/maven-plugin): `src/main/java/sh/brewlet/maven/plugin/util` |
+| **Map a Spring Boot repackaged layered JAR onto generic classpath layers** (thin app JAR + per-group dependency layers, via structural steps — *no `layers.idx` parsing*) | [`integration-tests/`](https://github.com/brewlet/brewlet/blob/main/integration-tests/fixtures/spring-petclinic/layered-build.sh) fixture |
 
 Verified end-to-end: a thin `app.jar` (application classes only) loads a class from a
 dependency JAR delivered in a `classpath.layer.v1+tar` and unpacked to `/app/lib`.
-The [Spring PetClinic example](spring-petclinic.md#layered-classpath-redeploy-only-your-business-code)
+The [Spring PetClinic example](spring-petclinic.md#layered-classpath-delivery)
 additionally proves the value on a real ~63 MB app: rebuilding only the business code
 changes just the ~390 KB app-JAR layer while the dependency layer's digest is reused
 (deduped, not re-pushed), and the layered artifact runs through shim → runc as
@@ -441,7 +441,7 @@ changes just the ~390 KB app-JAR layer while the dependency layer's digest is re
 
 (The **mixed `-cp` + module-path form**, and pairing a `classpath.layer.v1+tar` with
 the JPMS `modulepath.layer.v1+tar` in a single artifact, now ship — see
-[JPMS support §6.3](jpms-support.md#63-mixed-class-path--module-path-implemented)
+[JPMS support §6.3](jpms-support.md#63-mixed-class-path-module-path-implemented)
 (`entry.mode: module` + `entry.classPath`, closing SPECIFICATION §16 Q3).)
 
 **Explicit non-goal:** parsing a framework layering manifest (Spring Boot's

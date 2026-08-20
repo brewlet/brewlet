@@ -71,7 +71,7 @@ with `--set key=value` or a values file.
 Example production install (own registry, no `jaz`):
 
 ```bash
-helm install brewlet ./charts/brewlet \
+helm install brewlet ./kubernetes/charts/brewlet \
   --set images.operator=registry.example.com/brewlet/operator@sha256:… \
   --set images.provisioner=registry.example.com/brewlet/node-provisioner@sha256:… \
   --set images.admission=registry.example.com/brewlet/admission@sha256:… \

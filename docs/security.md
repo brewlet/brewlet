@@ -69,7 +69,7 @@ Because the JAR is a first-class OCI artifact, standard supply-chain controls ap
 The single biggest security win: the JVM lives on the node, shared across workloads.
 **Patching the node JDK patches every workload at once** — no rebuilding and
 re-pushing hundreds of images to ship a JVM CVE fix. See
-[JDK management](jdk-management.md#patching--upgrading-jdks).
+[JDK management](jdk-management.md#patching-upgrading-jdks).
 
 ---
 

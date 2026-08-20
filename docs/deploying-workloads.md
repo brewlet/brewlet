@@ -116,12 +116,12 @@ manifest that a controller reconciles into a `Deployment` (+ `Service`, + option
 > [SPECIFICATION §8.2](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)) is implemented in the operator: apply
 > a `JavaApplication` and it manages the `Deployment` (+ `Service`, + optional
 > `HPA`) for you, garbage-collecting them when the descriptor is deleted. The
-> The `charts/brewlet` Helm chart in
-> [brewlet/kubernetes](https://github.com/brewlet/brewlet/tree/main/kubernetes) installs the CRD automatically.
+> [`kubernetes/charts/brewlet`](https://github.com/brewlet/brewlet/tree/main/kubernetes/charts/brewlet)
+> Helm chart installs the CRD automatically.
 
 ```bash
-kubectl apply -f deploy/javaapplication-crd.yaml
-kubectl apply -f deploy/sample-javaapplication.yaml
+kubectl apply -f kubernetes/deploy/javaapplication-crd.yaml
+kubectl apply -f kubernetes/deploy/sample-javaapplication.yaml
 ```
 
 ### Minimal example

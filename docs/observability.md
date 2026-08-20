@@ -95,7 +95,7 @@ standard `HorizontalPodAutoscaler`.
 
 JDK roots on nodes are **versioned and additive**. The upgrade choreography — add a
 new root, migrate workloads, retire the old root — is covered in detail in
-[JDK management → Patching & upgrading](jdk-management.md#patching--upgrading-jdks).
+[JDK management → Patching & upgrading](jdk-management.md#patching-upgrading-jdks).
 
 Key properties:
 

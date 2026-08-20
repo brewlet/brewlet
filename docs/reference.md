@@ -84,7 +84,7 @@ The Java application is an **OCI Artifact** (OCI Image Spec ≥ 1.1), not a runn
 | Optional layer | `application/vnd.brewlet.cds.layer.v1+jsa` | A single Application Class-Data Sharing archive (`.jsa`), mounted read-only at `/app/<archive>` and consumed with `-Xshare:auto -XX:SharedArchiveFile`; best-effort startup accelerator, see [AppCDS](appcds.md). |
 
 Push with `oras` using exactly these types — see
-[Building & publishing](building-and-publishing.md#option-b--oras-a-real-registry-today).
+[Building & publishing](building-and-publishing.md#option-b-oras-a-real-registry-today).
 
 ---
 

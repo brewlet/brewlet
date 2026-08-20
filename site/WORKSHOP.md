@@ -47,8 +47,8 @@ export BREWLET_CORE_DIR=/path/to/brewlet
 export BREWLET_KUBERNETES_DIR=/path/to/kubernetes
 ```
 
-The harness does not switch branches. Check out the desired revisions in each
-component repository before continuing.
+The harness does not switch branches. When using external component checkouts,
+select the desired revisions before continuing.
 
 ## 2. Prove the local developer flow
 
@@ -56,8 +56,8 @@ component repository before continuing.
 ./integration-tests/e2e/run.sh --tier 2
 ```
 
-Tier 2 builds the CLI and shim from `brewlet/brewlet`, builds fixture applications
-from `brewlet/integration-tests`, and proves:
+Tier 2 builds the CLI and shim from the monorepo root, builds fixture applications
+from `integration-tests/`, and proves:
 
 - JAR-only OCI push and inspection;
 - launch with the node JDK from `JAVA_HOME`;
@@ -74,8 +74,8 @@ find /tmp/brewlet-workshop -maxdepth 2 -type f
 ```
 
 **What to observe:** the application artifact contains application payload and
-launch metadata, not an OS or JDK. The local run uses the independently built core
-CLI with a fixture owned by the test repository.
+launch metadata, not an OS or JDK. The local run uses the core CLI with a fixture
+owned by the integration harness.
 
 ## 3. Exercise the real node mechanism
 
@@ -100,12 +100,12 @@ cluster-scoped resources:
 ./integration-tests/e2e/run.sh --reset --tier 4
 ```
 
-Tier 4 builds the operator from `brewlet/kubernetes`, installs the
+Tier 4 builds the operator from `kubernetes/`, installs the
 `JavaApplication` CRD, and verifies that a descriptor reconciles into a Deployment,
 Service, and HPA. It intentionally tests the control plane without requiring the
 node provisioner to mutate the host.
 
-Inspect the Kubernetes repository directly to see the owned APIs and manifests:
+Inspect the Kubernetes component directly to see the owned APIs and manifests:
 
 ```bash
 ls kubernetes/api kubernetes/cmd kubernetes/deploy kubernetes/charts/brewlet
@@ -121,8 +121,8 @@ Tier 7 owns the complete Spring PetClinic proof:
 
 - the pinned upstream build and layering scripts are in
   `integration-tests/fixtures/spring-petclinic/`;
-- the CLI and shim come from the selected core checkout;
-- the `JavaApplication` API and operator come from the selected Kubernetes checkout;
+- the CLI and shim come from the monorepo root;
+- the `JavaApplication` API and operator come from `kubernetes/`;
 - the deployment descriptor is
   `kubernetes/deploy/petclinic-javaapplication.yaml`.
 
@@ -175,8 +175,8 @@ you selected with `E2E_WORK` when finished.
 
 | Symptom | Resolution |
 |---|---|
-| Core checkout not found | Set `BREWLET_CORE_DIR` to a checkout containing `go.mod` and `cmd/brewlet`. |
-| Kubernetes checkout not found | Set `BREWLET_KUBERNETES_DIR` to a checkout containing `charts/brewlet/Chart.yaml`. |
+| Core directory not found | Use a complete monorepo checkout, or set `BREWLET_CORE_DIR` to an external checkout containing `go.mod` and `cmd/brewlet`. |
+| Kubernetes directory not found | Use the monorepo's `kubernetes/`, or set `BREWLET_KUBERNETES_DIR` to an external checkout containing `charts/brewlet/Chart.yaml`. |
 | Java tier skips | Point `JAVA_HOME` at a full JDK 21+ and add its `bin` directory to `PATH`. |
 | runc tier skips | Start Docker; the tier requires a privileged Linux container. |
 | Kubernetes tier fails after a prior run | Re-run with `--reset` before the selected tier. |

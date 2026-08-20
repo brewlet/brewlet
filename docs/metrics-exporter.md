@@ -5,7 +5,7 @@
 > wiring), so it still fleshes out the Phase 4 roadmap item *"metrics exporter"*
 > and the "the shim can export node-level per-sandbox JVM metrics *(roadmap)*" note
 > in [SPECIFICATION §12](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#12-networking-observability-day-2) /
-> [observability.md](observability.md#metrics--tracing). **One slice already
+> [observability.md](observability.md#metrics-tracing). **One slice already
 > ships:** the shim-side emission half of Option A — a best-effort
 > `brewlet_cds_archive_mapped` textfile written under `BREWLET_METRICS_DIR` on every
 > launch ([appcds.md §4.3](appcds.md), `internal/runtime/cds_metric.go`). Everything
@@ -17,7 +17,7 @@
 
 - **The app's own metrics already work — that's not what this is.** Micrometer, JMX,
   OpenTelemetry and JFR run unchanged inside the sandbox
-  ([observability.md](observability.md#metrics--tracing)); the app owns those. A
+  ([observability.md](observability.md#metrics-tracing)); the app owns those. A
   Brewlet metrics exporter is for the **runtime-level telemetry only Brewlet can
   see** — per-sandbox launch internals, node JDK inventory/patch age, and
   admission/scheduling outcomes.
@@ -100,7 +100,7 @@ patch age).
 
 Standardize on `brewlet_` prefix and consistent labels (`node`, `dist`, `feature`,
 `launcher`, `reason`, `phase`) drawn from the existing vocabulary in
-`brewlet/kubernetes/internal/brewlet/labels.go` so metrics line up with the annotations
+`kubernetes/internal/brewlet/labels.go` so metrics line up with the annotations
 operators already query in [observability.md](observability.md#watching-the-fleet).
 
 ---
@@ -175,7 +175,7 @@ compatible, are cold starts healthy, and how stale is my centrally-patched JDK?*
 - Brewlet: [SPECIFICATION §12](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#12-networking-observability-day-2),
   [observability.md](observability.md), [security.md](security.md),
   [appcds.md](appcds.md);
-  `brewlet/brewlet/shim/cmd/containerd-shim-brewlet-v2/service_linux.go`,
-  `brewlet/brewlet/provisioner/entrypoint.sh`,
-  `brewlet/kubernetes/internal/admission/webhook.go`,
-  `brewlet/kubernetes/internal/brewlet/labels.go`.
+  `shim/cmd/containerd-shim-brewlet-v2/service_linux.go`,
+  `provisioner/entrypoint.sh`,
+  `kubernetes/internal/admission/webhook.go`,
+  `kubernetes/internal/brewlet/labels.go`.

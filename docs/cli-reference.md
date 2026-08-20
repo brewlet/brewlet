@@ -2,7 +2,8 @@
 
 The `brewlet` CLI is the Phase‑0 PoC tool that proves the model: a developer ships
 **their Java application** — a fat JAR, plus optional classpath layers — as an OCI
-artifact and the node-resident JVM runs it (e.g. `java -jar`). Build it with `make build` (→ `./bin/brewlet`).
+artifact and the node-resident JVM runs it (e.g. `java -jar`). Build it with
+`make binaries` (producing `./bin/brewlet`).
 
 ```
 brewlet push    <jar> <ref> [flags]   publish a JAR as an OCI artifact
@@ -218,5 +219,5 @@ For `run`, the launched JVM's exit code propagates as the process exit status.
 
 - [Building & publishing](building-and-publishing.md) — the developer workflow.
 - [Getting started](getting-started.md) — integration-test tiers 2 and 3 exercise
-  these commands against a selected core checkout.
+  these commands against the monorepo source.
 - [Reference](reference.md) — media types, schema, and well-known paths.

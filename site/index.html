@@ -45,7 +45,7 @@
         <a href="#how">How it works</a>
         <a href="#proof">Proof</a>
         <a href="#compare">Compare</a>
-        <a href="#repositories">Repositories</a>
+        <a href="#repositories">Components</a>
         <a href="#faq">FAQ</a>
         <a href="/docs/">Docs</a>
         <a class="btn btn-ghost" href="https://github.com/brewlet">
@@ -366,13 +366,13 @@ $ curl orders:8080/info
       </div>
     </section>
 
-    <!-- REPOSITORIES -->
+    <!-- COMPONENTS -->
     <section class="section alt" id="repositories">
       <div class="container">
-        <h2 data-reveal>One project, focused repositories</h2>
+        <h2 data-reveal>One monorepo, focused components</h2>
         <p class="section-lede" data-reveal>
-          Brewlet is not a monorepo. Each component has its own release and build,
-          while the integration harness tests selected revisions together.
+          Runtime, Kubernetes, Maven, specifications, and integration tests share
+          one revision and coordinated CI. The website remains separately published.
         </p>
         <div class="cards">
           <a class="card" href="https://github.com/brewlet/brewlet" data-reveal>
@@ -393,7 +393,7 @@ $ curl orders:8080/info
           </a>
           <a class="card" href="https://github.com/brewlet/brewlet/tree/main/integration-tests" data-reveal>
             <h3>Integration tests</h3>
-            <p>Cross-repository test orchestration and fixture applications.</p>
+            <p>Cross-component test orchestration and fixture applications.</p>
           </a>
           <a class="card" href="https://github.com/brewlet/site" data-reveal>
             <h3>Site and docs</h3>
@@ -477,7 +477,7 @@ $ mvn package brewlet:push <span class="c-key">-Dbrewlet.image</span>=registry/a
         <h2>Because your Java app should just run. ☕</h2>
         <p>Push a JAR, schedule a pod, serve real traffic under cgroup limits. Explore it, run it, contribute.</p>
         <div class="hero-cta center">
-          <a class="btn btn-primary" href="https://github.com/brewlet">Explore the repositories</a>
+          <a class="btn btn-primary" href="https://github.com/brewlet">Explore Brewlet on GitHub</a>
           <a class="btn btn-ghost" href="https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md">Read the spec</a>
         </div>
       </div>

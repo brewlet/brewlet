@@ -117,7 +117,7 @@ later is incremental. This threads through the spec as follows.
 7. CRD: generic `Application` with `spec.runtime` (keep `JavaApplication` alias).
 8. CLI: `brewlet push` for .NET artifacts; MSBuild/`dotnet publish` helper (future).
 9. A demo .NET fixture and dedicated local/runc tiers in
-   `brewlet/integration-tests`.
+   `integration-tests/`.
 
 ## Open decisions & non-goals
 

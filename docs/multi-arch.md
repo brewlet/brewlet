@@ -48,7 +48,7 @@
 | **Artifact portability** | ✅ Bytecode JAR is arch-neutral; same artifact any arch | §12, [jdk-management](jdk-management.md#architecture-mapping-multi-arch) |
 | **Per-arch JDK install** | ✅ `ctr` copy-from-image auto-selects the node platform; `uname -m` → vendor token | `provisioner/entrypoint.sh` (`host_arch_oci`, `jdk_from_image`) |
 | **Per-node capability advertising** | ✅ JDK/launcher labels are per node, so arch is implicit in which node has which root | `labels.go`, provisioner `label_node` |
-| **Multi-arch component images** | ✅ buildx `provisioner-image-push` / `operator-image-push` / `admission-image-push` build `linux/amd64,linux/arm64` | `Makefile` |
+| **Multi-arch component images** | ✅ buildx produces `linux/amd64,linux/arm64` provisioner, operator, and admission images | Root and `kubernetes/` Dockerfiles |
 | **Shim/binary per arch** | ✅ compiled per-arch (`GOARCH`), baked into the per-arch provisioner image | `Makefile`, `provisioner/Dockerfile` |
 
 So for the **common case — a pure-bytecode JAR** — multi-arch is already done and
@@ -140,8 +140,9 @@ portability is preserved and no `arch` constraint is added.
 ## 5. Gap 3 — operator/build ergonomics
 
 - **Document the buildx flow** for cutting multi-arch component images
-  (`make provisioner-image-push operator-image-push admission-image-push`) and
-  recommend digest-pinned manifest-list refs in `values.yaml images:`.
+  (`make provisioner-image-push` for the provisioner and `docker buildx build`
+  against `kubernetes/` for operator/admission) and recommend digest-pinned
+  manifest-list refs in `values.yaml images:`.
 - **Heterogeneous JDK inventory across pools.** Multi-arch is orthogonal to *which*
   JDK feature is installed, but operators should keep the JDK feature set
   consistent across arches so a `jdk-feature.21` request is satisfiable on both —

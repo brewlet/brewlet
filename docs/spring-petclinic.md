@@ -3,15 +3,15 @@
 Spring PetClinic proves the Brewlet model with a real, dependency-heavy Spring
 Boot application rather than the dependency-free demo fixture.
 
-The example spans repositories:
+The example spans monorepo components:
 
 | Piece | Owner |
 |---|---|
 | Pinned upstream build and layering scripts | [`integration-tests/fixtures/spring-petclinic`](https://github.com/brewlet/brewlet/tree/main/integration-tests/fixtures/spring-petclinic) |
 | End-to-end orchestration | [`integration-tests/e2e/tier7-petclinic.sh`](https://github.com/brewlet/brewlet/blob/main/integration-tests/e2e/tier7-petclinic.sh) |
-| CLI and shim | [`brewlet/brewlet`](https://github.com/brewlet/brewlet) |
-| `JavaApplication` descriptor and operator | [`brewlet/kubernetes`](https://github.com/brewlet/brewlet/tree/main/kubernetes) |
-| Architecture contract | [`brewlet/specs`](https://github.com/brewlet/brewlet/tree/main/specs) |
+| CLI and shim | [monorepo root](https://github.com/brewlet/brewlet) |
+| `JavaApplication` descriptor and operator | [`kubernetes/`](https://github.com/brewlet/brewlet/tree/main/kubernetes) |
+| Architecture contract | [`specs/`](https://github.com/brewlet/brewlet/tree/main/specs) |
 
 Nothing about PetClinic is special to Brewlet. Its ordinary Spring Boot JAR is
 published as an OCI artifact and launched with `java -jar` on a node-resident JDK.
@@ -34,13 +34,13 @@ branches.
 
 Tier 7:
 
-1. Builds the CLI from the selected core checkout.
+1. Builds the CLI from the monorepo root.
 2. Uses the integration-test fixture to clone a pinned Spring PetClinic revision
    and build its fat JAR.
 3. Pushes and inspects only that JAR as an OCI artifact.
 4. Runs it through the core shim and `runc` under real cgroup limits when Docker
    is available.
-5. Builds the operator from the Kubernetes checkout and reconciles the PetClinic
+5. Builds the operator from `kubernetes/` and reconciles the PetClinic
    `JavaApplication` when a cluster is reachable.
 6. Splits the application into deterministic classpath layers and verifies that
    a business-code rebuild reuses the dependency layer.
@@ -50,10 +50,10 @@ failures in an exercised path fail the tier.
 
 ## Build and inspect the fixture manually
 
-From the workspace directory:
+From the repository root:
 
 ```bash
-export BREWLET_CORE_DIR="$PWD/brewlet"
+export BREWLET_CORE_DIR="$PWD"
 export FIXTURE_DIR="$PWD/integration-tests/fixtures/spring-petclinic"
 export WORK_DIR="$PWD/.brewlet-petclinic"
 mkdir -p "$WORK_DIR"
@@ -77,8 +77,8 @@ tuning remain deployment concerns and are not embedded in the artifact.
 
 ## Deploy with `JavaApplication`
 
-Publish to a registry reachable by your cluster, then use the descriptor owned by
-the Kubernetes repository:
+Publish to a registry reachable by your cluster, then use the descriptor in
+`kubernetes/`:
 
 ```bash
 "$WORK_DIR/brewlet" push \

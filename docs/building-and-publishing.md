@@ -224,7 +224,7 @@ cache behavior, and layer-ordering strategy.
 > can map that straight onto Brewlet's *generic* classpath layers with a few
 > structural steps — **Brewlet never parses `layers.idx` or any framework-specific
 > layering manifest**. The Spring PetClinic walkthrough works this through end to
-> end: [mapping any framework's layered output](spring-petclinic.md#mapping-any-frameworks-layered-output).
+> end: [mapping a framework's layered output](spring-petclinic.md#layered-classpath-delivery).
 
 ---
 
@@ -244,7 +244,7 @@ brewlet push ./target/app.jar registry.example.com/team/app:1.4.2
 
 > **PoC scope.** The reference CLI writes to a local **OCI layout** (`--store`,
 > default `./oci`) that stands in for a registry. In production, push to a real
-> registry with `oras` (below) or the [Maven plugin](#option-c--maven-plugin);
+> registry with `oras` (below) or the [Maven plugin](#option-c-maven-plugin);
 > a Gradle plugin is on the roadmap.
 
 Inspect what you built:
