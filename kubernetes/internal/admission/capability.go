@@ -1,5 +1,5 @@
 // Package admission implements the Brewlet pod admission/scheduling seam
-// (https://github.com/brewlet/specs). It is deliberately split into pure logic (this
+// (https://github.com/brewlet/brewlet/tree/main/specs). It is deliberately split into pure logic (this
 // file + mutate.go, unit-tested without a cluster) and a thin controller-runtime
 // webhook wrapper (webhook.go).
 package admission

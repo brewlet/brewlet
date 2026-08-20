@@ -2,7 +2,7 @@
 #
 # The real upstream Spring Boot app (spring-projects/spring-petclinic), shipped
 # as an OCI *artifact* (just the fat JAR — see the spring-petclinic fixture in
-# github.com/brewlet/integration-tests),
+# github.com/brewlet/brewlet/tree/main/integration-tests),
 # not a container image. The brewlet-operator expands this JavaApplication into a
 # Deployment (runtimeClassName: brewlet) + Service; the node-resident JDK runs it
 # with `java -jar`, sized by the cgroup limits below.

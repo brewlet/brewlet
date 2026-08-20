@@ -8,15 +8,6 @@ on:
   schedule:
     - cron: "30 6 * * *"
   workflow_dispatch:
-    inputs:
-      CORE_REF:
-        description: brewlet/brewlet ref to test
-        required: false
-        default: main
-      KUBERNETES_REF:
-        description: brewlet/kubernetes ref to test
-        required: false
-        default: main
 
 concurrency:
   group: e2e-${{ github.workflow }}-${{ github.ref }}
@@ -29,11 +20,6 @@ jobs:
   tiers:
     name: ${{ matrix.name }}
     runs-on: ubuntu-latest
-    env:
-      BREWLET_CORE_DIR: ${{ github.workspace }}/brewlet
-      BREWLET_KUBERNETES_DIR: ${{ github.workspace }}/kubernetes
-      CORE_REF: ${{ inputs.CORE_REF || 'main' }}
-      KUBERNETES_REF: ${{ inputs.KUBERNETES_REF || 'main' }}
     strategy:
       fail-fast: false
       matrix:
@@ -89,33 +75,14 @@ jobs:
             cluster: true
             helm: false
     steps:
-      - name: Check out integration harness
-        uses: actions/checkout@v7
-        with:
-          path: integration-tests
-
-      - name: Check out Brewlet core
-        uses: actions/checkout@v7
-        with:
-          repository: brewlet/brewlet
-          ref: ${{ env.CORE_REF }}
-          path: brewlet
-          token: ${{ secrets.BREWLET_REPOS_TOKEN || github.token }}
-
-      - name: Check out Brewlet Kubernetes
-        uses: actions/checkout@v7
-        with:
-          repository: brewlet/kubernetes
-          ref: ${{ env.KUBERNETES_REF }}
-          path: kubernetes
-          token: ${{ secrets.BREWLET_REPOS_TOKEN || github.token }}
+      - uses: actions/checkout@v7
 
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: brewlet/go.mod
+          go-version-file: go.mod
           cache-dependency-path: |
-            brewlet/go.sum
+            go.sum
             kubernetes/go.sum
 
       - name: Set up JDK

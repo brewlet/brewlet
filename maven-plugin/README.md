@@ -8,7 +8,7 @@ registry. By default it publishes a **runnable, kubelet-pullable OCI image** (a
 `-Dbrewlet.format=artifact` for the native Brewlet artifact instead (see
 [Delivery format](#delivery-format-native-artifact-vs-runnable-image)).
 
-The plugin wraps steps 2–3 of the [build & publish flow](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#43-build--publish-flow-developer-experience)
+The plugin wraps steps 2–3 of the [build & publish flow](../specs/SPECIFICATION.md#43-build--publish-flow-developer-experience)
 so you never touch `oras` or hand-author a `jvm-config.json`. It infers as much as
 possible (main class, framework, ports) from the project and the built JAR's
 manifest. JDK feature and launcher requests belong to the generated deployment
@@ -75,7 +75,7 @@ descriptor as part of the normal lifecycle.
 | `brewlet:build` | — | Assemble the OCI artifact into a local **OCI image-layout** dir (`target/brewlet/oci`) without pushing. Good for inspection, air-gapped flows, or local-registry tests. |
 | `brewlet:push` | `deploy` | Build and push to the registry in `<image>`. By default (`image` format) this pushes a **runnable OCI image** — a standard, kubelet-pullable image (see [Delivery format](#delivery-format-native-artifact-vs-runnable-image)). With `-Dbrewlet.format=artifact` it pushes the native Brewlet artifact instead (JAR layer + launch-config blob + manifest with `artifactType: application/vnd.brewlet.app.v1+json`). |
 | `brewlet:appcds` | — | Generate a dynamic AppCDS archive (`target/brewlet/app.jsa`) with a self-terminating fat-JAR training run. Attach it later with `-Dbrewlet.cdsArchive=...`. |
-| `brewlet:manifest` | — | Emit a `JavaApplication` CR (or raw `Deployment`) YAML compatible with the [Brewlet Kubernetes components](https://github.com/brewlet/kubernetes) to `target/brewlet/` for `kubectl apply`, including `spec.jvm.version` / `spec.jvm.launcher`. |
+| `brewlet:manifest` | — | Emit a `JavaApplication` CR (or raw `Deployment`) YAML compatible with the [Brewlet Kubernetes components](../kubernetes) to `target/brewlet/` for `kubectl apply`, including `spec.jvm.version` / `spec.jvm.launcher`. |
 | `brewlet:inspect` | — | Print the fully-resolved launch config and OCI descriptor that *would* be pushed — a dry run to verify inference. |
 
 Run any goal directly, e.g. `mvn brewlet:inspect`.

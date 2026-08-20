@@ -2,7 +2,7 @@
 
 - **Status:** Draft
 - **Target spec sections:** amend **§8.3** (webhook serving cert)
-- **Related code:** [`brewlet/kubernetes`](https://github.com/brewlet/kubernetes):
+- **Related code:** [`kubernetes/`](../../kubernetes):
   `charts/brewlet` (admission templates + values), `cmd/admission`
 - **Split from:** the original [0001 (node profiles)](0001-node-profiles.md) draft. A chart-only
   change, independent of the `NodeProfile` CRD (0001 §7 uses the webhook serving cert this provisions).

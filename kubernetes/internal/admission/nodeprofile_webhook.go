@@ -13,7 +13,7 @@ import (
 )
 
 // NodeProfileValidator is the controller-runtime admission handler that rejects
-// malformed NodeProfiles on CREATE/UPDATE (https://github.com/brewlet/specs): a non-empty
+// malformed NodeProfiles on CREATE/UPDATE (https://github.com/brewlet/brewlet/tree/main/specs): a non-empty
 // JDK list, only curated distributions, a valid containerdRestart value, and no
 // two profiles naming the same pool (ambiguous ownership). Catching these at
 // admission keeps the reconcile loop from defending against garbage and gives

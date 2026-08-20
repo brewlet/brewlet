@@ -2,7 +2,7 @@
 # brewlet-node-provisioner entrypoint.
 #
 # Runs as a privileged DaemonSet pod on nodes annotated brewlet.sh/provision=true
-# and performs the host-side installation described in https://github.com/brewlet/specs §5.2:
+# and performs the host-side installation described in https://github.com/brewlet/brewlet/tree/main/specs §5.2:
 #
 #   0. Preflight: require cgroup v2 (unified hierarchy); refuse the node otherwise.
 #   1. Install the shim binary into the host PATH (/opt/brewlet/bin + /usr/local/bin).
@@ -20,11 +20,11 @@
 # brewlet-cleanup DaemonSet the operator launches for a deleted NodeProfile.
 # In that mode it restores the containerd config backup, removes the shim,
 # and drops the brewlet runtime + capability labels/annotations from the node
-# (https://github.com/brewlet/specs/blob/main/proposals/0001-node-profiles.md §5.7), then idles so the operator can
+# (https://github.com/brewlet/brewlet/blob/main/specs/proposals/0001-node-profiles.md §5.7), then idles so the operator can
 # observe completion before removing the profile finalizer.
 #
 # NB: this is privileged and mutates the host. Only run it on nodes the platform
-# team controls (https://github.com/brewlet/specs §11).
+# team controls (https://github.com/brewlet/brewlet/tree/main/specs §11).
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
@@ -87,7 +87,7 @@ log()  { printf '[brewlet-provisioner] %s\n' "$*"; }
 # On a fatal error, record a machine-readable reason on the Node object
 # (brewlet.sh/provision-error) before exiting non-zero, so the operator's
 # NodeReconciler can flip the node to a Failed state instead of leaving it stuck
-# in Provisioning (https://github.com/brewlet/specs §14). Best-effort: never mask the original
+# in Provisioning (https://github.com/brewlet/brewlet/tree/main/specs §14). Best-effort: never mask the original
 # failure if annotating fails.
 die()  {
   printf '[brewlet-provisioner] ERROR: %s\n' "$*" >&2
@@ -206,7 +206,7 @@ host_exec() {
 # Modern container-aware JDKs read their heap/CPU limits directly from cgroup v2;
 # a cgroup v1-only (or hybrid) node cannot enforce §10 resource semantics. On such
 # a node the provisioner refuses and exits non-zero, so the node is NOT marked
-# ready (https://github.com/brewlet/specs §10, §14).
+# ready (https://github.com/brewlet/brewlet/tree/main/specs §10, §14).
 # ---------------------------------------------------------------------------
 require_cgroup_v2() {
   local mount="${CGROUP_ROOT:-/sys/fs/cgroup}"
@@ -224,7 +224,7 @@ require_cgroup_v2() {
     log "cgroup v2 filesystem detected at ${mount}"
     return 0
   fi
-  die "cgroup v2 is required but not active on this node (${mount} is '${fstype:-unknown}', with no ${mount}/cgroup.controllers). Brewlet refuses to provision cgroup v1-only nodes; the node will not be marked ready. See https://github.com/brewlet/specs §10/§14."
+  die "cgroup v2 is required but not active on this node (${mount} is '${fstype:-unknown}', with no ${mount}/cgroup.controllers). Brewlet refuses to provision cgroup v1-only nodes; the node will not be marked ready. See https://github.com/brewlet/brewlet/tree/main/specs §10/§14."
 }
 
 # ---------------------------------------------------------------------------
@@ -439,7 +439,7 @@ patch_containerd() {
 
   cat >>"$CONTAINERD_CONFIG" <<EOF
 
-# --- added by brewlet-node-provisioner (https://github.com/brewlet/specs §5.2) ---
+# --- added by brewlet-node-provisioner (https://github.com/brewlet/brewlet/tree/main/specs §5.2) ---
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.brewlet]
   runtime_type = "io.containerd.brewlet.v2"
   # Propagate the deployment-descriptor annotations the admission webhook stamps
@@ -584,7 +584,7 @@ label_node() {
   # scheduler skips incompatible nodes (annotations can't drive nodeAffinity).
   # For each JDK <dist>-<feature> we emit both an exact label and a
   # distribution-agnostic feature label; for each launcher (incl. built-in java)
-  # a presence label. See https://github.com/brewlet/specs §8/§14.
+  # a presence label. See https://github.com/brewlet/brewlet/tree/main/specs §8/§14.
   local caps=()
   for j in "${_jdks[@]}"; do
     [[ -n "$j" ]] || continue

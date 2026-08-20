@@ -212,7 +212,7 @@ oras push registry.example.com/team/app:1.4.2 \
 ```
 
 The `brewlet` CLI (`brewlet push ./target/app.jar registry.example.com/team/app:1.4.2`)
-and the [Brewlet Maven plugin](https://github.com/brewlet/maven-plugin) (`mvn brewlet:push`) wrap
+and the [Brewlet Maven plugin](../maven-plugin) (`mvn brewlet:push`) wrap
 steps 2–3 so developers never touch ORAS directly. A Gradle plugin is on the roadmap.
 
 ### 4.4 Runnable-image delivery mode (kubelet-pullable, the WASI-style pull path)
@@ -280,7 +280,7 @@ manage. To scope provisioning to specific pools instead, define named
 `NodeProfile`s or disable the default profile (`defaultProfile.enabled=false`,
 §5.6). The legacy per-node opt-in — a `brewlet.sh/provision=true` node **label**
 (not an annotation; it drives `nodeAffinity`) consumed by the standalone
-the [`deploy/node-provisioner.yaml`](https://github.com/brewlet/kubernetes/blob/main/deploy/node-provisioner.yaml)
+the [`deploy/node-provisioner.yaml`](../kubernetes/deploy/node-provisioner.yaml)
 DaemonSet — remains for the no-operator path (§5.5).
 
 ### 5.2 What the provisioner does on each opted-in node
@@ -432,7 +432,7 @@ a descriptor requesting a launcher the node lacks fails admission with
 The provisioner is **implemented** as a container image built from the
 [`provisioner/`](https://github.com/brewlet/brewlet/tree/main/provisioner)
 directory (`Dockerfile` + `entrypoint.sh`) and deployed by
-[`deploy/node-provisioner.yaml`](https://github.com/brewlet/kubernetes/blob/main/deploy/node-provisioner.yaml):
+[`deploy/node-provisioner.yaml`](../kubernetes/deploy/node-provisioner.yaml):
 
 - **Image** — a multi-stage build that first compiles `containerd-shim-brewlet-v2`
   from the [core runtime](https://github.com/brewlet/brewlet) for the target architecture
@@ -456,7 +456,7 @@ directory (`Dockerfile` + `entrypoint.sh`) and deployed by
 
 Node provisioning is driven by the **operator** (§8.1) and admission is handled
 by the **pod webhook** (§8.3) — both implemented. The whole set is packaged by
-the [`charts/brewlet`](https://github.com/brewlet/kubernetes/tree/main/charts/brewlet)
+the [`charts/brewlet`](../kubernetes/charts/brewlet)
 Helm chart (Phase 1).
 
 Operator reference for the provisioner (env-var interface, copy-from-image
@@ -520,7 +520,7 @@ spec:
   removed and the object garbage-collected.
 
 Sample manifests:
-[`deploy/sample-nodeprofile.yaml`](https://github.com/brewlet/kubernetes/blob/main/deploy/sample-nodeprofile.yaml);
+[`deploy/sample-nodeprofile.yaml`](../kubernetes/deploy/sample-nodeprofile.yaml);
 design detail in [`proposals/0001-node-profiles.md`](proposals/0001-node-profiles.md).
 
 ---
@@ -597,7 +597,7 @@ shim**: the `brewlet-admission` webhook (§8.3, implemented) stamps the
 `brewlet.sh/artifact-ref` and `brewlet.sh/artifact-digest` annotations onto pods
 using `runtimeClassName: brewlet`, so the shim can resolve the artifact from the
 content store. On non-Linux dev hosts only the portable bundle-assembly core builds locally;
-[integration-test tier 3](https://github.com/brewlet/integration-tests/blob/main/e2e/tier3-runc.sh)
+[integration-test tier 3](../integration-tests/e2e/tier3-runc.sh)
 exercises the real Linux/runc path against selected core and Kubernetes checkouts.
 
 ---
@@ -636,7 +636,7 @@ Two responsibilities, the first identical in spirit to `kwasm-operator`:
 - Surfaces node readiness/health and JDK inventory as conditions/events.
 
 > **Implementation status.** Built as a controller-runtime operator in
-> the [`brewlet/kubernetes`](https://github.com/brewlet/kubernetes)
+> the [`kubernetes/`](../kubernetes)
 > module (separate from the shim, to isolate client-go /
 > controller-runtime from the containerd-pinned deps). Two controllers split the
 > old monolith:
@@ -658,8 +658,8 @@ Two responsibilities, the first identical in spirit to `kwasm-operator`:
 >   failure. DaemonSet/RuntimeClass ownership moved to `NodeProfileReconciler`.
 >
 > RBAC + Deployment ship in
-> [`config/operator.yaml`](https://github.com/brewlet/kubernetes/blob/main/config/operator.yaml)
-> and the [`charts/brewlet`](https://github.com/brewlet/kubernetes/tree/main/charts/brewlet)
+> [`config/operator.yaml`](../kubernetes/config/operator.yaml)
+> and the [`charts/brewlet`](../kubernetes/charts/brewlet)
 > Helm chart. The `NoCompatibleJDK` / `NoCompatibleLauncher`
 > events are owned by the pod admission/scheduling webhook (§8.3, implemented);
 > the `JavaApplication` controller (§8.2) is implemented too.
@@ -686,7 +686,7 @@ as per deployment descriptor.”* The descriptor is the `JavaApplication`.
 > (`JAVA_TOOL_OPTIONS` on JDK 8), and reports
 > `readyReplicas` / `selectedJdk` / a `Ready` condition on status. The API types
 > live in `api/v1alpha1`; RBAC ships in `config/operator.yaml` and the
-> [`charts/brewlet`](https://github.com/brewlet/kubernetes/tree/main/charts/brewlet)
+> [`charts/brewlet`](../kubernetes/charts/brewlet)
 > Helm chart (which also installs the CRD).
 >
 > **Autoscaling (HPA).** When `spec.autoscaling.enabled` is `true`, the controller
@@ -724,10 +724,10 @@ launcher to `java`. `failurePolicy: Ignore`
 ensures a webhook outage never blocks workloads.
 
 > **Implementation status.** Built as a second binary in the operator module
-> ([`cmd/admission`](https://github.com/brewlet/kubernetes/tree/main/cmd/admission)
+> ([`cmd/admission`](../kubernetes/cmd/admission)
 > + pure, unit-tested logic in
 > `internal/admission`). Deployed — with a self-signed serving cert — by the
-> [`charts/brewlet`](https://github.com/brewlet/kubernetes/tree/main/charts/brewlet)
+> [`charts/brewlet`](../kubernetes/charts/brewlet)
 > Helm chart (`admission.enabled=true`).
 >
 > **NodeProfile validation.** The same binary also serves a *validating* webhook
@@ -998,15 +998,15 @@ caching and JVM features:
 **Phase 1 — KWasm parity (MVP) ✅ implemented**
 - Helm chart to package the operator + provisioner + RuntimeClass with `jdks:` /
   `launchers:` values (the KWasm-style `helm install` activation) —
-  [`charts/brewlet`](https://github.com/brewlet/kubernetes/tree/main/charts/brewlet).
+  [`charts/brewlet`](../kubernetes/charts/brewlet).
 - Pod admission/scheduling webhook: matches a pod's requested JDK/launcher against
   ready nodes (`NoCompatibleJDK` / `NoCompatibleLauncher`) and stamps the artifact
   ref/digest annotations the shim resolves —
-  [`cmd/admission`](https://github.com/brewlet/kubernetes/tree/main/cmd/admission)
+  [`cmd/admission`](../kubernetes/cmd/admission)
   (§8.3).
 - `kubectl logs/exec`, probes, Services — work unchanged because the shim runs a
   real runc task with the CRI-provided netns/cgroups (see
-  [`deploy/raw-deployment.yaml`](https://github.com/brewlet/kubernetes/blob/main/deploy/raw-deployment.yaml)).
+  [`deploy/raw-deployment.yaml`](../kubernetes/deploy/raw-deployment.yaml)).
 
 **Phase 2 — Developer ergonomics**
 - `JavaApplication` CRD + controller ✅ implemented (`JavaApplicationReconciler`,
@@ -1016,7 +1016,7 @@ caching and JVM features:
   `push` / `inspect` / `run` /
   `bundle` / `jdks`; see [CLI reference](https://github.com/brewlet/site/blob/main/docs/cli-reference.md)).
 - Brewlet **Maven plugin** ✅ implemented
-  ([`brewlet/maven-plugin`](https://github.com/brewlet/maven-plugin) — goals
+  ([`maven-plugin/`](../maven-plugin) — goals
   `config` / `build` / `push` / `manifest` / `inspect` (plus `appcds`, §13);
   wraps §4.3 steps 2–3 so
   developers never touch ORAS). Supports both delivery formats via

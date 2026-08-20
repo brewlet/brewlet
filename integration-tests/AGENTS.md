@@ -2,21 +2,16 @@
 
 ## Reliable invocation
 
-Use clean, externally managed component checkouts:
+Run against the monorepo checkout:
 
 ```bash
-export BREWLET_CORE_DIR=/path/to/brewlet
-export BREWLET_KUBERNETES_DIR=/path/to/kubernetes
-export CORE_REF="${CORE_REF:-main}"
-export KUBERNETES_REF="${KUBERNETES_REF:-main}"
-
-./e2e/run.sh --reset
-./e2e/run.sh
+integration-tests/e2e/run.sh --reset
+integration-tests/e2e/run.sh
 ```
 
-The harness does not switch component branches. Checkout the requested refs
-before running locally. GitHub Actions performs those checkouts from the
-`CORE_REF` and `KUBERNETES_REF` workflow-dispatch inputs.
+The harness does not switch branches or modify component sources. Override
+`BREWLET_CORE_DIR` or `BREWLET_KUBERNETES_DIR` only when testing an external
+checkout.
 
 ## Prerequisites
 
@@ -52,6 +47,5 @@ Common environment-specific skips:
   provisioned.
 - Tier 12 skips when the node's `ctr` lacks `images unpack`.
 
-Specifications and general project documentation belong in
-[brewlet/specs](https://github.com/brewlet/specs) and
-[brewlet/site](https://github.com/brewlet/site), not this repository.
+Specifications belong in `specs/`, and general project documentation belongs in
+[brewlet/site](https://github.com/brewlet/site), not this directory.

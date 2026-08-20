@@ -28,7 +28,7 @@ import (
 	kcruntime "github.com/brewlet/brewlet/internal/runtime"
 )
 
-// Node-level locations the provisioner (https://github.com/brewlet/specs §5.2) materializes on
+// Node-level locations the provisioner (https://github.com/brewlet/brewlet/tree/main/specs §5.2) materializes on
 // every opted-in node. Overridable via env for testing / non-standard layouts.
 const (
 	defaultJDKRootsDir      = "/opt/brewlet/jdks"
@@ -76,7 +76,7 @@ func init() {
 // brewletTaskService decorates containerd's runc-backed Task service. Every
 // method (State/Start/Kill/Delete/Exec/Wait/…) is delegated to the embedded
 // runc implementation, so `kubectl logs/exec`, probes, signals and Services all
-// behave exactly like an ordinary container (https://github.com/brewlet/specs §6.3). The one
+// behave exactly like an ordinary container (https://github.com/brewlet/brewlet/tree/main/specs §6.3). The one
 // Brewlet-specific step is Create(): before runc ever sees the bundle, we
 // disassemble the OCI artifact and rewrite the OCI spec into a `java -jar`
 // sandbox backed by the node-resident JDK.

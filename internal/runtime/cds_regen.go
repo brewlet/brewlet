@@ -23,7 +23,7 @@ import (
 // launch (mirroring -Xshare:auto's safe-fallback posture).
 const (
 	// DefaultCDSCacheDir is the node-local directory the regeneration cache lives
-	// in. The provisioner (https://github.com/brewlet/specs §5.2) creates it; entries are
+	// in. The provisioner (https://github.com/brewlet/brewlet/tree/main/specs §5.2) creates it; entries are
 	// per-(artifact-digest, JDK-build) `.jsa` files shared across sandboxes.
 	DefaultCDSCacheDir = "/opt/brewlet/cds"
 	// InSandboxCDSDir is where the shim/bundle bind-mounts the node cache dir

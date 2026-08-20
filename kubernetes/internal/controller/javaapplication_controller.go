@@ -23,7 +23,7 @@ import (
 )
 
 // JavaApplicationReconciler implements the brewlet-operator developer-ergonomics
-// controller (https://github.com/brewlet/specs). It reconciles each JavaApplication into
+// controller (https://github.com/brewlet/brewlet/tree/main/specs). It reconciles each JavaApplication into
 // a managed Deployment (runtimeClassName: brewlet) plus an optional Service and
 // HorizontalPodAutoscaler, owns them via controller references (so they are
 // garbage-collected with the JavaApplication), and reflects readiness on status.

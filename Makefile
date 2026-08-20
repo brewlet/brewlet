@@ -11,7 +11,7 @@ REGISTRY ?= ghcr.io/brewlet
 TAG ?= latest
 PROVISIONER_IMAGE ?= $(REGISTRY)/node-provisioner:$(TAG)
 
-.PHONY: build binaries test vet fmt-check check appcds-verify provisioner-image provisioner-image-push clean
+.PHONY: build binaries test vet fmt-check check check-all kubernetes-check maven-plugin-check e2e-host appcds-verify provisioner-image provisioner-image-push clean
 
 build: ## Build every package for the current platform
 	go build ./...
@@ -37,6 +37,17 @@ fmt-check: ## Fail when tracked Go source is not gofmt-formatted
 	fi
 
 check: fmt-check vet build test ## Run all CI checks
+
+kubernetes-check: ## Run Kubernetes platform CI checks
+	$(MAKE) -C kubernetes ci
+
+maven-plugin-check: ## Run Maven plugin tests
+	mvn -B --no-transfer-progress -f maven-plugin/pom.xml verify
+
+e2e-host: ## Run host-only end-to-end tiers
+	integration-tests/e2e/run.sh --tier 1 --tier 2
+
+check-all: check kubernetes-check maven-plugin-check e2e-host ## Validate all components that do not require a cluster
 
 appcds-verify: ## Run the AppCDS JDK integration test (requires a full JDK 17+)
 	go test -v -run TestAppCDSTrainThenMapIntegration ./internal/runtime/

@@ -3,7 +3,7 @@
 - **Status:** Partially implemented
 - **Target spec sections:** amend **§5.2** (steps 4–5) + **§14** (failure modes)
 - **Related code:** [`brewlet/brewlet`](https://github.com/brewlet/brewlet):
-  `provisioner/entrypoint.sh`; [`brewlet/kubernetes`](https://github.com/brewlet/kubernetes):
+  `provisioner/entrypoint.sh`; [`kubernetes/`](../../kubernetes):
   `internal/controller` (node lifecycle) and `internal/brewlet`
   (labels/annotations vocabulary)
 - **Split from:** the original [0001 (node profiles)](0001-node-profiles.md) draft. This is

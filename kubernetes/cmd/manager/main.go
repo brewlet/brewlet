@@ -1,5 +1,5 @@
 // Command manager runs the brewlet-operator node lifecycle controller
-// (https://github.com/brewlet/specs): it watches nodes opted into provisioning,
+// (https://github.com/brewlet/brewlet/tree/main/specs): it watches nodes opted into provisioning,
 // brewlet-node-provisioner DaemonSet and the brewlet RuntimeClass, and surfaces
 // each node's provisioning state via annotations and events.
 package main

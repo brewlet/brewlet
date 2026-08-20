@@ -1,4 +1,4 @@
-# Sample NodeProfile manifests. See https://github.com/brewlet/specs.
+# Sample NodeProfile manifests. See https://github.com/brewlet/brewlet/tree/main/specs.
 #
 # A NodeProfile binds a node pool to a JDK/launcher inventory. Selecting a pool
 # IS the opt-in: every node in the pool — present and future — is provisioned by

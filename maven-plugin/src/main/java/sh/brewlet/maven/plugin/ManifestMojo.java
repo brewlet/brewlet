@@ -21,7 +21,7 @@ import java.util.List;
  * {@code kubectl apply -f target/brewlet/javaapplication.yaml}.
  *
  * <p>The generated CR uses the JavaApplication schema and examples maintained in
- * https://github.com/brewlet/kubernetes.
+ * https://github.com/brewlet/brewlet/tree/main/kubernetes.
  *
  * <p>Example:
  * <pre>

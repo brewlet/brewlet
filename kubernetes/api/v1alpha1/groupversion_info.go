@@ -1,5 +1,5 @@
 // Package v1alpha1 contains the Go API types for the apps.brewlet.sh/v1alpha1
-// group — currently the JavaApplication CRD (https://github.com/brewlet/specs), the
+// group — currently the JavaApplication CRD (https://github.com/brewlet/brewlet/tree/main/specs), the
 // developer-facing "deployment descriptor" reconciled by the JavaApplication
 // controller. The wire schema mirrors deploy/javaapplication-crd.yaml.
 package v1alpha1

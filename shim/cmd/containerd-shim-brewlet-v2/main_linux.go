@@ -41,7 +41,7 @@ import (
 )
 
 // runtimeName matches the containerd runtime the provisioner wires into
-// /etc/containerd/config.toml (https://github.com/brewlet/specs §5.2) and the RuntimeClass
+// /etc/containerd/config.toml (https://github.com/brewlet/brewlet/tree/main/specs §5.2) and the RuntimeClass
 // handler (§7).
 const runtimeName = "io.containerd.brewlet.v2"
 

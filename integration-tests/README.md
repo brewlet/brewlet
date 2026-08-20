@@ -1,41 +1,28 @@
 # Brewlet integration tests
 
-Cross-repository end-to-end harness for the Brewlet project. This repository owns
-only test orchestration and fixture applications; production code, Kubernetes
-manifests, Helm charts, specifications, and general documentation remain in their
-component repositories:
-
-- [brewlet/brewlet](https://github.com/brewlet/brewlet) - CLI, artifact runtime,
-  containerd shim, and node provisioner
-- [brewlet/kubernetes](https://github.com/brewlet/kubernetes) - operator,
-  admission webhooks, manifests, and Helm chart
-- [brewlet/specs](https://github.com/brewlet/specs) - specifications and proposals
-- [brewlet/site](https://github.com/brewlet/site) - project documentation and site
+Cross-component end-to-end harness for the Brewlet monorepo. This directory owns
+test orchestration and fixture applications. Production code, Kubernetes
+manifests, and specifications remain in their owning monorepo directories.
 
 ## Layout
 
 ```text
 e2e/       runner, reset helper, shared library, and tiers 1-14
 fixtures/  repository-owned Java demo applications and PetClinic build fixture
-.github/   cross-repository GitHub Actions matrix
+.github/   repository-wide GitHub Actions workflows
 ```
 
 ## Checkouts
 
-The harness never clones or modifies component repositories. Point it at existing
-checkouts:
+From the repository root, run:
 
 ```bash
-export BREWLET_CORE_DIR=/path/to/brewlet
-export BREWLET_KUBERNETES_DIR=/path/to/kubernetes
-./e2e/run.sh --tier 1 --tier 2
+integration-tests/e2e/run.sh --tier 1 --tier 2
 ```
 
-If the variables are unset, `e2e/run.sh` looks for sibling directories named
-`brewlet` and `kubernetes`. Missing or invalid checkouts produce an actionable
-error. `CORE_REF` and `KUBERNETES_REF` default to `main`; locally they document
-which externally checked-out revisions are under test, while workflow dispatch
-uses them to select checkout refs.
+The harness defaults to the monorepo root and `kubernetes/`. The
+`BREWLET_CORE_DIR` and `BREWLET_KUBERNETES_DIR` overrides remain available for
+testing external checkouts.
 
 ## Running
 

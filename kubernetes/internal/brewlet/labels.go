@@ -1,7 +1,7 @@
 // Package brewlet holds the label/annotation vocabulary shared across the
 // brewlet-operator controllers. These keys are the contract between the node
 // provisioner (which sets them, see src/provisioner) and the operator (which
-// reads them) — keep them in sync with https://github.com/brewlet/specs.
+// reads them) — keep them in sync with https://github.com/brewlet/brewlet/tree/main/specs.
 package brewlet
 
 const (
@@ -170,7 +170,7 @@ const (
 	ProvisionerAppLabel = "brewlet-node-provisioner"
 )
 
-// Event reasons the operator records (see https://github.com/brewlet/specs).
+// Event reasons the operator records (see https://github.com/brewlet/brewlet/tree/main/specs).
 const (
 	// ReasonProvisioning — the operator has requested provisioning for a node.
 	ReasonProvisioning = "Provisioning"

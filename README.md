@@ -1,13 +1,11 @@
-# Brewlet core runtime
+# Brewlet
 
 Brewlet runs Java applications packaged as OCI artifacts with a node-resident
-JDK. This repository contains the core CLI, OCI artifact implementation,
-containerd Runtime v2 shim, and node provisioner.
+JDK. This monorepo contains the runtime, Kubernetes platform, Maven plugin,
+specification, and end-to-end tests.
 
-- [Brewlet specification](https://github.com/brewlet/specs)
+- [Brewlet specification](specs/SPECIFICATION.md)
 - [User documentation](https://github.com/brewlet/site)
-- [Kubernetes platform components](https://github.com/brewlet/kubernetes)
-- [Cross-repository integration tests](https://github.com/brewlet/integration-tests)
 
 ## Repository layout
 
@@ -19,11 +17,10 @@ containerd Runtime v2 shim, and node provisioner.
 | `internal/runtime/` | JVM launch configuration and OCI bundle assembly |
 | `shim/` | containerd Runtime v2 shim and portable bundle preparation |
 | `provisioner/` | Linux node-provisioner image and host installation entrypoint |
-
-The Kubernetes operator, deployment manifests, and Helm chart live in
-[`brewlet/kubernetes`](https://github.com/brewlet/kubernetes). Fixture applications
-and end-to-end suites live in
-[`brewlet/integration-tests`](https://github.com/brewlet/integration-tests).
+| `kubernetes/` | Operator, admission webhooks, CRDs, manifests, and Helm chart |
+| `maven-plugin/` | Maven build and OCI publishing integration |
+| `specs/` | Architecture, compatibility contracts, and proposals |
+| `integration-tests/` | End-to-end harness and fixture applications |
 
 ## Requirements
 
@@ -37,12 +34,11 @@ platforms, the portable bundle-assembly implementation is built instead.
 ## Build and test
 
 ```bash
-make build
-make test
-make check
+make check-all
 ```
 
-`make check` runs the same formatting, vet, build, and race-test checks as CI.
+`make check-all` validates the core runtime, Kubernetes platform, Maven plugin,
+and host-only integration tiers. Run `make check` for the core runtime alone.
 The AppCDS integration test automatically skips when a suitable JDK is not
 available.
 

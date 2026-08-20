@@ -38,7 +38,7 @@ spec:
               required: [jdks]
               description: |
                 Binds a node pool to a JDK/launcher inventory. See
-                https://github.com/brewlet/specs.
+                https://github.com/brewlet/brewlet/tree/main/specs.
                 Selecting a pool IS the opt-in — every node in the pool, present and
                 future, is provisioned.
               properties:

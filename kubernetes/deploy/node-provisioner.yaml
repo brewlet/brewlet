@@ -2,7 +2,7 @@
 # brewlet.sh/provision=true (a label — it drives the nodeAffinity below), installs
 # the shim binary + one or more JDK runtime roots + optional launcher layers (e.g.
 # jaz), registers the containerd runtime, and labels the node ready. See
-# See https://github.com/brewlet/specs.
+# See https://github.com/brewlet/brewlet/tree/main/specs.
 #
 # NOTE: provisioning is privileged and mutates the host.
 # Do not apply on a shared/hostile cluster.

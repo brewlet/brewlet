@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-// Media types that define the Brewlet application artifact (see https://github.com/brewlet/specs §4).
+// Media types that define the Brewlet application artifact (see https://github.com/brewlet/brewlet/tree/main/specs §4).
 const (
 	ArtifactType      = "application/vnd.brewlet.app.v1+json"
 	ConfigMediaType   = "application/vnd.brewlet.jvm.config.v1+json"

@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 jobs:
-  go:
+  core:
     name: Go core runtime
     runs-on: ubuntu-latest
     steps:
@@ -46,3 +46,71 @@ jobs:
 
       - name: Test
         run: go test -race ./...
+
+  kubernetes:
+    name: Go Kubernetes platform
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kubernetes
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: kubernetes/go.mod
+          cache-dependency-path: kubernetes/go.sum
+
+      - name: Verify formatting
+        run: make fmt-check
+
+      - name: Vet
+        run: make vet
+
+      - name: Build
+        run: make build
+
+      - name: Set up envtest control plane
+        run: |
+          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.19
+          setup_envtest="$(go env GOPATH)/bin/setup-envtest"
+          echo "KUBEBUILDER_ASSETS=$("$setup_envtest" use 1.31.0 -p path)" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: make test
+
+  helm:
+    name: Helm chart
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kubernetes
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.1
+
+      - name: Lint and render chart
+        run: make helm-check
+
+  maven-plugin:
+    name: Maven plugin
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: maven-plugin
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: maven-plugin/pom.xml
+
+      - name: Build and test
+        run: mvn -B --no-transfer-progress verify

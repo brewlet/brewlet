@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// NodeProfileReconciler reconciles NodeProfiles (https://github.com/brewlet/specs,
+// NodeProfileReconciler reconciles NodeProfiles (https://github.com/brewlet/brewlet/tree/main/specs,
 // 0001): it ensures the cluster-singleton brewlet RuntimeClass and one
 // provisioner DaemonSet per profile (nodeAffinity selected on the resolved node
 // pool), reflects assigned/ready node counts on status, and — via the

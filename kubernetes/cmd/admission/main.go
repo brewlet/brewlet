@@ -1,5 +1,5 @@
 // Command admission runs the brewlet pod admission/scheduling webhook
-// (https://github.com/brewlet/specs). It intercepts pods on CREATE, stamps the
+// (https://github.com/brewlet/brewlet/tree/main/specs). It intercepts pods on CREATE, stamps the
 // brewlet.sh/artifact-ref + artifact-digest annotations the shim resolves,
 // validates any requested JDK/launcher against the ready node fleet
 // (NoCompatibleJDK / NoCompatibleLauncher), and injects nodeAffinity so the

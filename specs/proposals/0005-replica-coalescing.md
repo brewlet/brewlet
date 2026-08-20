@@ -2,7 +2,7 @@
 
 - **Status:** Draft
 - **Target spec sections:** amend **§8.2**, **§9**, and **§10**
-- **Related code:** [`brewlet/kubernetes`](https://github.com/brewlet/kubernetes):
+- **Related code:** [`kubernetes/`](../../kubernetes):
   `api/v1alpha1`, `internal/controller`
 
 > Enhancement proposal (KEP-style). This proposal introduces an opt-in capacity

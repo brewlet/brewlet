@@ -1,4 +1,4 @@
-# JavaApplication CRD. See https://github.com/brewlet/specs.
+# JavaApplication CRD. See https://github.com/brewlet/brewlet/tree/main/specs.
 # Helm installs files under crds/ before the templated release.
 # Keep in sync with deploy/javaapplication-crd.yaml.
 apiVersion: apiextensions.k8s.io/v1

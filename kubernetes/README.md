@@ -1,6 +1,6 @@
 # Brewlet Kubernetes platform
 
-[![CI](https://github.com/brewlet/kubernetes/actions/workflows/ci.yml/badge.svg)](https://github.com/brewlet/kubernetes/actions/workflows/ci.yml)
+[![CI](https://github.com/brewlet/brewlet/actions/workflows/ci.yml/badge.svg)](https://github.com/brewlet/brewlet/actions/workflows/ci.yml)
 [![License](https://img.shields.io/github/license/brewlet/kubernetes)](./LICENSE)
 
 This repository contains the Kubernetes-facing components of
@@ -12,10 +12,9 @@ This repository contains the Kubernetes-facing components of
 - raw Kubernetes deployment manifests; and
 - the Brewlet Helm chart.
 
-The runtime shim and node provisioner source live in
-[`brewlet/brewlet`](https://github.com/brewlet/brewlet). Architecture and API
-specifications live in [`brewlet/specs`](https://github.com/brewlet/specs), and
-the user documentation lives in [`brewlet/site`](https://github.com/brewlet/site).
+The runtime shim and node provisioner source live at the repository root.
+Architecture and API specifications live in [`specs/`](../specs), and the user
+documentation lives in [`brewlet/site`](https://github.com/brewlet/site).
 
 ## Install with Helm
 

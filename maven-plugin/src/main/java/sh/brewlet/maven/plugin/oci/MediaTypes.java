@@ -71,7 +71,7 @@ public final class MediaTypes {
     // launch contract rides in the JVM_CONFIG_ANNOTATION manifest annotation and
     // each layer's Brewlet role rides in the LAYER_ROLE_ANNOTATION. See
     // https://github.com/brewlet/site/blob/main/docs/runnable-image.md and
-    // https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#44-oci-artifact-format.
+    // https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#44-oci-artifact-format.
     // -----------------------------------------------------------------------
 
     /** Standard OCI image config v1 media type (the runnable-image config blob). */

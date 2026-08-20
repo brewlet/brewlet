@@ -18,7 +18,7 @@
 // contract from the manifest's `brewlet.sh/jvm-config` annotation and runs it on
 // the node-resident JDK exactly as for a native artifact. This is what lets a
 // `runtimeClassName: brewlet` pod set `image: <ref>` and Just Work, like a
-// `runtimeClassName: wasmtime` pod does for a Wasm module. See https://github.com/brewlet/specs
+// `runtimeClassName: wasmtime` pod does for a Wasm module. See https://github.com/brewlet/brewlet/tree/main/specs
 // §4 and https://github.com/brewlet/site/blob/main/docs/runnable-image.md.
 package artifact
 

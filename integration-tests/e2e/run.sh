@@ -21,6 +21,7 @@ set -uo pipefail
 
 E2E_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$E2E_DIR/.." && pwd)"
+MONOREPO_DIR="$(cd "$REPO_DIR/.." && pwd)"
 FIXTURES_DIR="$REPO_DIR/fixtures"
 WORK="${E2E_WORK:-$(mktemp -d -t brewlet-e2e-XXXX)}"
 mkdir -p "$WORK"
@@ -35,11 +36,11 @@ for arg in "$@"; do
 done
 
 resolve_component_dir() {
-  local env_name="$1" sibling="$2" marker="$3" value="${!1:-}" candidate
+  local env_name="$1" default_dir="$2" sibling="$3" marker="$4" value="${!1:-}" candidate
   if [[ -n "$value" ]]; then
     candidate="$value"
   else
-    for candidate in "$REPO_DIR/../$sibling" "$REPO_DIR/../../$sibling"; do
+    for candidate in "$default_dir" "$REPO_DIR/../$sibling" "$REPO_DIR/../../$sibling"; do
       [[ -e "$candidate/$marker" ]] && break
       candidate=""
     done
@@ -53,10 +54,8 @@ resolve_component_dir() {
   (cd "$candidate" && pwd)
 }
 
-BREWLET_CORE_DIR="$(resolve_component_dir BREWLET_CORE_DIR brewlet go.mod)" || exit 2
-BREWLET_KUBERNETES_DIR="$(resolve_component_dir BREWLET_KUBERNETES_DIR kubernetes charts/brewlet/Chart.yaml)" || exit 2
-CORE_REF="${CORE_REF:-main}"
-KUBERNETES_REF="${KUBERNETES_REF:-main}"
+BREWLET_CORE_DIR="$(resolve_component_dir BREWLET_CORE_DIR "$MONOREPO_DIR" brewlet go.mod)" || exit 2
+BREWLET_KUBERNETES_DIR="$(resolve_component_dir BREWLET_KUBERNETES_DIR "$MONOREPO_DIR/kubernetes" kubernetes charts/brewlet/Chart.yaml)" || exit 2
 
 for required in cmd/brewlet shim/cmd/containerd-shim-brewlet-v2; do
   [[ -d "$BREWLET_CORE_DIR/$required" ]] || {
@@ -73,8 +72,7 @@ for required in cmd/manager cmd/admission deploy charts/brewlet Dockerfile; do
   }
 done
 
-export REPO_DIR FIXTURES_DIR BREWLET_CORE_DIR BREWLET_KUBERNETES_DIR
-export CORE_REF KUBERNETES_REF WORK
+export REPO_DIR MONOREPO_DIR FIXTURES_DIR BREWLET_CORE_DIR BREWLET_KUBERNETES_DIR WORK
 
 # shellcheck source=lib.sh
 source "$E2E_DIR/lib.sh"
@@ -120,8 +118,8 @@ fi
 
 section "Brewlet E2E — environment"
 info "harness   : $REPO_DIR"
-info "core      : $BREWLET_CORE_DIR (requested ref: $CORE_REF)"
-info "kubernetes: $BREWLET_KUBERNETES_DIR (requested ref: $KUBERNETES_REF)"
+info "core      : $BREWLET_CORE_DIR"
+info "kubernetes: $BREWLET_KUBERNETES_DIR"
 info "fixtures  : $FIXTURES_DIR"
 info "work dir  : $WORK (logs & artifacts)"
 info "go        : $(have go && go version | awk '{print $3}' || echo 'absent')"

@@ -32,7 +32,7 @@ func sortedKeys(m map[string]string) []string {
 	return keys
 }
 
-// Resources mirror the deployment-descriptor limits (https://github.com/brewlet/specs §10).
+// Resources mirror the deployment-descriptor limits (https://github.com/brewlet/brewlet/tree/main/specs §10).
 // They drive the sandbox cgroup only; Brewlet injects no JVM tuning flags.
 type Resources struct {
 	CPULimit    string // e.g. "2", "500m"  (empty = unlimited)

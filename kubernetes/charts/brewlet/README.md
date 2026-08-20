@@ -33,7 +33,7 @@ kubectl get nodes -L brewlet.sh/runtime
 ```
 
 > Provisioning is privileged and mutates the host. See the
-> [Brewlet specification](https://github.com/brewlet/specs).
+> [Brewlet specification](../../../specs/SPECIFICATION.md).
 > The default profile targets **all** nodes. To scope it to platform-owned pools,
 > set `defaultProfile.enabled=false` and define named `profiles` (§5.6).
 

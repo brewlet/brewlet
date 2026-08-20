@@ -1,4 +1,4 @@
-# brewlet-operator RBAC + Deployment. See https://github.com/brewlet/specs.
+# brewlet-operator RBAC + Deployment. See https://github.com/brewlet/brewlet/tree/main/specs.
 #
 # The operator watches provision-opted nodes, manages the brewlet-node-provisioner
 # DaemonSet + the brewlet RuntimeClass, and reflects each node's provisioning

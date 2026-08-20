@@ -24,7 +24,7 @@ Next steps:
    EVERY node (§5.6) — there is no per-node opt-in step.
 
    WARNING: Provisioning is privileged and mutates the host.
-   See https://github.com/brewlet/specs.
+   See https://github.com/brewlet/brewlet/tree/main/specs.
        To limit it to platform-owned pools, disable the default profile
        (defaultProfile.enabled=false) and define named NodeProfiles (§5.6).
 {{- else }}
@@ -34,7 +34,7 @@ Next steps:
    inventory — nodes are provisioned only where a profile selects them (§5.6).
 
    WARNING: Provisioning is privileged and mutates the host.
-   See https://github.com/brewlet/specs.
+   See https://github.com/brewlet/brewlet/tree/main/specs.
        Only target node pools your platform team controls.
 {{- end }}
 
@@ -58,7 +58,7 @@ Next steps:
 
    …or let the operator do the wiring — apply a JavaApplication descriptor and it
    reconciles the Deployment + Service + HPA for you
-   (see https://github.com/brewlet/specs):
+   (see https://github.com/brewlet/brewlet/tree/main/specs):
 
      kubectl apply -f deploy/sample-javaapplication.yaml
      kubectl get javaapplication -A

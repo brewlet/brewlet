@@ -10,7 +10,7 @@ appVersion: "0.1.0"
 keywords: [java, jvm, jar, runtimeclass, containerd, kwasm]
 home: https://github.com/brewlet/site
 sources:
-  - https://github.com/brewlet/kubernetes
+  - https://github.com/brewlet/brewlet/tree/main/kubernetes
   - https://github.com/brewlet/brewlet
 maintainers:
   - name: brewlet

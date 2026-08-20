@@ -3,7 +3,7 @@
 - **Status:** Implemented (Phases A–D)
 - **Target spec sections:** new **§5.6** (Node profiles) + amendments to **§8.1**,
   **§8.3**, **§14** — landed.
-- **Related code:** [`brewlet/kubernetes`](https://github.com/brewlet/kubernetes):
+- **Related code:** [`kubernetes/`](../../kubernetes):
   `api/nodeprofile/v1alpha1`, `internal/controller/nodeprofile_*.go`,
   `internal/admission/nodeprofile_webhook.go`, the `internal/brewlet` vocabulary,
   `charts/brewlet` (CRD, `nodeprofiles.yaml`, profile values, and validating
@@ -56,8 +56,8 @@ host-hardening work it depends on (validated restart, smoke gate) lives in
 Today the inventory is a single global string:
 `provisioner.jdks` / `provisioner.launchers` (Helm) → operator `Config.JDKs`/`Launchers`
 → one `buildDaemonSet` whose `nodeAffinity` is just `brewlet.sh/provision In [true]`
-(see [`resources.go`](https://github.com/brewlet/kubernetes/blob/main/internal/controller/resources.go),
-[`node_controller.go`](https://github.com/brewlet/kubernetes/blob/main/internal/controller/node_controller.go)).
+(see [`resources.go`](../../kubernetes/internal/controller/resources.go),
+[`node_controller.go`](../../kubernetes/internal/controller/node_controller.go)).
 
 | Gap | Today | Why it hurts in production |
 |---|---|---|
@@ -428,7 +428,7 @@ profiles:
 ## 7. RBAC & CRD lifecycle
 
 - **CRD:** add the `nodeprofiles.node.brewlet.sh` CRD to `charts/brewlet/crds/` and
-  `deploy/` in [`brewlet/kubernetes`](https://github.com/brewlet/kubernetes).
+  [`kubernetes/deploy/`](../../kubernetes/deploy/).
   **Helm does not upgrade CRDs placed in `crds/`** — the rollout plan
   must document applying CRD updates out-of-band (or moving CRDs to a templated,
   `helm.sh/hook: crd-install`-style path) so `helm upgrade` picks up schema changes.

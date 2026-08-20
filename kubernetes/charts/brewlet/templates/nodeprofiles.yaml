@@ -1,5 +1,5 @@
 {{/*
-NodeProfile CRs (see https://github.com/brewlet/specs). The chart
+NodeProfile CRs (see https://github.com/brewlet/brewlet/tree/main/specs). The chart
 renders a catch-all `default` profile from provisioner.* plus one NodeProfile per
 entry in `.Values.profiles`. The operator's NodeProfileReconciler turns each into
 a provisioner DaemonSet scoped to the profile's pool.
