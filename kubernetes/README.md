@@ -1,10 +1,9 @@
 # Brewlet Kubernetes platform
 
 [![CI](https://github.com/brewlet/brewlet/actions/workflows/ci.yml/badge.svg)](https://github.com/brewlet/brewlet/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/brewlet/kubernetes)](./LICENSE)
+[![License](https://img.shields.io/github/license/brewlet/brewlet)](./LICENSE)
 
-This repository contains the Kubernetes-facing components of
-[Brewlet](https://github.com/brewlet/brewlet):
+This directory contains the Kubernetes-facing components of Brewlet:
 
 - the node lifecycle and `JavaApplication` controllers;
 - the pod and `NodeProfile` admission webhook;
@@ -12,14 +11,14 @@ This repository contains the Kubernetes-facing components of
 - raw Kubernetes deployment manifests; and
 - the Brewlet Helm chart.
 
-The runtime shim and node provisioner source live at the repository root.
+The runtime shim and node provisioner source live at the monorepo root.
 Architecture and API specifications live in [`specs/`](../specs), and the user
 documentation lives in [`brewlet/site`](https://github.com/brewlet/site).
 
 ## Install with Helm
 
 ```bash
-helm install brewlet ./charts/brewlet \
+helm install brewlet ./kubernetes/charts/brewlet \
   --set provisioner.jdks="temurin-21,microsoft-25" \
   --set provisioner.launchers="jaz"
 ```
@@ -68,11 +67,11 @@ each application artifact.
 ## Install raw manifests
 
 ```bash
-kubectl apply -f deploy/nodeprofile-crd.yaml
-kubectl apply -f deploy/javaapplication-crd.yaml
-kubectl apply -f deploy/node-provisioner.yaml
-kubectl apply -f config/operator.yaml
-kubectl apply -f deploy/sample-nodeprofile.yaml
+kubectl apply -f kubernetes/deploy/nodeprofile-crd.yaml
+kubectl apply -f kubernetes/deploy/javaapplication-crd.yaml
+kubectl apply -f kubernetes/deploy/node-provisioner.yaml
+kubectl apply -f kubernetes/config/operator.yaml
+kubectl apply -f kubernetes/deploy/sample-nodeprofile.yaml
 ```
 
 The raw manifests use these images:
@@ -85,23 +84,23 @@ The raw manifests use these images:
 
 ## Build and test
 
-The Go module is rooted at the repository root.
+Run component checks from the monorepo root:
 
 ```bash
-make build
-make test
-make test-envtest
-make helm-check
+make -C kubernetes build
+make -C kubernetes test
+make -C kubernetes test-envtest
+make -C kubernetes helm-check
 ```
 
-Build the component images with the repository root as the Docker context:
+Build the component images with `kubernetes/` as the Docker context:
 
 ```bash
-docker build -t ghcr.io/brewlet/operator:dev .
-docker build -t ghcr.io/brewlet/admission:dev . --build-arg CMD=admission
+docker build -t ghcr.io/brewlet/operator:dev kubernetes
+docker build -t ghcr.io/brewlet/admission:dev kubernetes --build-arg CMD=admission
 ```
 
-## Repository layout
+## Component layout
 
 ```text
 .

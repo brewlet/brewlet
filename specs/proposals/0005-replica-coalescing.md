@@ -305,7 +305,7 @@ Events explain every plan change and fallback.
 1. Add the API fields, validation, status, annotations, and metrics behind a disabled
    feature gate.
 2. Implement planning and factor-specific managed workloads in
-   `brewlet/kubernetes`, with unit tests for resource arithmetic and plan invariants.
+   `kubernetes/`, with unit tests for resource arithmetic and plan invariants.
 3. Add integration tests for mixed factors, insufficient node capacity, replanning,
    transitions, node loss, and Service endpoint membership.
 4. Publish operator guidance describing workload eligibility, availability tradeoffs,

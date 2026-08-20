@@ -598,7 +598,8 @@ shim**: the `brewlet-admission` webhook (§8.3, implemented) stamps the
 using `runtimeClassName: brewlet`, so the shim can resolve the artifact from the
 content store. On non-Linux dev hosts only the portable bundle-assembly core builds locally;
 [integration-test tier 3](../integration-tests/e2e/tier3-runc.sh)
-exercises the real Linux/runc path against selected core and Kubernetes checkouts.
+exercises the real Linux/runc path against the monorepo's core and Kubernetes
+sources.
 
 ---
 

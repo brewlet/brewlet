@@ -9,8 +9,8 @@ reviewable design in [`proposals/`](proposals/).
 
 The specification is a living, versioned contract. Backward-incompatible
 changes require an explicit version transition, while compatible clarifications
-and additions may land incrementally. Brewlet repositories cite requirements by
-section using the existing `§N` convention (for example, `§4.2`).
+and additions may land incrementally. Brewlet components and documentation cite
+requirements by section using the existing `§N` convention (for example, `§4.2`).
 
 ## Implementations
 
@@ -22,13 +22,13 @@ section using the existing `§N` convention (for example, `§4.2`).
   and publishing integration
 
 Changes here describe the contract; implementation-specific behavior belongs in
-the repository that owns that component.
+the directory that owns that component.
 
-## Supporting repositories
+## Supporting project areas
 
 - [brewlet/site](https://github.com/brewlet/site) — user and operator documentation
 - [integration tests](../integration-tests) — cross-component validation and
   fixture applications
 
 A specification change that affects multiple implementations should update the
-owning components and integration tests in the same pull request where practical.
+relevant components and integration tests in the same pull request where practical.

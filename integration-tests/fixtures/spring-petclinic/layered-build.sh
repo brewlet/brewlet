@@ -153,5 +153,5 @@ cat >"$out/jvm-config.json" <<JSON
 JSON
 echo "[layered] launch config           : jvm-config.json (entry.mode=classpath)"
 
-# 6) Point callers at the repository-owned orchestration.
+# 6) Point callers at the harness-owned orchestration.
 echo "[layered] done. Tier 7 pushes and exercises this fixture."

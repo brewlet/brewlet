@@ -285,8 +285,10 @@ pipeline — the resulting artifact is identical.
 
 ## Building the plugin
 
+From the monorepo root:
+
 ```bash
-mvn install
+mvn -f maven-plugin/pom.xml install
 ```
 
 ## License

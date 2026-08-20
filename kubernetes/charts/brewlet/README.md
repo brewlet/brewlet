@@ -23,7 +23,7 @@ the webhook.
 ## Install
 
 ```bash
-helm install brewlet ./charts/brewlet \
+helm install brewlet ./kubernetes/charts/brewlet \
   --set provisioner.jdks="temurin-21,microsoft-25" \
   --set provisioner.launchers="jaz"
 
@@ -74,8 +74,8 @@ in production.
 > version that supports custom JDK sources, apply the matching CRD explicitly:
 >
 > ```bash
-> kubectl apply -f deploy/nodeprofile-crd.yaml
-> helm upgrade brewlet ./charts/brewlet -f values.yaml
+> kubectl apply -f kubernetes/deploy/nodeprofile-crd.yaml
+> helm upgrade brewlet ./kubernetes/charts/brewlet -f values.yaml
 > ```
 
 ## Requesting a JDK / launcher
