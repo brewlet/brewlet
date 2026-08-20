@@ -11,7 +11,7 @@ on:
       - "CNAME"
       - "mkdocs.yml"
       - "docs/**"
-      - "WORKSHOP.md"
+      - "WORKSHOP*.md"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 

@@ -14,7 +14,9 @@ those components live in the Brewlet monorepo.
 |---|---|
 | `index.html`, `styles.css` | Static landing page |
 | `docs/` | User and operator documentation |
-| `WORKSHOP.md` | Hands-on Brewlet workshop |
+| `WORKSHOP.md` | Workshop entry point and role selector |
+| `WORKSHOP-OPS.md` | Cluster enablement workshop for platform operators |
+| `WORKSHOP-DEV.md` | Application build and deployment workshop for developers |
 | `brewlet-logo.svg`, `brewlet-social.png` | Brand assets |
 | `architecture-*.svg` | Architecture diagrams |
 | `CNAME` | GitHub Pages custom domain |
