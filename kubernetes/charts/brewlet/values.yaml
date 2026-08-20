@@ -1,0 +1,72 @@
+# Default values for the brewlet chart.
+# This is the KWasm-style single-install activation: it deploys the operator,
+# the provisioner RBAC the operator's DaemonSet needs, and the admission webhook.
+# The operator then creates/reconciles the provisioner DaemonSet + RuntimeClass
+# from the `provisioner` values below (one runtime source of truth).
+
+# Namespace all brewlet components are installed into. Created by the chart.
+namespace: brewlet
+
+# Container images for each component. Pin to digests in production.
+images:
+  operator: ghcr.io/brewlet/operator:0.1.0
+  provisioner: ghcr.io/brewlet/node-provisioner:0.1.0
+  admission: ghcr.io/brewlet/admission:0.1.0
+  pullPolicy: IfNotPresent
+
+# What the operator installs on every opted-in node. `provisioner.jdks/launchers`
+# seed the chart-rendered **default** NodeProfile (the catch-all that owns every
+# node not claimed by a named-pool profile below). See §5.6.
+provisioner:
+  # Comma-separated curated <dist>-<feature> roots, or a structured list when
+  # custom distributions need source.image + source.javaHome (§5.3).
+  jdks: "temurin-21,microsoft-25"
+  # Comma-separated launcher layers, e.g. "jaz" (§5.4). Empty = vanilla java only.
+  launchers: "jaz"
+  # Rollout policy for the default profile's provisioner DaemonSet (proposal 0002).
+  rollout:
+    # maxUnavailable bounds the DaemonSet rolling update. null = DaemonSet default.
+    maxUnavailable: null
+    # validate gates node readiness on the post-install JDK smoke test.
+    validate: true
+    # containerdRestart: validated | sighup | none.
+    containerdRestart: validated
+  # Optional registry mirrors for air-gapped pulls (§5.6): upstreamHost -> mirror.
+  registry:
+    mirrors: {}
+
+# Render the chart-managed default NodeProfile from provisioner.* above. Disable
+# when you manage the default profile yourself (e.g. GitOps).
+defaultProfile:
+  enabled: true
+
+# Additional per-pool NodeProfiles rendered as CRs (§5.6). Each entry binds one or
+# more node pools to their own JDK/launcher inventory. Example:
+#   - name: batch
+#     pools: ["batch"]        # pool name(s), matched on the resolved pool key
+#     key: ""                 # optional explicit node label key (auto-detected if empty)
+#     jdks: "microsoft-25"    # string, or structured list for custom sources
+#     launchers: "jaz"        # comma-separated (optional)
+#     rollout: { maxUnavailable: 1, validate: true, containerdRestart: validated }
+#     registry: { mirrors: { "mcr.microsoft.com": "mirror.internal/mcr" } }
+profiles: []
+
+operator:
+  replicas: 1
+  leaderElect: true
+  resources:
+    requests: { cpu: "50m", memory: "64Mi" }
+    limits: { cpu: "200m", memory: "128Mi" }
+
+# The pod admission/scheduling webhook (§8/§14): stamps the artifact ref/digest
+# the shim resolves and matches a pod's requested JDK/launcher against the ready
+# fleet (NoCompatibleJDK / NoCompatibleLauncher).
+admission:
+  enabled: true
+  replicas: 1
+  # failurePolicy Ignore keeps a webhook outage from ever blocking workloads.
+  failurePolicy: Ignore
+  port: 9443
+  resources:
+    requests: { cpu: "50m", memory: "64Mi" }
+    limits: { cpu: "200m", memory: "128Mi" }

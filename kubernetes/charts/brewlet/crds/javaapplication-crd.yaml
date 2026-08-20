@@ -1,0 +1,198 @@
+# JavaApplication CRD. See https://github.com/brewlet/specs.
+# Helm installs files under crds/ before the templated release.
+# Keep in sync with deploy/javaapplication-crd.yaml.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: javaapplications.apps.brewlet.sh
+spec:
+  group: apps.brewlet.sh
+  names:
+    kind: JavaApplication
+    listKind: JavaApplicationList
+    plural: javaapplications
+    singular: javaapplication
+    shortNames: [javaapp, japp]
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Image
+          type: string
+          jsonPath: .spec.artifact.image
+        - name: Replicas
+          type: integer
+          jsonPath: .spec.replicas
+        - name: JDK
+          type: string
+          jsonPath: .status.selectedJdk
+        - name: Ready
+          type: string
+          jsonPath: .status.conditions[?(@.type=="Ready")].status
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              required: [artifact]
+              properties:
+                artifact:
+                  type: object
+                  required: [image]
+                  properties:
+                    image:
+                      type: string
+                      description: OCI ref to the artifact — a Java application packaged as an OCI artifact, not a container image (digest pin recommended).
+                    pullPolicy:
+                      type: string
+                      enum: [Always, IfNotPresent, Never]
+                      default: IfNotPresent
+                    pullSecrets:
+                      type: array
+                      items: { type: string }
+                replicas:
+                  type: integer
+                  minimum: 0
+                  default: 1
+                resources:
+                  type: object
+                  properties:
+                    requests:
+                      type: object
+                      additionalProperties: { type: string }
+                    limits:
+                      type: object
+                      additionalProperties: { type: string }
+                jvm:
+                  type: object
+                  properties:
+                    version:
+                      type: integer
+                      description: JDK feature version to run on; must match a node-installed JDK.
+                    distribution:
+                      type: string
+                      description: >-
+                        Optional JDK distribution (e.g. "temurin", "microsoft"). With
+                        version, selects an exact "<distribution>-<version>" node JDK
+                        (e.g. "microsoft-25"); omitted, any distribution of the
+                        requested version is acceptable and each node picks the
+                        lexically-first installed one (no built-in vendor preference).
+                        Ignored unless version is also set.
+                    launcher:
+                      type: string
+                      default: java
+                      description: >-
+                        JVM launcher: "java" (vanilla OpenJDK, default) or a custom
+                        launcher such as "jaz" that must be installed on a ready node.
+                    args:
+                      type: array
+                      items: { type: string }
+                      description: >-
+                        User-supplied JVM flags, wired through via JDK_JAVA_OPTIONS
+                        (JAVA_TOOL_OPTIONS on JDK 8). Brewlet injects no tuning of its
+                        own (§8.2/§10) — set heap %, GC, etc. here.
+                    cds:
+                      type: object
+                      properties:
+                        regenerate:
+                          type: boolean
+                          default: false
+                          description: >-
+                            Opt into node-side AppCDS regeneration (see
+                            https://github.com/brewlet/site): the node maintains a per-(artifact, JDK-build)
+                            archive cache via -XX:+AutoCreateSharedArchive (JDK 19+)
+                            that self-heals on every central JDK patch. Any archive
+                            shipped in the artifact becomes optional seed data.
+                      description: >-
+                        Deployment-side AppCDS behavior. Node-side regeneration is a
+                        fleet/operational choice, so it lives here rather than in the
+                        artifact.
+                env:
+                  type: array
+                  items:
+                    type: object
+                    required: [name]
+                    properties:
+                      name: { type: string }
+                      value: { type: string }
+                ports:
+                  type: array
+                  items:
+                    type: object
+                    required: [containerPort]
+                    properties:
+                      name: { type: string }
+                      containerPort: { type: integer }
+                      hostPort: { type: integer }
+                      protocol:
+                        type: string
+                        enum: [TCP, UDP, SCTP]
+                        default: TCP
+                service:
+                  type: object
+                  properties:
+                    enabled: { type: boolean, default: true }
+                    type:
+                      type: string
+                      enum: [ClusterIP, NodePort, LoadBalancer]
+                      default: ClusterIP
+                probes:
+                  type: object
+                  properties:
+                    readiness:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                    liveness:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                autoscaling:
+                  type: object
+                  properties:
+                    enabled: { type: boolean, default: false }
+                    minReplicas: { type: integer, minimum: 1 }
+                    maxReplicas: { type: integer, minimum: 1 }
+                    targetCPUUtilizationPercentage: { type: integer }
+                  x-kubernetes-validations:
+                    - rule: "!self.enabled || (has(self.maxReplicas) && self.maxReplicas >= 1)"
+                      message: "autoscaling.maxReplicas is required and must be >= 1 when autoscaling.enabled is true"
+                    - rule: "!has(self.minReplicas) || !has(self.maxReplicas) || self.minReplicas <= self.maxReplicas"
+                      message: "autoscaling.minReplicas must not exceed autoscaling.maxReplicas"
+                arch:
+                  type: array
+                  description: >-
+                    Optional architecture constraint for a NON-portable artifact
+                    (one bundling JNI native libraries or arch-specific deps).
+                    Each entry is a GOARCH / kubernetes.io/arch token; the
+                    controller folds it into the brewlet.sh/arch pod annotation so
+                    the admission webhook steers scheduling (kubernetes.io/arch In
+                    […]) and denies NoCompatibleArch when no ready node of a
+                    required arch exists. Omit for an architecture-neutral JAR (the
+                    common case — runs on any provisioned arch).
+                  items:
+                    type: string
+                    enum: [amd64, arm64]
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+              properties:
+                observedGeneration: { type: integer }
+                readyReplicas: { type: integer }
+                selectedJdk: { type: string }
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required: [type, status]
+                    properties:
+                      type: { type: string }
+                      status: { type: string }
+                      reason: { type: string }
+                      message: { type: string }
+                      lastTransitionTime: { type: string, format: date-time }
+                      observedGeneration: { type: integer, format: int64 }
+      subresources:
+        status: {}

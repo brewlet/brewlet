@@ -1,0 +1,155 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: nodeprofiles.node.brewlet.sh
+spec:
+  group: node.brewlet.sh
+  names:
+    kind: NodeProfile
+    listKind: NodeProfileList
+    plural: nodeprofiles
+    singular: nodeprofile
+    shortNames: [nodeprofile, np]
+  scope: Cluster
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      additionalPrinterColumns:
+        - name: Pools
+          type: string
+          jsonPath: .spec.nodePool.names
+        - name: Assigned
+          type: integer
+          jsonPath: .status.assignedNodes
+        - name: Ready
+          type: integer
+          jsonPath: .status.readyNodes
+        - name: Status
+          type: string
+          jsonPath: .status.conditions[?(@.type=="Ready")].reason
+      schema:
+        openAPIV3Schema:
+          type: object
+          required: [spec]
+          properties:
+            spec:
+              type: object
+              required: [jdks]
+              description: |
+                Binds a node pool to a JDK/launcher inventory. See
+                https://github.com/brewlet/specs.
+                Selecting a pool IS the opt-in — every node in the pool, present and
+                future, is provisioned.
+              properties:
+                nodePool:
+                  type: object
+                  description: |
+                    Node pool(s) this profile provisions. Empty (no names) means
+                    "every node" — the bare-metal / default-profile catch-all.
+                  properties:
+                    names:
+                      type: array
+                      items: { type: string }
+                      description: Pool name(s), matched on the resolved pool key.
+                    key:
+                      type: string
+                      description: |
+                        Node label key carrying the pool name. Empty => the operator
+                        auto-detects the provider key (gke-nodepool / agentpool /
+                        nodegroup / karpenter).
+                jdks:
+                  type: array
+                  minItems: 1
+                  maxItems: 32
+                  description: Curated or explicitly sourced JDK roots to install on the pool's nodes.
+                  items:
+                    type: object
+                    maxProperties: 3
+                    required: [distribution, feature]
+                    x-kubernetes-validations:
+                      - rule: "(self.distribution in ['temurin', 'microsoft']) ? !has(self.source) : has(self.source)"
+                        message: source must be omitted for curated distributions and provided for custom distributions
+                    properties:
+                      distribution:
+                        type: string
+                        maxLength: 48
+                        pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+                      feature:
+                        type: integer
+                        minimum: 1
+                        maximum: 2147483647
+                      source:
+                        type: object
+                        maxProperties: 2
+                        description: Required for non-curated distributions; omitted for temurin and microsoft.
+                        required: [image, javaHome]
+                        x-kubernetes-validations:
+                          - rule: "!self.image.contains('://')"
+                            message: image must be an OCI reference without a URL scheme
+                          - rule: "self.javaHome != '/' && !self.javaHome.contains('//') && !self.javaHome.contains('/./') && !self.javaHome.contains('/../') && !self.javaHome.endsWith('/.') && !self.javaHome.endsWith('/..')"
+                            message: javaHome must be a clean absolute path below /
+                        properties:
+                          image:
+                            type: string
+                            minLength: 1
+                            maxLength: 2048
+                            pattern: '^(localhost|[^/[:space:]]*[.:][^/[:space:]]*)/[^[:space:]]+$'
+                            description: Fully qualified OCI image reference containing the JDK root.
+                          javaHome:
+                            type: string
+                            maxLength: 1024
+                            pattern: '^/[^[:space:]/]+(/[^[:space:]/]+)*$'
+                            description: Absolute JDK root path inside the image.
+                launchers:
+                  type: array
+                  items: { type: string }
+                  description: Optional launcher layers (e.g. "jaz"). "java" is always available.
+                registry:
+                  type: object
+                  description: Optional per-profile registry override for air-gapped clusters (§5.6).
+                  properties:
+                    mirrors:
+                      type: object
+                      additionalProperties: { type: string }
+                      description: Maps a curated upstream host to a mirror host/path for ctr pulls.
+                rollout:
+                  type: object
+                  description: DaemonSet + host-reconfig rollout policy (§5.2; mechanics from proposal 0002).
+                  properties:
+                    maxUnavailable:
+                      x-kubernetes-int-or-string: true
+                      description: Bounds the DaemonSet rolling update (default 1).
+                    validate:
+                      type: boolean
+                      description: Gate readiness on the 0002 smoke test (default true).
+                    containerdRestart:
+                      type: string
+                      enum: [validated, sighup, none]
+                      description: How the provisioner restarts containerd; "none" is label-only / immutable-image mode.
+            status:
+              type: object
+              properties:
+                observedGeneration:
+                  type: integer
+                  format: int64
+                resolvedPoolKey:
+                  type: string
+                assignedNodes:
+                  type: integer
+                readyNodes:
+                  type: integer
+                conditions:
+                  type: array
+                  items:
+                    type: object
+                    required: [type, status]
+                    properties:
+                      type: { type: string }
+                      status: { type: string }
+                      reason: { type: string }
+                      message: { type: string }
+                      observedGeneration: { type: integer, format: int64 }
+                      lastTransitionTime: { type: string, format: date-time }
+      subresources:
+        status: {}

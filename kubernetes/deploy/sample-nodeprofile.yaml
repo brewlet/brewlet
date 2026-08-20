@@ -1,0 +1,69 @@
+# Sample NodeProfile manifests. See https://github.com/brewlet/specs.
+#
+# A NodeProfile binds a node pool to a JDK/launcher inventory. Selecting a pool
+# IS the opt-in: every node in the pool — present and future — is provisioned by
+# a per-profile brewlet-node-provisioner DaemonSet the operator reconciles.
+#
+# Apply with:  kubectl apply -f deploy/sample-nodeprofile.yaml
+# Inspect with: kubectl get nodeprofiles
+---
+# The catch-all default profile: no nodePool.names => it owns every node NOT
+# claimed by a named-pool profile below. The Helm chart renders one of these for
+# you from provisioner.jdks/launchers; this is what it looks like.
+apiVersion: node.brewlet.sh/v1alpha1
+kind: NodeProfile
+metadata:
+  name: default
+spec:
+  jdks:
+    - { distribution: temurin, feature: 21 }
+    - { distribution: microsoft, feature: 25 }
+  launchers:
+    - jaz
+  rollout:
+    validate: true
+    containerdRestart: validated
+---
+# A custom distribution supplies the OCI image and the JDK root inside it. This
+# example uses the multi-architecture Docker Official Image for Azul Zulu.
+apiVersion: node.brewlet.sh/v1alpha1
+kind: NodeProfile
+metadata:
+  name: zulu
+spec:
+  nodePool:
+    names: ["zulu-workers"]
+  jdks:
+    - distribution: zulu
+      feature: 21
+      source:
+        image: docker.io/library/azul-zulu:21
+        javaHome: /usr/lib/jvm/zulu21
+  rollout:
+    validate: true
+    containerdRestart: validated
+---
+# A named-pool profile: only nodes whose resolved pool key carries one of these
+# names get this inventory. The operator auto-detects the pool key (gke-nodepool
+# / agentpool / eks.amazonaws.com/nodegroup / karpenter.sh/nodepool) unless you
+# pin spec.nodePool.key explicitly.
+apiVersion: node.brewlet.sh/v1alpha1
+kind: NodeProfile
+metadata:
+  name: batch
+spec:
+  nodePool:
+    names: ["batch"]
+    # key: agentpool
+  jdks:
+    - { distribution: microsoft, feature: 25 }
+  launchers:
+    - jaz
+  # Air-gapped clusters: pull the curated vendor images through an internal mirror.
+  registry:
+    mirrors:
+      mcr.microsoft.com: mirror.internal.example.com/mcr
+  rollout:
+    maxUnavailable: 1
+    validate: true
+    containerdRestart: validated

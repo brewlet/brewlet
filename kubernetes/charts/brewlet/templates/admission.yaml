@@ -1,0 +1,193 @@
+{{- if .Values.admission.enabled }}
+{{- $ns := include "brewlet.namespace" . -}}
+{{- $svc := include "brewlet.admission.serviceName" . -}}
+{{- $altNames := list (printf "%s.%s.svc" $svc $ns) (printf "%s.%s.svc.cluster.local" $svc $ns) -}}
+{{- $ca := genCA "brewlet-admission-ca" 3650 -}}
+{{- $cert := genSignedCert $svc nil $altNames 3650 $ca -}}
+{{/*
+brewlet-admission: the pod admission/scheduling webhook (§8/§14). It stamps the
+brewlet.sh/artifact-ref + artifact-digest annotations the shim resolves, and
+matches a pod's requested JDK/launcher against the ready node fleet
+(NoCompatibleJDK / NoCompatibleLauncher), steering scheduling via nodeAffinity.
+
+The serving cert is a self-signed cert generated at render time. NOTE: because
+Helm regenerates it on each `helm upgrade`, the Secret + caBundle rotate together
+(consistent, but the webhook pod must roll to pick up a new Secret — the
+checksum annotation below forces that).
+*/}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: brewlet-admission
+  namespace: {{ $ns }}
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+---
+# The webhook lists Nodes to evaluate the ready fleet.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: brewlet-admission
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["node.brewlet.sh"]
+    resources: ["nodeprofiles"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: brewlet-admission
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: brewlet-admission
+subjects:
+  - kind: ServiceAccount
+    name: brewlet-admission
+    namespace: {{ $ns }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: brewlet-admission-cert
+  namespace: {{ $ns }}
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+type: kubernetes.io/tls
+data:
+  tls.crt: {{ $cert.Cert | b64enc }}
+  tls.key: {{ $cert.Key | b64enc }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $svc }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+spec:
+  selector: { app: brewlet-admission }
+  ports:
+    - name: https
+      port: 443
+      targetPort: {{ .Values.admission.port }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: brewlet-admission
+  namespace: {{ $ns }}
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+    app: brewlet-admission
+spec:
+  replicas: {{ .Values.admission.replicas }}
+  selector:
+    matchLabels: { app: brewlet-admission }
+  template:
+    metadata:
+      labels:
+        {{- include "brewlet.labels" . | nindent 8 }}
+        app: brewlet-admission
+      annotations:
+        # Roll the pods whenever the serving cert changes.
+        checksum/cert: {{ $cert.Cert | sha256sum }}
+    spec:
+      serviceAccountName: brewlet-admission
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: webhook
+          image: {{ .Values.images.admission | quote }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          args:
+            - --webhook-port={{ .Values.admission.port }}
+            - --cert-dir=/tmp/k8s-webhook-server/serving-certs
+            - --health-probe-bind-address=:8081
+          ports:
+            - { name: https, containerPort: {{ .Values.admission.port }} }
+            - { name: metrics, containerPort: 8080 }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8081 }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8081 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.admission.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          volumeMounts:
+            - name: serving-certs
+              mountPath: /tmp/k8s-webhook-server/serving-certs
+              readOnly: true
+      volumes:
+        - name: serving-certs
+          secret:
+            secretName: brewlet-admission-cert
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: brewlet-admission
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+webhooks:
+  - name: pods.brewlet.sh
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    # Ignore keeps a webhook outage from blocking non-brewlet workloads; the shim
+    # still enforces JDK/launcher compatibility at runtime.
+    failurePolicy: {{ .Values.admission.failurePolicy }}
+    clientConfig:
+      service:
+        name: {{ $svc }}
+        namespace: {{ $ns }}
+        path: /mutate-pods
+        port: 443
+      caBundle: {{ $ca.Cert | b64enc }}
+    rules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE"]
+        resources: ["pods"]
+        scope: Namespaced
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: brewlet-nodeprofiles
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+webhooks:
+  - name: nodeprofiles.node.brewlet.sh
+    admissionReviewVersions: ["v1"]
+    sideEffects: None
+    # Fail closed on NodeProfiles: a malformed profile would provision the whole
+    # fleet wrong, so reject it up front rather than let the reconciler cope.
+    failurePolicy: Fail
+    clientConfig:
+      service:
+        name: {{ $svc }}
+        namespace: {{ $ns }}
+        path: /validate-nodeprofiles
+        port: 443
+      caBundle: {{ $ca.Cert | b64enc }}
+    rules:
+      - apiGroups: ["node.brewlet.sh"]
+        apiVersions: ["v1alpha1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["nodeprofiles"]
+        scope: Cluster
+{{- end }}

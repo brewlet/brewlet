@@ -1,0 +1,47 @@
+# Raw usage: no CRD, just a Deployment whose container image IS the OCI artifact
+# and whose runtimeClassName routes it to the Brewlet shim. The shim runs
+# `java -jar app.jar` using the node-resident JDK.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+  labels: { app: hello }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: hello }
+  template:
+    metadata:
+      labels: { app: hello }
+      # Optional: request a specific JDK/launcher. The brewlet-admission webhook
+      # validates these against ready nodes (NoCompatibleJDK/NoCompatibleLauncher)
+      # and injects nodeAffinity so the scheduler skips incompatible nodes. Omit
+      # to accept any provisioned JDK and the vanilla `java` launcher.
+      annotations:
+        brewlet.sh/jdk: "21"        # bare feature (any distribution) or e.g. "temurin-21"
+        brewlet.sh/launcher: "java" # vanilla launcher; use "jaz" for auto-tuning (§9.3)
+        # brewlet.sh/arch: "amd64"  # optional; only for non-portable JARs bundling JNI natives
+    spec:
+      runtimeClassName: brewlet          # <-- the only Brewlet-specific line
+      containers:
+        - name: hello
+          image: registry.example.com/demo/hello:1.0.0   # OCI artifact (not a container image)
+          resources:
+            limits:
+              cpu: "2"
+              memory: "512Mi"             # becomes cgroup memory.max; JVM is cgroup-aware
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello
+spec:
+  selector: { app: hello }
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080

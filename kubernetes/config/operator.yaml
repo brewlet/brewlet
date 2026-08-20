@@ -1,0 +1,127 @@
+# brewlet-operator RBAC + Deployment. See https://github.com/brewlet/specs.
+#
+# The operator watches provision-opted nodes, manages the brewlet-node-provisioner
+# DaemonSet + the brewlet RuntimeClass, and reflects each node's provisioning
+# state via annotations/events. Deploy after the namespace + provisioner SA exist
+# (see deploy/node-provisioner.yaml), or apply that manifest first.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: brewlet-operator
+  namespace: brewlet
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: brewlet-operator
+rules:
+  # Watch nodes and patch the provision-state annotation (step 5 / §8.1).
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  # Read provisioner pods to detect ProvisionFailed (§14).
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  # Record events on nodes.
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  # Manage the per-profile provisioner + cleanup DaemonSets.
+  - apiGroups: ["apps"]
+    resources: ["daemonsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Reconcile NodeProfiles (§5.6): status subresource + finalizer for cleanup.
+  - apiGroups: ["node.brewlet.sh"]
+    resources: ["nodeprofiles"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["node.brewlet.sh"]
+    resources: ["nodeprofiles/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["node.brewlet.sh"]
+    resources: ["nodeprofiles/finalizers"]
+    verbs: ["update"]
+  # Reconcile JavaApplications (§8.2) and write their status.
+  - apiGroups: ["apps.brewlet.sh"]
+    resources: ["javaapplications"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["apps.brewlet.sh"]
+    resources: ["javaapplications/status"]
+    verbs: ["get", "update", "patch"]
+  # Own the Deployment/Service/HPA a JavaApplication expands into.
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Reconcile the brewlet RuntimeClass.
+  - apiGroups: ["node.k8s.io"]
+    resources: ["runtimeclasses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  # Leader election (enabled with --leader-elect).
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: brewlet-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: brewlet-operator
+subjects:
+  - kind: ServiceAccount
+    name: brewlet-operator
+    namespace: brewlet
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: brewlet-operator
+  namespace: brewlet
+  labels: { app: brewlet-operator }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: brewlet-operator }
+  template:
+    metadata:
+      labels: { app: brewlet-operator }
+    spec:
+      serviceAccountName: brewlet-operator
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: manager
+          image: ghcr.io/brewlet/operator:0.1.0
+          args:
+            - --namespace=brewlet
+            - --provisioner-image=ghcr.io/brewlet/node-provisioner:0.1.0
+            - --jdks=temurin-21,microsoft-25
+            - --launchers=jaz
+            - --leader-elect
+            - --health-probe-bind-address=:8081
+          ports:
+            - { name: metrics, containerPort: 8080 }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8081 }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8081 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { cpu: "50m", memory: "64Mi" }
+            limits: { cpu: "200m", memory: "128Mi" }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }

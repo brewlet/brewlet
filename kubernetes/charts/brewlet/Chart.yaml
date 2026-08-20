@@ -1,0 +1,16 @@
+apiVersion: v2
+name: brewlet
+description: >-
+  Run JVM JARs on Kubernetes like WASM. Installs the brewlet-operator (node
+  lifecycle controller), the node-provisioner RBAC it manages, and the pod
+  admission/scheduling webhook — the KWasm-style `helm install` activation.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords: [java, jvm, jar, runtimeclass, containerd, kwasm]
+home: https://github.com/brewlet/site
+sources:
+  - https://github.com/brewlet/kubernetes
+  - https://github.com/brewlet/brewlet
+maintainers:
+  - name: brewlet

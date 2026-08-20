@@ -1,0 +1,38 @@
+{{/*
+Provisioner ServiceAccount + RBAC. The operator creates the node-provisioner
+DaemonSet at runtime (§8.1); its pods run as this ServiceAccount and label +
+annotate the Node they provision (§5.2), which requires node get/patch.
+*/}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: brewlet-node-provisioner
+  namespace: {{ include "brewlet.namespace" . }}
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: brewlet-node-provisioner
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: brewlet-node-provisioner
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: brewlet-node-provisioner
+subjects:
+  - kind: ServiceAccount
+    name: brewlet-node-provisioner
+    namespace: {{ include "brewlet.namespace" . }}

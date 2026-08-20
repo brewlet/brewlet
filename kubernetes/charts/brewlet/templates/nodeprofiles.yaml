@@ -1,0 +1,78 @@
+{{/*
+NodeProfile CRs (see https://github.com/brewlet/specs). The chart
+renders a catch-all `default` profile from provisioner.* plus one NodeProfile per
+entry in `.Values.profiles`. The operator's NodeProfileReconciler turns each into
+a provisioner DaemonSet scoped to the profile's pool.
+
+Selecting a pool IS the opt-in; the default profile (no pool names) owns every
+node not claimed by a named-pool profile.
+*/}}
+{{- if .Values.defaultProfile.enabled }}
+apiVersion: node.brewlet.sh/v1alpha1
+kind: NodeProfile
+metadata:
+  name: default
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+spec:
+  jdks:
+    {{- include "brewlet.jdkItems" (dict "value" .Values.provisioner.jdks) | nindent 4 }}
+  {{- $launchers := include "brewlet.launcherItems" (dict "value" .Values.provisioner.launchers) }}
+  {{- if trim $launchers }}
+  launchers:
+    {{- $launchers | nindent 4 }}
+  {{- end }}
+  {{- with .Values.provisioner.registry }}
+  {{- if .mirrors }}
+  registry:
+    mirrors:
+      {{- toYaml .mirrors | nindent 6 }}
+  {{- end }}
+  {{- end }}
+  rollout:
+    {{- with .Values.provisioner.rollout.maxUnavailable }}
+    maxUnavailable: {{ . }}
+    {{- end }}
+    {{- if not (kindIs "invalid" .Values.provisioner.rollout.validate) }}
+    validate: {{ .Values.provisioner.rollout.validate }}
+    {{- end }}
+    {{- with .Values.provisioner.rollout.containerdRestart }}
+    containerdRestart: {{ . | quote }}
+    {{- end }}
+{{- end }}
+{{- range $p := .Values.profiles }}
+---
+apiVersion: node.brewlet.sh/v1alpha1
+kind: NodeProfile
+metadata:
+  name: {{ $p.name | quote }}
+  labels:
+    {{- include "brewlet.labels" $ | nindent 4 }}
+spec:
+  nodePool:
+    names:
+      {{- range $n := $p.pools }}
+      - {{ $n | quote }}
+      {{- end }}
+    {{- with $p.key }}
+    key: {{ . | quote }}
+    {{- end }}
+  jdks:
+    {{- include "brewlet.jdkItems" (dict "value" $p.jdks) | nindent 4 }}
+  {{- $launchers := include "brewlet.launcherItems" (dict "value" (default "" $p.launchers)) }}
+  {{- if trim $launchers }}
+  launchers:
+    {{- $launchers | nindent 4 }}
+  {{- end }}
+  {{- with $p.registry }}
+  {{- if .mirrors }}
+  registry:
+    mirrors:
+      {{- toYaml .mirrors | nindent 6 }}
+  {{- end }}
+  {{- end }}
+  {{- with $p.rollout }}
+  rollout:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

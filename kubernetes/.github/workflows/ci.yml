@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Verify formatting
+        run: make fmt-check
+
+      - name: Vet
+        run: make vet
+
+      - name: Build
+        run: make build
+
+      - name: Set up envtest control plane
+        run: |
+          go install sigs.k8s.io/controller-runtime/tools/setup-envtest@release-0.19
+          setup_envtest="$(go env GOPATH)/bin/setup-envtest"
+          echo "KUBEBUILDER_ASSETS=$("$setup_envtest" use 1.31.0 -p path)" >> "$GITHUB_ENV"
+
+      - name: Test
+        run: make test
+
+  helm:
+    name: Helm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4.3.1
+
+      - name: Lint and render chart
+        run: make helm-check

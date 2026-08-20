@@ -1,0 +1,64 @@
+✅ brewlet {{ .Chart.AppVersion }} installed into namespace "{{ include "brewlet.namespace" . }}".
+
+Components:
+  • brewlet-operator      node lifecycle controller (manages the provisioner
+                          DaemonSet + the "brewlet" RuntimeClass) and the
+                          JavaApplication controller (reconciles descriptors into
+                          Deployment + Service + HPA)
+  • node-provisioner      RBAC/ServiceAccount (the operator creates the DaemonSet)
+{{- if .Values.admission.enabled }}
+  • brewlet-admission     pod admission/scheduling webhook (stamps artifact
+                          ref/digest; NoCompatibleJDK / NoCompatibleLauncher)
+{{- end }}
+
+Node inventory the operator will install (§5.3/§5.4):
+  JDKs:      {{ include "brewlet.jdkTokens" (dict "value" .Values.provisioner.jdks) }}
+  Launchers: {{ .Values.provisioner.launchers | default "(vanilla java only)" }}
+  Method:    copy-from-image (via host containerd)
+
+Next steps:
+
+{{- if .Values.defaultProfile.enabled }}
+
+1. Provisioning starts automatically: the chart's default NodeProfile provisions
+   EVERY node (§5.6) — there is no per-node opt-in step.
+
+   WARNING: Provisioning is privileged and mutates the host.
+   See https://github.com/brewlet/specs.
+       To limit it to platform-owned pools, disable the default profile
+       (defaultProfile.enabled=false) and define named NodeProfiles (§5.6).
+{{- else }}
+
+1. The default NodeProfile is disabled. Define named NodeProfiles (via the
+   chart's `profiles` value or your own CRs) to bind node pools to a JDK/launcher
+   inventory — nodes are provisioned only where a profile selects them (§5.6).
+
+   WARNING: Provisioning is privileged and mutates the host.
+   See https://github.com/brewlet/specs.
+       Only target node pools your platform team controls.
+{{- end }}
+
+2. Watch nodes become ready:
+
+     kubectl get nodes -L brewlet.sh/runtime
+
+3. Deploy a JAR — reference the OCI artifact as the container image and route it
+   with runtimeClassName: brewlet. Optionally request a specific JDK/launcher:
+
+     metadata:
+       annotations:
+         brewlet.sh/jdk: "21"        # or "temurin-21"; matched against ready nodes
+         brewlet.sh/launcher: "jaz"  # optional; must be installed on a ready node
+     spec:
+       runtimeClassName: brewlet
+       containers:
+         - image: registry.example.com/demo/hello:1.0.0
+
+   See deploy/raw-deployment.yaml for a full Deployment + Service + probe.
+
+   …or let the operator do the wiring — apply a JavaApplication descriptor and it
+   reconciles the Deployment + Service + HPA for you
+   (see https://github.com/brewlet/specs):
+
+     kubectl apply -f deploy/sample-javaapplication.yaml
+     kubectl get javaapplication -A

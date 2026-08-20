@@ -1,0 +1,94 @@
+# KWasm-style node bootstrap. A privileged DaemonSet that, on nodes labeled
+# brewlet.sh/provision=true (a label — it drives the nodeAffinity below), installs
+# the shim binary + one or more JDK runtime roots + optional launcher layers (e.g.
+# jaz), registers the containerd runtime, and labels the node ready. See
+# See https://github.com/brewlet/specs.
+#
+# NOTE: provisioning is privileged and mutates the host.
+# Do not apply on a shared/hostile cluster.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: brewlet
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: brewlet-node-provisioner
+  namespace: brewlet
+---
+# The provisioner labels/annotates the Node it runs on (step 5), which requires
+# get/patch on the cluster-scoped Node resource.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: brewlet-node-provisioner
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: brewlet-node-provisioner
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: brewlet-node-provisioner
+subjects:
+  - kind: ServiceAccount
+    name: brewlet-node-provisioner
+    namespace: brewlet
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: brewlet-node-provisioner
+  namespace: brewlet
+  labels: { app: brewlet-node-provisioner }
+spec:
+  selector:
+    matchLabels: { app: brewlet-node-provisioner }
+  template:
+    metadata:
+      labels: { app: brewlet-node-provisioner }
+    spec:
+      serviceAccountName: brewlet-node-provisioner
+      # Only run on opted-in nodes.
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: brewlet.sh/provision
+                    operator: In
+                    values: ["true"]
+      hostPID: true                       # so the entrypoint can SIGHUP containerd
+      tolerations:
+        - operator: Exists
+      containers:
+        - name: provisioner
+          image: ghcr.io/brewlet/node-provisioner:0.1.0
+          securityContext:
+            privileged: true              # required to install shim + edit containerd config
+          env:
+            - name: NODE_NAME
+              valueFrom: { fieldRef: { fieldPath: spec.nodeName } }
+            - name: JDKS                  # JDK runtime roots to install (see §5.3)
+              value: "temurin-21,microsoft-25"
+            - name: LAUNCHERS             # optional custom launchers to install (see §5.4)
+              value: "jaz"
+          volumeMounts:
+            - { name: host-opt,        mountPath: /opt/brewlet }
+            - { name: containerd-conf, mountPath: /etc/containerd }
+            - { name: host-bin,        mountPath: /host/usr/local/bin }
+            - { name: containerd-sock, mountPath: /run/containerd/containerd.sock }
+      volumes:
+        - { name: host-opt,        hostPath: { path: /opt/brewlet } }
+        - { name: containerd-conf, hostPath: { path: /etc/containerd } }
+        - { name: host-bin,        hostPath: { path: /usr/local/bin } }
+        # Mounted so copy-from-image (via ctr) can reach the host containerd to
+        # pull vendor JDK/launcher images and copy their runtime trees onto the host.
+        - { name: containerd-sock, hostPath: { path: /run/containerd/containerd.sock, type: Socket } }

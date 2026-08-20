@@ -1,0 +1,44 @@
+# The developer-facing "deployment descriptor". The brewlet-operator expands
+# this into a Deployment (runtimeClassName: brewlet) + Service + optional HPA.
+#
+# The Namespace is included so `kubectl apply -f` is self-contained.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: payments
+---
+apiVersion: apps.brewlet.sh/v1alpha1
+kind: JavaApplication
+metadata:
+  name: orders-api
+  namespace: payments
+spec:
+  artifact:
+    image: registry.example.com/team/orders:1.4.2   # ship ONLY the JAR
+    pullPolicy: IfNotPresent
+  replicas: 3
+  resources:
+    requests: { cpu: "500m", memory: "512Mi" }
+    limits:   { cpu: "2",    memory: "1Gi" }
+  jvm:
+    version: 21                # JDK feature version; must match a node-installed JDK
+    distribution: temurin      # optional: pin the distribution (temurin|microsoft); omit to accept any of this feature
+    launcher: jaz              # auto-tunes heap/GC/CPU from the cgroup limits (§9.3)
+    args: ["-XX:+ExitOnOutOfMemoryError"]  # only truly app-specific flags under jaz
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: prod
+  ports:
+    - name: http
+      containerPort: 8080
+  service:
+    enabled: true
+    type: ClusterIP
+  probes:
+    readiness: { httpGet: { path: /actuator/health/readiness, port: 8080 } }
+    liveness:  { httpGet: { path: /actuator/health/liveness,  port: 8080 } }
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70

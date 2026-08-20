@@ -1,0 +1,53 @@
+# Spring PetClinic as a Brewlet JavaApplication.
+#
+# The real upstream Spring Boot app (spring-projects/spring-petclinic), shipped
+# as an OCI *artifact* (just the fat JAR — see the spring-petclinic fixture in
+# github.com/brewlet/integration-tests),
+# not a container image. The brewlet-operator expands this JavaApplication into a
+# Deployment (runtimeClassName: brewlet) + Service; the node-resident JDK runs it
+# with `java -jar`, sized by the cgroup limits below.
+#
+# The Namespace is included so `kubectl apply -f` is self-contained.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: petclinic
+---
+apiVersion: apps.brewlet.sh/v1alpha1
+kind: JavaApplication
+metadata:
+  name: petclinic
+  namespace: petclinic
+spec:
+  artifact:
+    # Push the fat JAR to your registry first, e.g.:
+    #   brewlet push /path/to/spring-petclinic.jar \
+    #     registry.example.com/demo/petclinic:1.0.0
+    image: registry.example.com/demo/petclinic:1.0.0   # OCI artifact, not an image
+    pullPolicy: IfNotPresent
+  replicas: 2
+  resources:
+    # Spring PetClinic (H2 in-memory profile) is comfortable in ~768Mi.
+    requests: { cpu: "500m", memory: "512Mi" }
+    limits:   { cpu: "1",    memory: "768Mi" }   # becomes cgroup limits; the JVM is cgroup-aware
+  jvm:
+    version: 17                # PetClinic targets Java 17; must match a node-installed JDK
+    args: ["-XX:MaxRAMPercentage=75.0", "-XX:+ExitOnOutOfMemoryError"]
+  env:
+    - name: SPRING_PROFILES_ACTIVE
+      value: default           # H2 in-memory DB; no external database needed
+  ports:
+    - name: http
+      containerPort: 8080
+  service:
+    enabled: true
+    type: ClusterIP
+  probes:
+    # PetClinic bundles spring-boot-starter-actuator with all endpoints exposed.
+    readiness: { httpGet: { path: /actuator/health/readiness, port: 8080 } }
+    liveness:  { httpGet: { path: /actuator/health/liveness,  port: 8080 } }
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70

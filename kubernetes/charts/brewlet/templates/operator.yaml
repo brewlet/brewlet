@@ -1,0 +1,128 @@
+{{/*
+brewlet-operator: node lifecycle controller (§8.1). Watches provision-opted
+nodes, manages the provisioner DaemonSet + the brewlet RuntimeClass from the
+values below, and reflects node state via annotations/events.
+*/}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: brewlet-operator
+  namespace: {{ include "brewlet.namespace" . }}
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: brewlet-operator
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["daemonsets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["node.brewlet.sh"]
+    resources: ["nodeprofiles"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["node.brewlet.sh"]
+    resources: ["nodeprofiles/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["node.brewlet.sh"]
+    resources: ["nodeprofiles/finalizers"]
+    verbs: ["update"]
+  - apiGroups: ["apps.brewlet.sh"]
+    resources: ["javaapplications"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: ["apps.brewlet.sh"]
+    resources: ["javaapplications/status"]
+    verbs: ["get", "update", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["node.k8s.io"]
+    resources: ["runtimeclasses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: brewlet-operator
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: brewlet-operator
+subjects:
+  - kind: ServiceAccount
+    name: brewlet-operator
+    namespace: {{ include "brewlet.namespace" . }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: brewlet-operator
+  namespace: {{ include "brewlet.namespace" . }}
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+    app: brewlet-operator
+spec:
+  replicas: {{ .Values.operator.replicas }}
+  selector:
+    matchLabels: { app: brewlet-operator }
+  template:
+    metadata:
+      labels:
+        {{- include "brewlet.labels" . | nindent 8 }}
+        app: brewlet-operator
+    spec:
+      serviceAccountName: brewlet-operator
+      securityContext:
+        runAsNonRoot: true
+      containers:
+        - name: manager
+          image: {{ .Values.images.operator | quote }}
+          imagePullPolicy: {{ .Values.images.pullPolicy }}
+          args:
+            - --namespace={{ include "brewlet.namespace" . }}
+            - --provisioner-image={{ .Values.images.provisioner }}
+            - --jdks={{ include "brewlet.jdkTokens" (dict "value" .Values.provisioner.jdks) }}
+            - --launchers={{ .Values.provisioner.launchers }}
+            {{- if .Values.operator.leaderElect }}
+            - --leader-elect
+            {{- end }}
+            - --health-probe-bind-address=:8081
+          ports:
+            - { name: metrics, containerPort: 8080 }
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8081 }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8081 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.operator.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
