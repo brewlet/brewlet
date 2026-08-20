@@ -1,0 +1,139 @@
+name: E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+    inputs:
+      CORE_REF:
+        description: brewlet/brewlet ref to test
+        required: false
+        default: main
+      KUBERNETES_REF:
+        description: brewlet/kubernetes ref to test
+        required: false
+        default: main
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tiers:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    env:
+      BREWLET_CORE_DIR: ${{ github.workspace }}/brewlet
+      BREWLET_KUBERNETES_DIR: ${{ github.workspace }}/kubernetes
+      CORE_REF: ${{ inputs.CORE_REF || 'main' }}
+      KUBERNETES_REF: ${{ inputs.KUBERNETES_REF || 'main' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Local CLI and JVM (tiers 1-2)
+            tiers: --tier 1 --tier 2
+            java: true
+            cluster: false
+            helm: false
+          - name: Shim to runc (tier 3)
+            tiers: --tier 3
+            java: true
+            cluster: false
+            helm: false
+          - name: Kubernetes control plane (tiers 4-6, 13)
+            tiers: --tier 4 --tier 5 --tier 6 --tier 13
+            java: false
+            cluster: true
+            helm: true
+          - name: Spring PetClinic (tier 7)
+            tiers: --tier 7
+            java: true
+            cluster: true
+            helm: true
+          - name: Node-side AppCDS (tier 8)
+            tiers: --tier 8
+            java: true
+            cluster: true
+            helm: false
+          - name: Serving and cgroups (tier 9)
+            tiers: --tier 9
+            java: true
+            cluster: true
+            helm: false
+          - name: Helm installation (tier 10)
+            tiers: --tier 10
+            java: false
+            cluster: true
+            helm: true
+          - name: Webhook resilience (tier 11)
+            tiers: --tier 11
+            java: false
+            cluster: true
+            helm: false
+          - name: Runnable image (tier 12)
+            tiers: --tier 12
+            java: true
+            cluster: true
+            helm: false
+          - name: Custom JDK NodeProfile (tier 14)
+            tiers: --tier 14
+            java: true
+            cluster: true
+            helm: false
+    steps:
+      - name: Check out integration harness
+        uses: actions/checkout@v7
+        with:
+          path: integration-tests
+
+      - name: Check out Brewlet core
+        uses: actions/checkout@v7
+        with:
+          repository: brewlet/brewlet
+          ref: ${{ env.CORE_REF }}
+          path: brewlet
+          token: ${{ secrets.BREWLET_REPOS_TOKEN || github.token }}
+
+      - name: Check out Brewlet Kubernetes
+        uses: actions/checkout@v7
+        with:
+          repository: brewlet/kubernetes
+          ref: ${{ env.KUBERNETES_REF }}
+          path: kubernetes
+          token: ${{ secrets.BREWLET_REPOS_TOKEN || github.token }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: brewlet/go.mod
+          cache-dependency-path: |
+            brewlet/go.sum
+            kubernetes/go.sum
+
+      - name: Set up JDK
+        if: matrix.java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Helm
+        if: matrix.helm
+        uses: azure/setup-helm@v4
+
+      - name: Create kind cluster
+        if: matrix.cluster
+        uses: helm/kind-action@v1
+        with:
+          cluster_name: brewlet-e2e
+
+      - name: Run tiers
+        run: integration-tests/e2e/run.sh ${{ matrix.tiers }}
