@@ -1,9 +1,9 @@
 # Reference
 
 Quick-lookup tables for the identifiers, formats, and paths Brewlet uses. Sources:
-[`internal/brewlet/labels.go`](https://github.com/brewlet/kubernetes/blob/main/internal/brewlet/labels.go),
+[`internal/brewlet/labels.go`](https://github.com/brewlet/brewlet/blob/main/kubernetes/internal/brewlet/labels.go),
 [`internal/artifact/`](https://github.com/brewlet/brewlet/tree/main/internal/artifact/), and
-[SPECIFICATION](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md).
+[SPECIFICATION](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md).
 
 ---
 
@@ -102,7 +102,7 @@ a thin app JAR plus one or more `classpath.layer.v1+tar` dependency layers unpac
 | `<splitSnapshotLayers>` / `-Dbrewlet.splitSnapshotLayers` | Maven | `true` | When `layered`, pack released deps and `-SNAPSHOT` deps into separate `deps` / `snapshot-deps` layers (stable → volatile) for finer dedup. |
 
 Full flag reference: [CLI reference](cli-reference.md#brewlet-push) and the
-[Maven plugin README](https://github.com/brewlet/maven-plugin/blob/main/README.md#configuration-parameters).
+[Maven plugin README](https://github.com/brewlet/brewlet/blob/main/maven-plugin/README.md#configuration-parameters).
 
 ---
 
@@ -220,4 +220,4 @@ The provisioner appends this to `/etc/containerd/config.toml`:
 ## See also
 
 - [Concepts & architecture](concepts.md) · [Configuration](configuration.md) ·
-  [CLI reference](cli-reference.md) · [SPECIFICATION](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md).
+  [CLI reference](cli-reference.md) · [SPECIFICATION](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md).

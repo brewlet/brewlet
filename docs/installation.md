@@ -32,10 +32,11 @@ There are two paths:
 
 Brewlet ships three images. The defaults point at `ghcr.io/brewlet/*`; pin to your
 own registry/digests in production. Build them from source with the
-[Kubernetes repository Makefile](https://github.com/brewlet/kubernetes/blob/main/Makefile):
+[Kubernetes component Makefile](https://github.com/brewlet/brewlet/blob/main/kubernetes/Makefile):
 
 ```bash
-git clone https://github.com/brewlet/kubernetes.git
+git clone https://github.com/brewlet/brewlet.git
+cd brewlet
 cd kubernetes
 make operator-image-push      OPERATOR_IMAGE=<registry>/operator:<tag>
 make provisioner-image-push   PROVISIONER_IMAGE=<registry>/node-provisioner:<tag>
@@ -50,7 +51,7 @@ the build for each target arch, so the installed shim always matches the node.
 
 ## Helm (recommended)
 
-The [`charts/brewlet`](https://github.com/brewlet/kubernetes/tree/main/charts/brewlet) chart installs the operator, the
+The [`charts/brewlet`](https://github.com/brewlet/brewlet/tree/main/kubernetes/charts/brewlet) chart installs the operator, the
 provisioner RBAC, and the admission webhook. The operator then creates and
 reconciles the provisioner DaemonSet and the `brewlet` RuntimeClass from the chart's
 values — so there is a single runtime source of truth for the JDK/launcher inventory.
@@ -71,7 +72,7 @@ kubectl get nodes -L brewlet.sh/runtime -w
 > To limit provisioning to platform-owned pools instead of every node, disable the
 > chart's default profile (`--set defaultProfile.enabled=false`) and define named
 > `NodeProfile`s scoped to those pools — see [Configuration](configuration.md#helm-chart-values)
-> (`profiles` / `defaultProfile`) and [SPECIFICATION §5.6](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md).
+> (`profiles` / `defaultProfile`) and [SPECIFICATION §5.6](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md).
 
 Point the chart at your own images if you built them:
 
@@ -146,8 +147,8 @@ make operator-build
 ```
 
 The RuntimeClass and provisioner DaemonSet the operator generates mirror
-[`deploy/runtimeclass.yaml`](https://github.com/brewlet/kubernetes/blob/main/deploy/runtimeclass.yaml) and
-[`deploy/node-provisioner.yaml`](https://github.com/brewlet/kubernetes/blob/main/deploy/node-provisioner.yaml). All operator
+[`deploy/runtimeclass.yaml`](https://github.com/brewlet/brewlet/blob/main/kubernetes/deploy/runtimeclass.yaml) and
+[`deploy/node-provisioner.yaml`](https://github.com/brewlet/brewlet/blob/main/kubernetes/deploy/node-provisioner.yaml). All operator
 and admission flags are in [Configuration](configuration.md#operator-flags).
 
 > The operator itself does **not** need to be privileged — it only talks to the API

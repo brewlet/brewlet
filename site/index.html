@@ -230,7 +230,7 @@ $ mvn package brewlet:push <span class="c-key">-Dbrewlet.image</span>=registry/a
           <div class="step" data-reveal data-reveal-delay="1">
             <span class="step-num">2</span>
             <h3>Push</h3>
-            <p><code>brewlet push</code> (or the <a href="https://github.com/brewlet/maven-plugin">Maven plugin</a>'s <code>mvn brewlet:push</code>) uploads the JAR plus a tiny launch config as an OCI artifact. No Dockerfile.</p>
+            <p><code>brewlet push</code> (or the <a href="https://github.com/brewlet/brewlet/tree/main/maven-plugin">Maven plugin</a>'s <code>mvn brewlet:push</code>) uploads the JAR plus a tiny launch config as an OCI artifact. No Dockerfile.</p>
           </div>
           <div class="step" data-reveal data-reveal-delay="2">
             <span class="step-num">3</span>
@@ -266,7 +266,7 @@ $ mvn package brewlet:push <span class="c-key">-Dbrewlet.image</span>=registry/a
           The control plane never touches your JAR &mdash; it only schedules the pod and
           provisions the node. The shim on that node pulls the artifact directly from
           your registry and assembles the sandbox from the node's shared JDK installation. Adapted
-          from the <a href="https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#3-high-level-architecture">high-level architecture</a> in the spec.
+          from the <a href="https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#3-high-level-architecture">high-level architecture</a> in the spec.
         </p>
       </div>
     </section>
@@ -379,19 +379,19 @@ $ curl orders:8080/info
             <h3>Core runtime</h3>
             <p>CLI, OCI artifacts, containerd shim, and node provisioner.</p>
           </a>
-          <a class="card" href="https://github.com/brewlet/kubernetes" data-reveal>
+          <a class="card" href="https://github.com/brewlet/brewlet/tree/main/kubernetes" data-reveal>
             <h3>Kubernetes</h3>
             <p>Operator, admission webhooks, APIs, manifests, and Helm chart.</p>
           </a>
-          <a class="card" href="https://github.com/brewlet/maven-plugin" data-reveal>
+          <a class="card" href="https://github.com/brewlet/brewlet/tree/main/maven-plugin" data-reveal>
             <h3>Maven plugin</h3>
             <p>Build and publish Brewlet applications from Maven.</p>
           </a>
-          <a class="card" href="https://github.com/brewlet/specs" data-reveal>
+          <a class="card" href="https://github.com/brewlet/brewlet/tree/main/specs" data-reveal>
             <h3>Specifications</h3>
             <p>Architecture contracts and enhancement proposals.</p>
           </a>
-          <a class="card" href="https://github.com/brewlet/integration-tests" data-reveal>
+          <a class="card" href="https://github.com/brewlet/brewlet/tree/main/integration-tests" data-reveal>
             <h3>Integration tests</h3>
             <p>Cross-repository test orchestration and fixture applications.</p>
           </a>
@@ -407,13 +407,11 @@ $ curl orders:8080/info
     <section class="section" id="quickstart">
       <div class="container">
         <h2 data-reveal>Quick start</h2>
-        <p class="section-lede">Clone the core, Kubernetes, and integration-test repositories as siblings. Requirements: JDK 21+ and Go 1.26+; Docker is needed only for the real-Linux runc tier.</p>
+        <p class="section-lede">Clone the Brewlet monorepo. Requirements: JDK 21+ and Go 1.26+; Docker is needed only for the real-Linux runc tier.</p>
         <div class="code-card wide" data-reveal>
           <div class="code-head"><span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span><span class="code-title">terminal</span></div>
-          <pre><code>$ mkdir brewlet-workspace &amp;&amp; cd brewlet-workspace
-$ git clone https://github.com/brewlet/brewlet.git
-$ git clone https://github.com/brewlet/kubernetes.git
-$ git clone https://github.com/brewlet/integration-tests.git
+          <pre><code>$ git clone https://github.com/brewlet/brewlet.git
+$ cd brewlet
 
 <span class="c-cm"># Local CLI + node-resident JVM: build, push, inspect, run, and bundle</span>
 $ ./integration-tests/e2e/run.sh --tier 2
@@ -421,7 +419,7 @@ $ ./integration-tests/e2e/run.sh --tier 2
 <span class="c-cm"># Real Linux mechanism: shim → runc → java under cgroup limits</span>
 $ ./integration-tests/e2e/run.sh --tier 3</code></pre>
         </div>
-       <p class="section-lede" data-reveal>Already have a Maven app? Publish it straight from your build with the <a href="https://github.com/brewlet/maven-plugin">Brewlet Maven plugin</a> (no CLI, no Dockerfile):</p>
+       <p class="section-lede" data-reveal>Already have a Maven app? Publish it straight from your build with the <a href="https://github.com/brewlet/brewlet/tree/main/maven-plugin">Brewlet Maven plugin</a> (no CLI, no Dockerfile):</p>
        <div class="code-card wide" data-reveal>
          <div class="code-head"><span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span><span class="code-title">your project</span></div>
          <pre><code><span class="c-cm"># Build the fat JAR and push it as an OCI artifact in one line</span>
@@ -480,7 +478,7 @@ $ mvn package brewlet:push <span class="c-key">-Dbrewlet.image</span>=registry/a
         <p>Push a JAR, schedule a pod, serve real traffic under cgroup limits. Explore it, run it, contribute.</p>
         <div class="hero-cta center">
           <a class="btn btn-primary" href="https://github.com/brewlet">Explore the repositories</a>
-          <a class="btn btn-ghost" href="https://github.com/brewlet/specs/blob/main/SPECIFICATION.md">Read the spec</a>
+          <a class="btn btn-ghost" href="https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md">Read the spec</a>
         </div>
       </div>
     </section>
@@ -497,7 +495,7 @@ $ mvn package brewlet:push <span class="c-key">-Dbrewlet.image</span>=registry/a
       </div>
       <nav aria-label="Footer">
         <a href="/docs/">Documentation</a>
-        <a href="https://github.com/brewlet/specs/blob/main/SPECIFICATION.md">Specification</a>
+        <a href="https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md">Specification</a>
         <a href="https://github.com/brewlet">GitHub</a>
         <a href="./LICENSE">MIT License</a>
       </nav>

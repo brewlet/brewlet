@@ -1,0 +1,2017 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Brewlet user and operator documentation">
+      
+      
+      
+        <link rel="canonical" href="https://brewlet.sh/docs/concepts/">
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../getting-started/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../logos/brewlet-logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Concepts & architecture - Brewlet docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/brewlet-docs.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#concepts-architecture" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Brewlet docs" class="md-header__button md-logo" aria-label="Brewlet docs" data-md-component="logo">
+      
+  <img src="../logos/brewlet-logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Brewlet docs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Concepts & architecture
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/brewlet/site" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    brewlet/site
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Brewlet docs" class="md-nav__button md-logo" aria-label="Brewlet docs" data-md-component="logo">
+      
+  <img src="../logos/brewlet-logo.svg" alt="logo">
+
+    </a>
+    Brewlet docs
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/brewlet/site" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    brewlet/site
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Understand
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Understand
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts & architecture
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts & architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-core-idea" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The core idea
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-kwasm-parallel-what-brewlet-copies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The KWasm parallel (what Brewlet copies)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#component-inventory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component inventory
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#high-level-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-level architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#end-to-end-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        End-to-end flow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="End-to-end flow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#build-time-developer-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build time (developer / CI)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run-time-cluster" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run time (cluster)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-runc-backed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why runc-backed?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-brewlet-does-not-do" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Brewlet does not do
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Try it
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Try it
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../spring-petclinic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spring PetClinic
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Run on a cluster
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Run on a cluster
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../jdk-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JDK management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../launchers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Launchers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ship workloads
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Ship workloads
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../building-and-publishing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building & publishing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deploying-workloads/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploying workloads
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resource-tuning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resource tuning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operate
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operate
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../appcds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AppCDS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../jpms-support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JPMS support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../layered-classpath-deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Layered classpath deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../runnable-image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runnable-image delivery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap and research
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap and research
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi-arch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-arch fleets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../supply-chain-admission/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Supply-chain admission
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sandbox-runtimes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sandbox runtimes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../metrics-exporter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics exporter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dotnet-runtime-support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-runtime support (.NET)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-core-idea" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The core idea
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-kwasm-parallel-what-brewlet-copies" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The KWasm parallel (what Brewlet copies)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#component-inventory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Component inventory
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#high-level-architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        High-level architecture
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#end-to-end-flow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        End-to-end flow
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="End-to-end flow">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#build-time-developer-ci" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build time (developer / CI)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#run-time-cluster" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run time (cluster)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#why-runc-backed" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why runc-backed?
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-brewlet-does-not-do" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What Brewlet does not do
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#next-steps" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Next steps
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/brewlet/site/edit/main/docs/concepts.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="concepts-architecture">Concepts &amp; architecture<a class="headerlink" href="#concepts-architecture" title="Permanent link">&para;</a></h1>
+<p>This page explains the Brewlet model, the components that implement it, and the
+end-to-end flow from <code>mvn package</code> to a running JVM on a node. For the full design
+rationale and every edge case, see the <a href="https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md">SPECIFICATION</a>.</p>
+<hr />
+<h2 id="the-core-idea">The core idea<a class="headerlink" href="#the-core-idea" title="Permanent link">&para;</a></h2>
+<p>Shipping a Java service to Kubernetes today forces every developer to also become a
+<strong>container author</strong>: pick a base image, write a <code>Dockerfile</code>, patch an OS layer,
+keep a JVM baked into every image, and push hundreds of megabytes — to deliver an
+artifact that is, in reality, a single self-executable (fat/uber) JAR.</p>
+<p>WebAssembly already solved this. With <a href="https://kwasm.sh/">KWasm</a>, the Wasm
+<em>runtime</em> lives on the node, the developer ships only a <code>.wasm</code> module as an OCI
+artifact, and a <code>RuntimeClass</code> tells Kubernetes to execute it. No Dockerfile, no
+base image.</p>
+<p><strong>Brewlet brings that exact model to the JVM.</strong> You publish <strong>your Java application</strong> —
+most often a single <code>app.jar</code>, but just as well a layered classpath app or a
+JPMS module — as an OCI artifact. A node-resident JDK runs it (e.g. the canonical
+<code>java -jar app.jar</code>), inside a runc sandbox whose CPU/memory limits come from the
+Kubernetes deployment descriptor.</p>
+<table>
+<thead>
+<tr>
+<th>You stop owning…</th>
+<th>Because…</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dockerfiles</td>
+<td>there is no image build — you push the JAR itself</td>
+</tr>
+<tr>
+<td>OS base layers &amp; their CVEs</td>
+<td>there is no OS layer in the artifact</td>
+</tr>
+<tr>
+<td>A JVM copy in every image</td>
+<td>the JDK installation lives on the node, shared and patched centrally</td>
+</tr>
+<tr>
+<td>Multi-hundred-MB pushes</td>
+<td>only the JAR moves over the wire</td>
+</tr>
+<tr>
+<td>Per-arch image builds &amp; manifest lists</td>
+<td>a JAR is JVM <strong>bytecode — architecture-neutral</strong>, so the <em>same</em> artifact runs on any provisioned arch (<code>amd64</code>/<code>arm64</code>); the node-side JDK is per-arch</td>
+</tr>
+</tbody>
+</table>
+<p>One JDK upgrade on the node pool patches <strong>every</strong> workload at once.</p>
+<blockquote>
+<p><strong>Cross-arch for free — with one exception.</strong> Because a JAR is arch-neutral, a
+mixed <code>amd64</code>/<code>arm64</code> fleet needs no per-arch artifact. The exception is a
+<strong>non-portable JAR</strong> that bundles JNI native libraries (e.g. <code>netty-tcnative</code>,
+RocksDB); set its optional <code>arch</code> constraint so it schedules only onto
+compatible nodes. See <a href="../multi-arch/">multi-arch fleets &amp; non-portable JARs</a>.</p>
+</blockquote>
+<hr />
+<h2 id="the-kwasm-parallel-what-brewlet-copies">The KWasm parallel (what Brewlet copies)<a class="headerlink" href="#the-kwasm-parallel-what-brewlet-copies" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Concern</th>
+<th>KWasm (Wasm)</th>
+<th>Brewlet (JVM)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Developer artifact</td>
+<td><code>.wasm</code> module as OCI artifact</td>
+<td><code>app.jar</code> as OCI artifact</td>
+</tr>
+<tr>
+<td>Runtime location</td>
+<td>Wasm runtime on the node</td>
+<td>JDK/JVM distribution on the node</td>
+</tr>
+<tr>
+<td>Node enablement</td>
+<td>privileged provisioner DaemonSet installs shim</td>
+<td>privileged provisioner DaemonSet installs shim + JDK</td>
+</tr>
+<tr>
+<td>Execution routing</td>
+<td><code>RuntimeClass</code> → containerd shim</td>
+<td><code>RuntimeClass</code> → containerd shim</td>
+</tr>
+<tr>
+<td>Container build needed?</td>
+<td>no</td>
+<td>no</td>
+</tr>
+<tr>
+<td>Operator</td>
+<td><code>kwasm-operator</code> provisions nodes</td>
+<td><code>brewlet-operator</code> provisions nodes (+ reconciles CRD)</td>
+</tr>
+</tbody>
+</table>
+<p>Brewlet deliberately keeps <strong>container-grade isolation</strong> (runc) while adopting the
+<strong>Wasm-grade developer experience</strong> (ship only the payload).</p>
+<hr />
+<h2 id="component-inventory">Component inventory<a class="headerlink" href="#component-inventory" title="Permanent link">&para;</a></h2>
+<p>Brewlet is a small set of cooperating pieces split across focused repositories.
+Each implementation maps to a section of the
+<a href="https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md">specification</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>What it does</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>OCI application artifact</strong></td>
+<td>A Java application packaged as an OCI artifact (custom media types) — a fat JAR, or an app split into classpath layers — plus a small JSON launch config — <em>not</em> a runnable container image.</td>
+<td><a href="https://github.com/brewlet/brewlet/tree/main/internal/artifact/"><code>internal/artifact/</code></a>, spec §4</td>
+</tr>
+<tr>
+<td><strong><code>brewlet</code> CLI</strong></td>
+<td>Developer/ops tool: <code>push</code>, <code>inspect</code>, <code>run</code>, <code>bundle</code>, <code>jdks</code>.</td>
+<td><a href="https://github.com/brewlet/brewlet/tree/main/cmd/brewlet/"><code>cmd/brewlet/</code></a></td>
+</tr>
+<tr>
+<td><strong><code>containerd-shim-brewlet-v2</code></strong></td>
+<td>containerd Runtime v2 shim. On <code>Create</code> it disassembles the artifact, selects a node JDK, assembles an overlay-rootfs <code>java -jar</code> sandbox, and delegates to runc.</td>
+<td><a href="https://github.com/brewlet/brewlet/tree/main/shim/"><code>shim/</code></a>, spec §6</td>
+</tr>
+<tr>
+<td><strong><code>brewlet-node-provisioner</code></strong></td>
+<td>Privileged DaemonSet. On opted-in nodes it installs the shim, materializes JDK roots + launcher layers, registers the containerd runtime, and labels the node ready.</td>
+<td>Source: <a href="https://github.com/brewlet/brewlet/tree/main/provisioner"><code>brewlet/provisioner/</code></a>; deployment: <a href="https://github.com/brewlet/brewlet/blob/main/kubernetes/deploy/node-provisioner.yaml"><code>kubernetes/deploy/node-provisioner.yaml</code></a>; spec §5</td>
+</tr>
+<tr>
+<td><strong><code>brewlet-operator</code></strong></td>
+<td>Node lifecycle controller. Watches opted-in nodes, manages the provisioner DaemonSet + the <code>brewlet</code> RuntimeClass, and tracks node readiness.</td>
+<td><a href="https://github.com/brewlet/brewlet/tree/main/kubernetes/cmd/manager"><code>kubernetes/cmd/manager/</code></a>, spec §8.1</td>
+</tr>
+<tr>
+<td><strong><code>brewlet-admission</code></strong></td>
+<td>Mutating+validating webhook. Stamps the artifact ref/digest onto brewlet pods and matches/steers requested JDK/launcher onto compatible nodes.</td>
+<td><a href="https://github.com/brewlet/brewlet/tree/main/kubernetes/cmd/admission"><code>kubernetes/cmd/admission/</code></a>, spec §8.3</td>
+</tr>
+<tr>
+<td><strong><code>RuntimeClass/brewlet</code></strong></td>
+<td>Routes pods to the shim handler; its <code>nodeSelector</code> keeps workloads on ready nodes.</td>
+<td><a href="https://github.com/brewlet/brewlet/blob/main/kubernetes/deploy/runtimeclass.yaml"><code>deploy/runtimeclass.yaml</code></a>, spec §7</td>
+</tr>
+<tr>
+<td><strong><code>JavaApplication</code> CRD</strong></td>
+<td>The higher-level developer-facing deployment descriptor, reconciled by the operator's <code>JavaApplication</code> controller (§8.2).</td>
+<td><a href="https://github.com/brewlet/brewlet/blob/main/kubernetes/deploy/javaapplication-crd.yaml"><code>deploy/javaapplication-crd.yaml</code></a>, spec §9</td>
+</tr>
+<tr>
+<td><strong>Helm chart</strong></td>
+<td>KWasm-style single-command activation of the operator + provisioner RBAC + webhook.</td>
+<td><a href="https://github.com/brewlet/brewlet/tree/main/kubernetes/charts/brewlet/"><code>charts/brewlet/</code></a></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="high-level-architecture">High-level architecture<a class="headerlink" href="#high-level-architecture" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a> Developer / CI                  Control Plane                 Worker Node (provisioned)
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a> ───────────────                 ─────────────                 ─────────────────────────
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>  mvn package                ┌──────────────────────┐
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>  brewlet push ──► Registry  │  brewlet-operator     │  watches  ┌──────────────────────┐
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>                    │        │  + admission webhook  │ ────────► │  containerd + shim    │
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>                    │        └──────────┬───────────┘  annotate  │        │ runc         │
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>                    │                   │ generates              │        ▼              │
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>                    │           ┌───────────────────┐  scheduled │  ┌────────────────┐   │
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>                    │           │ Deployment / Pod  │ ─────────► │  │ Sandbox        │   │
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>                    │           │ runtimeClassName: │            │  │ (cgroup+netns) │   │
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>                    │           │   brewlet         │            │  │  java -jar     │   │
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>                    │           └───────────────────┘            │  │  /app/app.jar  │   │
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>                    └────────── shim pulls OCI artifact ───────► │  │  (node JDK RO) │   │
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>                                                                 │  └────────────────┘   │
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>                                                                 └──────────────────────┘
+</code></pre></div>
+<hr />
+<h2 id="end-to-end-flow">End-to-end flow<a class="headerlink" href="#end-to-end-flow" title="Permanent link">&para;</a></h2>
+<h3 id="build-time-developer-ci">Build time (developer / CI)<a class="headerlink" href="#build-time-developer-ci" title="Permanent link">&para;</a></h3>
+<ol>
+<li>Build your fat JAR as usual — <code>mvn package</code> / <code>gradle bootJar</code>. Nothing
+   Brewlet-specific.</li>
+<li>Push it as an <strong>OCI artifact</strong> with custom media types plus a tiny JSON <em>launch
+   config</em> (main JAR, entry mode, app-intrinsic launch knobs). No image, no Dockerfile.
+   See <a href="../building-and-publishing/">Building &amp; publishing</a>.</li>
+</ol>
+<h3 id="run-time-cluster">Run time (cluster)<a class="headerlink" href="#run-time-cluster" title="Permanent link">&para;</a></h3>
+<ol>
+<li>The <strong>node provisioner</strong> (privileged DaemonSet, KWasm-style) installs the shim
+   and one or more <strong>JDK runtime roots</strong> onto opted-in nodes, then labels them
+   ready. See <a href="../jdk-management/">JDK management</a>.</li>
+<li>A pod with <code>runtimeClassName: brewlet</code> is admitted: the <strong>admission webhook</strong>
+   stamps the artifact ref/digest and steers it (via <code>nodeAffinity</code>) onto a node
+   with a compatible JDK/launcher.</li>
+<li>The <strong>containerd shim</strong> disassembles the artifact, selects the matching
+   node-resident JDK, assembles an OCI runtime bundle (JDK mounted read-only + JAR
+   at <code>/app</code>, <code>process.args = ["java","-jar","/app/app.jar"]</code>, cgroup limits from
+   the pod), and hands it to <strong>runc</strong>.</li>
+<li>The JVM runs as a normal pod: real pod IP via CNI, <code>kubectl logs</code>/<code>exec</code>, probes,
+   HPA, and Services all work unchanged.</li>
+</ol>
+<pre class="mermaid"><code>sequenceDiagram
+    autonumber
+    participant Dev as Developer / CI
+    participant Reg as OCI Registry
+    participant K as kubelet + containerd
+    participant Shim as brewlet shim
+    participant Runc as runc
+    participant JVM as JVM
+    Dev-&gt;&gt;Reg: brewlet push app.jar (OCI artifact)
+    Note over K: Pod (runtimeClassName: brewlet) scheduled onto a provisioned node
+    K-&gt;&gt;Reg: pull artifact (launch config + JAR layer)
+    K-&gt;&gt;Shim: Create(container, cpu/memory limits)
+    Shim-&gt;&gt;Shim: select node JDK + assemble OCI bundle
+    Shim-&gt;&gt;Runc: create / start (bundle)
+    Runc-&gt;&gt;JVM: exec java -jar /app/app.jar
+    JVM--&gt;&gt;K: stdout/stderr, probes, pod IP (via CNI)</code></pre>
+<hr />
+<h2 id="why-runc-backed">Why runc-backed?<a class="headerlink" href="#why-runc-backed" title="Permanent link">&para;</a></h2>
+<p>The shim is <strong>runc-backed on purpose</strong>: rather than re-implementing namespaces,
+cgroups, seccomp/AppArmor, and CNI, it <em>assembles an OCI runtime bundle and
+delegates isolation to runc</em> (the same approach <a href="https://github.com/containerd/runwasi">runwasi</a>
+takes for Wasm). The only novel code is <em>artifact → bundle → args</em>. Consequently:</p>
+<ul>
+<li>Probes (<code>exec</code>, <code>httpGet</code>, <code>tcpSocket</code>), <code>kubectl exec</code>, ephemeral debug
+  containers, and metrics-server behave normally.</li>
+<li>The pod gets a real pod IP via the CNI-provided netns.</li>
+<li>CPU/memory limits are enforced as ordinary cgroup v2 constraints.</li>
+</ul>
+<hr />
+<h2 id="what-brewlet-does-not-do">What Brewlet does <em>not</em> do<a class="headerlink" href="#what-brewlet-does-not-do" title="Permanent link">&para;</a></h2>
+<ul>
+<li>It does <strong>not</strong> replace OCI images for apps that legitimately need OS packages or
+  native dependencies. Brewlet is additive: it only handles pods that opt in via
+  <code>runtimeClassName: brewlet</code>; everything else runs normally.</li>
+<li>It does <strong>not</strong> build your application (that's CI's job) — it only <em>runs</em> it.</li>
+<li>It is <strong>not</strong> a polyglot runtime — JVM only for v1.</li>
+<li>It injects <strong>no</strong> JVM tuning flags of its own. See <a href="../resource-tuning/">Resource tuning</a>.</li>
+</ul>
+<hr />
+<h2 id="next-steps">Next steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Try it locally: <a href="../getting-started/">Getting started</a>.</li>
+<li>Enable it on a cluster: <a href="../installation/">Installation</a>.</li>
+<li>Ship a workload: <a href="../building-and-publishing/">Building &amp; publishing</a> →
+  <a href="../deploying-workloads/">Deploying workloads</a>.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
+      
+        <script src="../javascripts/mermaid-init.js"></script>
+      
+    
+  </body>
+</html>

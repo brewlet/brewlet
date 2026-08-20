@@ -4,7 +4,7 @@
 > path — `entry.classPath`, the `classpath.layer.v1+tar` layer, and unpacking it to
 > `/app/lib` — now ships in the reference CLI and shim; see the
 > [implementation status](#12-implementation-status). This note answers
-> [SPECIFICATION §16 Open Question #3](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#16-open-questions)
+> [SPECIFICATION §16 Open Question #3](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#16-open-questions)
 > ("Classpath/modular apps") from the **class-path** angle: how Brewlet ships an
 > application as **several OCI layers split along dependency-stability boundaries**
 > (dependencies vs. application code) instead of one opaque fat JAR.
@@ -28,7 +28,7 @@ Question #3; this one targets the far more common non-modular, class-path app.
   store then dedup the heavy dependency layers across versions *and* across apps by
   digest — only the small app layer moves on a typical rebuild.
 - **The only new mechanism needed is the classpath layer the spec already reserved.**
-  [SPECIFICATION §4.1](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#41-media-types) and
+  [SPECIFICATION §4.1](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#41-media-types) and
   [reference](reference.md#oci-media-types) already list
   `application/vnd.brewlet.classpath.layer.v1+tar` as an *optional* layer "for
   classpath mode". This note designs it: a tar of JARs unpacked to `/app/lib`, driven
@@ -70,7 +70,7 @@ entire dependency payload too.
 | **Full re-push every build** | One layer, one digest — no sub-part can be deduped. A 5 KB code change re-uploads 150–250 MB. |
 | **Full re-pull on the node** | The containerd content store dedups by layer digest; a new fat-JAR digest is a cache miss, so the shim fetches the whole thing again. |
 | **No cross-app sharing** | Two services on the same Spring Boot BOM still store their dependencies twice — the bytes are identical but buried in different fat-JAR digests. |
-| **Slow cold pulls** | Startup latency ([§13](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md)) includes pulling the artifact; a smaller changed-layer pull is a faster cold start. |
+| **Slow cold pulls** | Startup latency ([§13](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)) includes pulling the artifact; a smaller changed-layer pull is a faster cold start. |
 
 ### 2.3 Prior art: layered JARs
 
@@ -97,7 +97,7 @@ shared and patched centrally (see the [project landing page](/) and
 - **Still only bytecode.** The layers contain JARs — application classes and library
   JARs — and nothing else. No OS, no JVM. The node JDK still does the launching.
 - **Same mount, same isolation.** Layers are unpacked into the same read-only `/app`
-  tree the shim already assembles ([§6.1](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#61-per-container-lifecycle-create)).
+  tree the shim already assembles ([§6.1](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#61-per-container-lifecycle-create)).
   Nothing about the runc sandbox, cgroup mapping, RuntimeClass, or admission path
   changes.
 - **Dedup is a registry/containerd property, not a runtime one.** Splitting into layers
@@ -130,7 +130,7 @@ concrete design for the `classpath.layer.v1+tar` media type the spec already nam
 
 ## 5. Launch-config change: `entry.classPath` (implemented)
 
-Extend the launch config ([SPECIFICATION §4.2](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#42-launch-config-config-blob-schema)
+Extend the launch config ([SPECIFICATION §4.2](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#42-launch-config-config-blob-schema)
 / [reference](reference.md#launch-config-schema-config-blob)) with an optional
 `entry.classPath` used by the existing `classpath` mode. **Fully backward compatible** —
 existing `jar`/`classpath` configs omit it and behave exactly as today.
@@ -219,7 +219,7 @@ digest → its own dedup unit). The thin application JAR keeps the existing
 java -cp /app/app.jar:/app/lib/* com.acme.orders.Main
 ```
 
-The shim's [§6.1](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#61-per-container-lifecycle-create) rootfs
+The shim's [§6.1](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#61-per-container-lifecycle-create) rootfs
 assembly gains one step: after mounting the JAR layer at `/app`, unpack each
 `classpath.layer.v1+tar` into `/app/lib` (read-only, shared like the JAR). Everything
 else — overlayfs, cgroups, CNI, signals — is unchanged.
@@ -403,8 +403,8 @@ Question #3 for the mixed case.
 - [Google Jib](https://github.com/GoogleContainerTools/jib) and
   [Cloud Native Buildpacks](https://buildpacks.io/) — automatic dependency/app layering
 - `java` launcher class-path wildcard (`-cp 'lib/*'`)
-- Brewlet: [SPECIFICATION §4 (artifact)](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#4-the-oci-application-artifact),
-  [§16 Open Questions](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#16-open-questions),
+- Brewlet: [SPECIFICATION §4 (artifact)](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#4-the-oci-application-artifact),
+  [§16 Open Questions](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#16-open-questions),
   [JPMS support](jpms-support.md),
   [building & publishing](building-and-publishing.md),
   [reference](reference.md)
@@ -424,9 +424,9 @@ in the PoC:
 | Unpack dependency tars to `/app/lib` (local run + runc bundle) | `AssembleSandbox` / `GenerateBundleWithLauncher` in `internal/runtime` |
 | Shim resolves dependency-layer blob paths (layout + containerd) | `shim/cmd/containerd-shim-brewlet-v2/{resolver,bundle_prepare}.go` |
 | CLI `push --classpath-layer TAR` (repeatable); `run`/`bundle` wire it | `cmd/brewlet/main.go` |
-| Maven plugin model parity (`Entry.classPath`, media-type constant) | [`brewlet/maven-plugin`](https://github.com/brewlet/maven-plugin): `src/main/java/sh/brewlet/maven/plugin/{model,oci}` |
-| Maven plugin **auto-splits the POM dependency tree** into reproducible `classpath.layer.v1+tar` layers (`brewlet.layered`) | [`brewlet/maven-plugin`](https://github.com/brewlet/maven-plugin): `src/main/java/sh/brewlet/maven/plugin/util` |
-| **Map a Spring Boot repackaged layered JAR onto generic classpath layers** (thin app JAR + per-group dependency layers, via structural steps — *no `layers.idx` parsing*) | [`brewlet/integration-tests`](https://github.com/brewlet/integration-tests/blob/main/fixtures/spring-petclinic/layered-build.sh) fixture |
+| Maven plugin model parity (`Entry.classPath`, media-type constant) | [`brewlet/maven-plugin`](https://github.com/brewlet/brewlet/tree/main/maven-plugin): `src/main/java/sh/brewlet/maven/plugin/{model,oci}` |
+| Maven plugin **auto-splits the POM dependency tree** into reproducible `classpath.layer.v1+tar` layers (`brewlet.layered`) | [`brewlet/maven-plugin`](https://github.com/brewlet/brewlet/tree/main/maven-plugin): `src/main/java/sh/brewlet/maven/plugin/util` |
+| **Map a Spring Boot repackaged layered JAR onto generic classpath layers** (thin app JAR + per-group dependency layers, via structural steps — *no `layers.idx` parsing*) | [`brewlet/integration-tests`](https://github.com/brewlet/brewlet/blob/main/integration-tests/fixtures/spring-petclinic/layered-build.sh) fixture |
 
 Verified end-to-end: a thin `app.jar` (application classes only) loads a class from a
 dependency JAR delivered in a `classpath.layer.v1+tar` and unpacked to `/app/lib`.

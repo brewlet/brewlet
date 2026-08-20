@@ -41,7 +41,7 @@ DaemonSet it manages.
 
 ## Helm chart values
 
-From [`charts/brewlet/values.yaml`](https://github.com/brewlet/kubernetes/blob/main/charts/brewlet/values.yaml). Override
+From [`charts/brewlet/values.yaml`](https://github.com/brewlet/brewlet/blob/main/kubernetes/charts/brewlet/values.yaml). Override
 with `--set key=value` or a values file.
 
 | Key | Default | Meaning |
@@ -55,10 +55,10 @@ with `--set key=value` or a values file.
 | `provisioner.launchers` | `jaz` | Comma-separated launcher layers ([§Launchers](launchers.md)). Empty = vanilla `java` only. |
 | `provisioner.rollout.maxUnavailable` | `null` | Bounds the default profile's provisioner DaemonSet rolling update. `null` keeps the DaemonSet default (proposal 0002). |
 | `provisioner.rollout.validate` | `true` | Gate node readiness on the post-install JDK smoke test (`java -version` per root). Renders the provisioner `BREWLET_VALIDATE` env. |
-| `provisioner.rollout.containerdRestart` | `validated` | When/whether to reload containerd after writing its config: `validated`, `sighup`, or `none`. Renders `BREWLET_CONTAINERD_RESTART` ([§5.5](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md)). |
+| `provisioner.rollout.containerdRestart` | `validated` | When/whether to reload containerd after writing its config: `validated`, `sighup`, or `none`. Renders `BREWLET_CONTAINERD_RESTART` ([§5.5](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)). |
 | `provisioner.registry.mirrors` | `{}` | `<upstream-host>: <mirror-host>` map applied to every copy-from-image pull for air-gapped clusters. Renders `MIRRORS`. |
-| `defaultProfile.enabled` | `true` | Render the chart-managed **default** `NodeProfile` from `provisioner.*`. Disable to manage the default profile yourself, e.g. via GitOps ([§5.6](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md)). |
-| `profiles` | `[]` | Additional per-pool `NodeProfile` CRs, each binding node pool(s) to their own JDK/launcher inventory plus rollout/registry policy ([§5.6](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md)). |
+| `defaultProfile.enabled` | `true` | Render the chart-managed **default** `NodeProfile` from `provisioner.*`. Disable to manage the default profile yourself, e.g. via GitOps ([§5.6](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)). |
+| `profiles` | `[]` | Additional per-pool `NodeProfile` CRs, each binding node pool(s) to their own JDK/launcher inventory plus rollout/registry policy ([§5.6](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)). |
 | `operator.replicas` | `1` | Operator replica count. |
 | `operator.leaderElect` | `true` | Enable leader election for HA. |
 | `operator.resources` | requests `50m/64Mi`, limits `200m/128Mi` | Operator pod resources. |
@@ -88,7 +88,7 @@ helm install brewlet ./charts/brewlet \
 ## Operator flags
 
 These flags are implemented by
-[`cmd/manager`](https://github.com/brewlet/kubernetes/tree/main/cmd/manager).
+[`cmd/manager`](https://github.com/brewlet/brewlet/tree/main/kubernetes/cmd/manager).
 When you install via Helm, the chart populates them for you.
 
 | Flag | Default | Meaning |
@@ -137,7 +137,7 @@ only touch them directly if you hand-wire the DaemonSet.
 
 ## Admission webhook
 
-The [`brewlet-admission`](https://github.com/brewlet/kubernetes/tree/main/cmd/admission/) webhook is
+The [`brewlet-admission`](https://github.com/brewlet/brewlet/tree/main/kubernetes/cmd/admission/) webhook is
 mutating+validating. For every pod on CREATE with `runtimeClassName: brewlet` it:
 
 - **stamps** `brewlet.sh/artifact-ref` (and `brewlet.sh/artifact-digest` when the
@@ -169,7 +169,7 @@ Pod-side annotations the webhook reads (developer-facing) — see
 ## RuntimeClass
 
 The operator manages the `brewlet` `RuntimeClass`; this is what it generates (mirrors
-[`deploy/runtimeclass.yaml`](https://github.com/brewlet/kubernetes/blob/main/deploy/runtimeclass.yaml)):
+[`deploy/runtimeclass.yaml`](https://github.com/brewlet/brewlet/blob/main/kubernetes/deploy/runtimeclass.yaml)):
 
 ```yaml
 apiVersion: node.k8s.io/v1

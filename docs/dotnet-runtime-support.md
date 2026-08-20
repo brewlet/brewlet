@@ -1,7 +1,7 @@
 # Multi-runtime support: .NET as the second runtime family
 
 > **Status.** Design proposal / research note. Nothing here is implemented yet.
-> Brewlet today runs the JVM only; [SPECIFICATION §2.2](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md) lists
+> Brewlet today runs the JVM only; [SPECIFICATION §2.2](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md) lists
 > multi-language runtimes (Python, Node) as a v1 non-goal. This note argues for
 > **relaxing that non-goal for .NET first**, and sketches how to generalize the
 > existing design (§4–§9) to a second runtime family without forking the Java path.

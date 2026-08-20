@@ -6,16 +6,18 @@ app (a fat JAR, a layered classpath, or a module), no Dockerfile, no base image.
 This directory is the complete, task-oriented documentation for Brewlet. If you
 want the elevator pitch and the "why", start with the [project landing page](/);
 if you want the deep architecture and design rationale, read the
-[SPECIFICATION](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md). These pages sit in between: they tell you how
+[SPECIFICATION](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md). These pages sit in between: they tell you how
 to actually **install, configure, deploy, tune, and operate** Brewlet.
 
-Brewlet is a multi-repository project. Runtime commands in these guides refer to
-[`brewlet/brewlet`](https://github.com/brewlet/brewlet), Kubernetes resources to
-[`brewlet/kubernetes`](https://github.com/brewlet/kubernetes), Maven goals to
-[`brewlet/maven-plugin`](https://github.com/brewlet/maven-plugin), architecture
-contracts to [`brewlet/specs`](https://github.com/brewlet/specs), and runnable
-examples to
-[`brewlet/integration-tests`](https://github.com/brewlet/integration-tests).
+Brewlet is developed in the
+[`brewlet/brewlet`](https://github.com/brewlet/brewlet) monorepo. Runtime code
+lives at its root, Kubernetes resources in
+[`kubernetes/`](https://github.com/brewlet/brewlet/tree/main/kubernetes), Maven
+goals in [`maven-plugin/`](https://github.com/brewlet/brewlet/tree/main/maven-plugin),
+architecture contracts in
+[`specs/`](https://github.com/brewlet/brewlet/tree/main/specs), and runnable
+examples in
+[`integration-tests/`](https://github.com/brewlet/brewlet/tree/main/integration-tests).
 
 > ⚠️ **Status.** Brewlet has a working implementation spanning Phases 0–3
 > (artifact format, containerd shim, Helm packaging, operator, `JavaApplication`
@@ -94,7 +96,7 @@ examples to
 
 #### Phase 3 — hardening & speed ✅ implemented / Phase 4 — remaining (research)
 
-Design notes for the [hardening & speed roadmap](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#15-phased-roadmap)
+Design notes for the [hardening & speed roadmap](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#15-phased-roadmap)
 items — whether each capability fits Brewlet, how to surface it, what it touches,
 and how to implement it. **AppCDS and multi-arch (Phase A) now ship (Phase 3);** the
 rest remain research for Phase 4:
@@ -116,19 +118,19 @@ rest remain research for Phase 4:
 
 #### Enhancement proposals
 
-- **[Proposals index](https://github.com/brewlet/specs/tree/main/proposals)** — KEP-style design docs for larger
+- **[Proposals index](https://github.com/brewlet/brewlet/tree/main/specs/proposals)** — KEP-style design docs for larger
   changes, reviewed before they land in the spec and absorbed into it once implemented.
-  - **[0001 — Node profiles](https://github.com/brewlet/specs/blob/main/proposals/0001-node-profiles.md)** *(Implemented)* — a cluster-scoped
+  - **[0001 — Node profiles](https://github.com/brewlet/brewlet/blob/main/specs/proposals/0001-node-profiles.md)** *(Implemented)* — a cluster-scoped
     `NodeProfile` CRD that maps a **node pool** to a JDK/launcher inventory
     (heterogeneous per-pool inventories, autoscaler-safe opt-in, finalizer-based
     cleanup, an immutable-image mode); absorbed into §5.6.
-  - **[0002 — Validated node reconfig](https://github.com/brewlet/specs/blob/main/proposals/0002-validated-node-reconfig.md)** *(Partially implemented)* —
+  - **[0002 — Validated node reconfig](https://github.com/brewlet/brewlet/blob/main/specs/proposals/0002-validated-node-reconfig.md)** *(Partially implemented)* —
     validated containerd reconfiguration + a readiness smoke gate. The smoke gate and
     restart-mode knob ship; the reversible `config dump` + `systemctl restart` and
     launcher probe remain.
-  - **[0003 — Capability-label taxonomy](https://github.com/brewlet/specs/blob/main/proposals/0003-capability-label-taxonomy.md)** *(Draft)* —
+  - **[0003 — Capability-label taxonomy](https://github.com/brewlet/brewlet/blob/main/specs/proposals/0003-capability-label-taxonomy.md)** *(Draft)* —
     the `brewlet.sh/jdk.*` scheduling labels as a stable, autoscaler-friendly contract.
-  - **[0004 — cert-manager admission](https://github.com/brewlet/specs/blob/main/proposals/0004-cert-manager-admission.md)** *(Draft)* —
+  - **[0004 — cert-manager admission](https://github.com/brewlet/brewlet/blob/main/specs/proposals/0004-cert-manager-admission.md)** *(Draft)* —
     cert-manager for the admission webhook's serving cert.
 
 #### Future direction — multi-runtime (research)

@@ -1,7 +1,7 @@
 # Troubleshooting
 
 A field guide to what can go wrong, what it looks like, and how to fix it. The
-failure-mode summary is from [SPECIFICATION §14](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md).
+failure-mode summary is from [SPECIFICATION §14](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md).
 
 ---
 

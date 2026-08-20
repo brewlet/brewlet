@@ -2,7 +2,7 @@
 
 > **Status.** Research / design note. Nothing here is implemented yet — it
 > fleshes out the Phase 4 roadmap item *"cosign/SLSA admission"*
-> ([SPECIFICATION §11](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#11-security-model), §15) and the
+> ([SPECIFICATION §11](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#11-security-model), §15) and the
 > "supply-chain verification" bullet in [security.md](security.md#supply-chain-verification).
 > It documents *intended* behavior and the design choices, not shipped code.
 
@@ -241,8 +241,8 @@ beside the digest resolution Brewlet already performs.
   [slsa-verifier](https://github.com/slsa-framework/slsa-verifier).
 - [Sigstore policy-controller](https://docs.sigstore.dev/policy-controller/overview/),
   [Kyverno image verification](https://kyverno.io/docs/writing-policies/verify-images/).
-- Brewlet: [SPECIFICATION §11 (security)](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#11-security-model),
-  [§8.3 (admission webhook)](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md), [security.md](security.md),
+- Brewlet: [SPECIFICATION §11 (security)](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#11-security-model),
+  [§8.3 (admission webhook)](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md), [security.md](security.md),
   [building & publishing](building-and-publishing.md);
   `brewlet/kubernetes/internal/admission/{webhook,mutate}.go`,
   `brewlet/brewlet/internal/artifact/artifact.go`.

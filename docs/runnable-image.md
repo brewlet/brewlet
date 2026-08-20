@@ -3,7 +3,7 @@
 > **Status.** Design + **implemented in the PoC**. `brewlet push --format=image`, the
 > shim's runnable-image resolver, and end-to-end proof (e2e tier 12) ship in the
 > reference CLI and shim. This note documents the delivery contract referenced by
-> [SPECIFICATION §4.4](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#4-the-oci-application-artifact). It answers
+> [SPECIFICATION §4.4](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#4-the-oci-application-artifact). It answers
 > the question "how does a `runtimeClassName: brewlet` pod name the app as its `image:`
 > and let kubelet pull it, exactly like a `runtimeClassName: wasmtime` pod names a
 > Wasm module?"
@@ -130,7 +130,7 @@ node pre-puller and want the leanest registry footprint / self-describing media 
 
 ## 7. Proof (e2e tier 12)
 
-Tier 12 of the [e2e suite](https://github.com/brewlet/integration-tests/blob/main/README.md) provisions a real `kind`/CI node,
+Tier 12 of the [e2e suite](https://github.com/brewlet/brewlet/blob/main/integration-tests/README.md) provisions a real `kind`/CI node,
 `brewlet push --format=image`s the demo JAR, imports it into the node's `k8s.io`
 content store, and asserts **`ctr images unpack` SUCCEEDS** — the exact operation that
 `ImagePullBackOff`s for a native artifact. It then runs a `runtimeClassName: brewlet`
@@ -149,7 +149,7 @@ from `/hello`, and that the JVM is cgroup-aware (`availableProcessors == 1`, bou
   byte-compatible runnable image via `RunnableImageBuilder`, and `brewlet:inspect`
   reports the runnable-image shape.
 - **Not yet:** a Gradle plugin does not exist yet (it is on the roadmap — see
-  [SPECIFICATION §15](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#15-phased-roadmap), Phase 5 — and will reach
+  [SPECIFICATION §15](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#15-phased-roadmap), Phase 5 — and will reach
   format parity with the Maven plugin when it lands). A registry-based variant of tier
   12 (kubelet pulls over the network rather than a side-loaded import) is also a future
   addition — the pulled bytes are byte-identical, so the shim path is the same.

@@ -150,7 +150,7 @@ on the roadmap:
   [AppCDS](appcds.md).
 - **Project Leyden (AOT)** *(tracking)*: static-image-like startup.
 
-See [SPECIFICATION §13](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md).
+See [SPECIFICATION §13](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md).
 
 ---
 

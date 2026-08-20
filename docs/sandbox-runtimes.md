@@ -3,7 +3,7 @@
 > **Status.** Research / design note. Nothing here is implemented yet — it
 > fleshes out the Phase 4 roadmap item *"gVisor/Kata option"* and the
 > multi-tenancy guidance in
-> [SPECIFICATION §11](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#11-security-model) /
+> [SPECIFICATION §11](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#11-security-model) /
 > [security.md](security.md#multi-tenancy-guidance) (Open Question #5). It
 > documents *intended* behavior and the architectural tradeoffs, not shipped code.
 
@@ -229,9 +229,9 @@ shared-JDK economics*, so it deserves a separate, evidence-driven decision.
 - [Kubernetes RuntimeClass](https://kubernetes.io/docs/concepts/containers/runtime-class/)
   and Pod Overhead.
 - containerd runc `options.Options{BinaryName}` (runtime v2 runc task service).
-- Brewlet: [SPECIFICATION §6 (shim)](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#6-the-containerd-shim-containerd-shim-brewlet-v2),
-  [§7 (RuntimeClass)](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#7-runtimeclass),
-  [§11 (security)](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#11-security-model),
+- Brewlet: [SPECIFICATION §6 (shim)](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#6-the-containerd-shim-containerd-shim-brewlet-v2),
+  [§7 (RuntimeClass)](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#7-runtimeclass),
+  [§11 (security)](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#11-security-model),
   [security.md](security.md), [appcds.md](appcds.md);
   `shim/cmd/containerd-shim-brewlet-v2/service_linux.go`,
   `provisioner/entrypoint.sh`.

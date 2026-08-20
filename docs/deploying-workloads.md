@@ -111,13 +111,13 @@ The `JavaApplication` CRD is the developer-facing "deployment descriptor" — a 
 manifest that a controller reconciles into a `Deployment` (+ `Service`, + optional
 `HPA`) with `runtimeClassName: brewlet` wired in.
 
-> **Status.** The CRD ships in [`deploy/javaapplication-crd.yaml`](https://github.com/brewlet/kubernetes/blob/main/deploy/javaapplication-crd.yaml)
+> **Status.** The CRD ships in [`deploy/javaapplication-crd.yaml`](https://github.com/brewlet/brewlet/blob/main/kubernetes/deploy/javaapplication-crd.yaml)
 > and the reconciling controller (`JavaApplicationReconciler`,
-> [SPECIFICATION §8.2](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md)) is implemented in the operator: apply
+> [SPECIFICATION §8.2](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)) is implemented in the operator: apply
 > a `JavaApplication` and it manages the `Deployment` (+ `Service`, + optional
 > `HPA`) for you, garbage-collecting them when the descriptor is deleted. The
 > The `charts/brewlet` Helm chart in
-> [brewlet/kubernetes](https://github.com/brewlet/kubernetes) installs the CRD automatically.
+> [brewlet/kubernetes](https://github.com/brewlet/brewlet/tree/main/kubernetes) installs the CRD automatically.
 
 ```bash
 kubectl apply -f deploy/javaapplication-crd.yaml

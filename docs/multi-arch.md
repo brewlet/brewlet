@@ -189,8 +189,8 @@ discipline so the new startup accelerators don't undermine portability.
 - [Kubernetes well-known labels: `kubernetes.io/arch`](https://kubernetes.io/docs/reference/labels-annotations-taints/#kubernetes-io-arch).
 - [docker buildx multi-platform builds](https://docs.docker.com/build/building/multi-platform/).
 - JNI / native libraries in JARs; native classifiers (e.g. netty-tcnative).
-- Brewlet: [SPECIFICATION §12 (multi-arch)](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#12-networking-observability-day-2),
-  [§7 (RuntimeClass)](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#7-runtimeclass),
+- Brewlet: [SPECIFICATION §12 (multi-arch)](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#12-networking-observability-day-2),
+  [§7 (RuntimeClass)](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#7-runtimeclass),
   [jdk-management](jdk-management.md#architecture-mapping-multi-arch),
   [observability](observability.md#day2-multi-arch-fleets),
   [appcds.md](appcds.md);

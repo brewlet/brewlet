@@ -1,19 +1,18 @@
 # Brewlet workshop
 
-This workshop exercises Brewlet as the multi-repository project it is today.
-Production components, specifications, documentation, and test fixtures are
-independently versioned; the integration harness selects component checkouts and
-tests them together.
+This workshop exercises the Brewlet monorepo. Production components,
+specifications, and test fixtures share one revision, while the website remains
+separately published from `brewlet/site`.
 
-## Repository map
+## Project map
 
-| Repository | Responsibility |
+| Location | Responsibility |
 |---|---|
 | [`brewlet/brewlet`](https://github.com/brewlet/brewlet) | CLI, OCI artifacts, containerd shim, node provisioner |
-| [`brewlet/kubernetes`](https://github.com/brewlet/kubernetes) | Operator, admission, APIs, manifests, Helm chart |
-| [`brewlet/maven-plugin`](https://github.com/brewlet/maven-plugin) | Maven publishing integration |
-| [`brewlet/specs`](https://github.com/brewlet/specs) | Architecture contracts and proposals |
-| [`brewlet/integration-tests`](https://github.com/brewlet/integration-tests) | End-to-end orchestration and fixture applications |
+| [`kubernetes/`](https://github.com/brewlet/brewlet/tree/main/kubernetes) | Operator, admission, APIs, manifests, Helm chart |
+| [`maven-plugin/`](https://github.com/brewlet/brewlet/tree/main/maven-plugin) | Maven publishing integration |
+| [`specs/`](https://github.com/brewlet/brewlet/tree/main/specs) | Architecture contracts and proposals |
+| [`integration-tests/`](https://github.com/brewlet/brewlet/tree/main/integration-tests) | End-to-end orchestration and fixture applications |
 | [`brewlet/site`](https://github.com/brewlet/site) | Website, user documentation, and this workshop |
 
 ## Prerequisites
@@ -33,20 +32,15 @@ export JAVA_HOME="$HOME/.sdkman/candidates/java/current"
 export PATH="$JAVA_HOME/bin:$PATH"
 ```
 
-## 1. Prepare separate checkouts
+## 1. Clone the monorepo
 
 ```bash
-mkdir brewlet-workspace
-cd brewlet-workspace
-
 git clone https://github.com/brewlet/brewlet.git
-git clone https://github.com/brewlet/kubernetes.git
-git clone https://github.com/brewlet/integration-tests.git
-git clone https://github.com/brewlet/maven-plugin.git
+cd brewlet
 ```
 
-The sibling layout is a convenience, not a monorepo requirement. For checkouts
-stored elsewhere:
+The integration harness uses the core at the repository root and the Kubernetes
+component in `kubernetes/`. To test external component checkouts instead:
 
 ```bash
 export BREWLET_CORE_DIR=/path/to/brewlet
@@ -147,8 +141,8 @@ Run only the capability you want to inspect:
 ./integration-tests/e2e/run.sh --tier 13   # NodeProfile lifecycle
 ```
 
-For Maven publishing, build the independently versioned plugin and use its goals
-from an application project:
+For Maven publishing, install the plugin from the monorepo and use its goals from
+an application project:
 
 ```bash
 (cd maven-plugin && mvn install)
@@ -156,19 +150,16 @@ mvn package sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:push \
   -Dbrewlet.image=registry.example.com/team/app:1.0.0
 ```
 
-## 7. Validate repository-local changes
+## 7. Validate changes
 
-Each repository has its own checks:
+Run the coordinated host-side checks:
 
 ```bash
-(cd brewlet && make check)
-(cd kubernetes && make ci)
-(cd maven-plugin && mvn verify)
+make check-all
 ```
 
-Repository-local checks do not replace cross-repository validation. Point the
-integration harness at the exact branches under test before opening linked pull
-requests.
+Cluster-backed E2E tiers remain available individually when their prerequisites
+are installed.
 
 ## Cleanup
 
@@ -191,5 +182,5 @@ you selected with `E2E_WORK` when finished.
 | Kubernetes tier fails after a prior run | Re-run with `--reset` before the selected tier. |
 | Details are hidden in summary output | Read the logs in the printed work directory or set `E2E_WORK` explicitly. |
 
-See the [integration-test runbook](https://github.com/brewlet/integration-tests/blob/main/AGENTS.md)
+See the [integration-test runbook](https://github.com/brewlet/brewlet/blob/main/integration-tests/AGENTS.md)
 for the complete prerequisite and environment matrix.

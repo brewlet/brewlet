@@ -22,21 +22,17 @@ Point `JAVA_HOME` at a JDK 21 or newer:
 export JAVA_HOME="$HOME/.sdkman/candidates/java/current"   # or any JDK 21+
 ```
 
-## Create a workspace
+## Clone the repository
 
-Clone the independently versioned repositories as siblings:
+Clone the monorepo:
 
 ```bash
-mkdir brewlet-workspace
-cd brewlet-workspace
-
 git clone https://github.com/brewlet/brewlet.git
-git clone https://github.com/brewlet/kubernetes.git
-git clone https://github.com/brewlet/integration-tests.git
+cd brewlet
 ```
 
-The harness discovers sibling checkouts automatically. For a different layout,
-set explicit paths:
+The harness uses the core at the repository root and `kubernetes/` by default.
+To test external checkouts, set explicit paths:
 
 ```bash
 export BREWLET_CORE_DIR=/path/to/brewlet
@@ -99,5 +95,5 @@ harness whenever behavior crosses the core/Kubernetes boundary.
 - [Installation](installation.md) — install the Kubernetes components.
 - [Building and publishing](building-and-publishing.md) — publish your own app.
 - [Concepts and architecture](concepts.md) — understand component boundaries.
-- [Integration-test runbook](https://github.com/brewlet/integration-tests#readme) —
+- [Integration-test runbook](https://github.com/brewlet/brewlet/tree/main/integration-tests#readme) —
   run individual Kubernetes and application tiers.

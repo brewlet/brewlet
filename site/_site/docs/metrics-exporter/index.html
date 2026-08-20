@@ -1,0 +1,2064 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Brewlet user and operator documentation">
+      
+      
+      
+        <link rel="canonical" href="https://brewlet.sh/docs/metrics-exporter/">
+      
+      
+        <link rel="prev" href="../sandbox-runtimes/">
+      
+      
+        <link rel="next" href="../dotnet-runtime-support/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../logos/brewlet-logo.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Metrics exporter - Brewlet docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../stylesheets/brewlet-docs.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#brewlet-metrics-exporter-research" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Brewlet docs" class="md-header__button md-logo" aria-label="Brewlet docs" data-md-component="logo">
+      
+  <img src="../logos/brewlet-logo.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Brewlet docs
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Metrics exporter
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="custom" data-md-color-accent="custom"  aria-hidden="true"  type="radio" name="__palette" id="__palette_0">
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/brewlet/site" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    brewlet/site
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Brewlet docs" class="md-nav__button md-logo" aria-label="Brewlet docs" data-md-component="logo">
+      
+  <img src="../logos/brewlet-logo.svg" alt="logo">
+
+    </a>
+    Brewlet docs
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/brewlet/site" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    brewlet/site
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Understand
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Understand
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../concepts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Concepts & architecture
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Try it
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Try it
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../spring-petclinic/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Spring PetClinic
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Run on a cluster
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Run on a cluster
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../jdk-management/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JDK management
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../launchers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Launchers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Ship workloads
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Ship workloads
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../building-and-publishing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Building & publishing
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../deploying-workloads/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deploying workloads
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../resource-tuning/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Resource tuning
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Operate
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Operate
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../observability/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Observability
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Core reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../appcds/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AppCDS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../jpms-support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    JPMS support
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../layered-classpath-deployment/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Layered classpath deployment
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../runnable-image/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Runnable-image delivery
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Roadmap and research
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Roadmap and research
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi-arch/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-arch fleets
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../supply-chain-admission/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Supply-chain admission
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../sandbox-runtimes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Sandbox runtimes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics exporter
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metrics exporter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-tldr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. TL;DR
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-what-to-export-and-what-not-to" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. What to export (and what not to)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. What to export (and what not to)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-in-scope-brewlet-specific-signals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 In scope — Brewlet-specific signals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Out of scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-why-the-shim-cant-be-the-scrape-target-topology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Why the shim can't be the scrape target (topology)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-how-to-surface-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. How to surface it
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. How to surface it">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-prometheus-chart-gated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Prometheus, chart-gated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-metric-namespace-labels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Metric namespace + labels
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-implementation-sketch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Implementation sketch
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-what-existing-features-this-touches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. What existing features this touches
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-recommendation-phasing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Recommendation &amp; phasing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dotnet-runtime-support/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-runtime support (.NET)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1-tldr" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. TL;DR
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2-what-to-export-and-what-not-to" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. What to export (and what not to)
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="2. What to export (and what not to)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#21-in-scope-brewlet-specific-signals" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.1 In scope — Brewlet-specific signals
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#22-out-of-scope" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2.2 Out of scope
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-why-the-shim-cant-be-the-scrape-target-topology" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Why the shim can't be the scrape target (topology)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-how-to-surface-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. How to surface it
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="4. How to surface it">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#41-prometheus-chart-gated" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.1 Prometheus, chart-gated
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#42-metric-namespace-labels" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4.2 Metric namespace + labels
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-implementation-sketch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Implementation sketch
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-what-existing-features-this-touches" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. What existing features this touches
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-recommendation-phasing" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Recommendation &amp; phasing
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. References
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/brewlet/site/edit/main/docs/metrics-exporter.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="brewlet-metrics-exporter-research">Brewlet metrics exporter — research<a class="headerlink" href="#brewlet-metrics-exporter-research" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p><strong>Status.</strong> Research / design note — the <strong>exporter itself is unbuilt</strong> (no
+provisioner <code>/metrics</code> server, no operator/admission collectors, no chart
+wiring), so it still fleshes out the Phase 4 roadmap item <em>"metrics exporter"</em>
+and the "the shim can export node-level per-sandbox JVM metrics <em>(roadmap)</em>" note
+in <a href="https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#12-networking-observability-day-2">SPECIFICATION §12</a> /
+<a href="../observability/#metrics--tracing">observability.md</a>. <strong>One slice already
+ships:</strong> the shim-side emission half of Option A — a best-effort
+<code>brewlet_cds_archive_mapped</code> textfile written under <code>BREWLET_METRICS_DIR</code> on every
+launch (<a href="../appcds/">appcds.md §4.3</a>, <code>internal/runtime/cds_metric.go</code>). Everything
+else documents <em>intended</em> behavior, not shipped code.</p>
+</blockquote>
+<hr />
+<h2 id="1-tldr">1. TL;DR<a class="headerlink" href="#1-tldr" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>The app's own metrics already work — that's not what this is.</strong> Micrometer, JMX,
+  OpenTelemetry and JFR run unchanged inside the sandbox
+  (<a href="../observability/#metrics--tracing">observability.md</a>); the app owns those. A
+  Brewlet metrics exporter is for the <strong>runtime-level telemetry only Brewlet can
+  see</strong> — per-sandbox launch internals, node JDK inventory/patch age, and
+  admission/scheduling outcomes.</li>
+<li><strong>The valuable, otherwise-invisible signals</strong> are things like: cold-start
+  breakdown (artifact-resolve → bundle-prepare → overlay setup → process start),
+  <code>NoCompatibleJDK</code>/<code>NoCompatibleLauncher</code>/<code>NoCompatibleArch</code> denials,
+  JDK/launcher inventory per node, <strong>JDK patch age</strong> (the centralized-CVE lever),
+  content-store cache hit/miss for the JAR, and AppCDS archive-map success rates.</li>
+<li><strong>Topology matters:</strong> a Runtime v2 shim is a <strong>short-lived, per-container</strong>
+  process — a poor Prometheus target. Prefer emitting per-task stats to a
+  <strong>node-local sink</strong> scraped by the <strong>already-present, long-lived provisioner
+  DaemonSet</strong>, which exposes <code>/metrics</code>. Operator/CRD metrics ride the operator's
+  <strong>existing</strong> controller-runtime metrics endpoint (<code>:8080</code>).</li>
+<li><strong>Surface it as standard Prometheus</strong>: a <code>brewlet_*</code> metric namespace, a
+  chart-gated exporter + <code>Service</code>/<code>ServiceMonitor</code>, and a starter Grafana
+  dashboard. Operator concern, transparent to developers.</li>
+</ul>
+<hr />
+<h2 id="2-what-to-export-and-what-not-to">2. What to export (and what not to)<a class="headerlink" href="#2-what-to-export-and-what-not-to" title="Permanent link">&para;</a></h2>
+<h3 id="21-in-scope-brewlet-specific-signals">2.1 In scope — Brewlet-specific signals<a class="headerlink" href="#21-in-scope-brewlet-specific-signals" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Example metrics</th>
+<th>Why only Brewlet sees it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Shim / per-sandbox</strong></td>
+<td><code>brewlet_launch_duration_seconds{phase="resolve\|prepare\|overlay\|classpath\|start"}</code>, <code>brewlet_artifact_resolve_errors_total</code>, <code>brewlet_selected_jdk{dist,feature}</code>, <code>brewlet_selected_launcher</code></td>
+<td>Cold-start breakdown and JDK/launcher selection happen inside <code>Create()</code> (<code>service_linux.go</code>), invisible to the app or kubelet.</td>
+</tr>
+<tr>
+<td><strong>Content store</strong></td>
+<td><code>brewlet_jar_contentstore_hits_total</code> / <code>_misses_total</code></td>
+<td>Whether the JAR was already cached on the node (§6.4, §13) — a startup driver.</td>
+</tr>
+<tr>
+<td><strong>Node inventory</strong></td>
+<td><code>brewlet_node_jdks{dist,feature}</code>, <code>brewlet_node_launchers{name}</code>, <code>brewlet_node_ready</code>, <code>brewlet_jdk_patch_age_days{dist,feature}</code></td>
+<td>The provisioner owns the inventory (<code>entrypoint.sh label_node</code>); patch age is the CVE-management lever (§11).</td>
+</tr>
+<tr>
+<td><strong>Admission</strong></td>
+<td><code>brewlet_admission_denied_total{reason}</code>, <code>brewlet_admission_steered_total</code></td>
+<td>Only the webhook (<code>mutate.go</code>) knows about <code>NoCompatibleJDK</code>/<code>Launcher</code> outcomes.</td>
+</tr>
+<tr>
+<td><strong>Operator/CRD</strong></td>
+<td><code>brewlet_javaapplication_ready_replicas</code>, <code>brewlet_javaapplication_selected_jdk</code>, reconcile latency/errors</td>
+<td>Reconcile state (§8.2), atop the existing controller-runtime metrics.</td>
+</tr>
+<tr>
+<td><strong>Phase 3 tie-ins</strong></td>
+<td><code>brewlet_cds_archive_mapped_total</code> / <code>_stale_total</code> (<a href="../appcds/">appcds.md</a>)</td>
+<td>Tells operators whether accelerators are actually helping (e.g. an AppCDS archive going stale after a JDK patch).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="22-out-of-scope">2.2 Out of scope<a class="headerlink" href="#22-out-of-scope" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Application business/JVM metrics (heap, GC, request rates) — the app exports
+  these via Micrometer/JMX/OTel already. Brewlet should <strong>not</strong> duplicate them; at
+  most it may expose coarse per-sandbox RSS the node already tracks.</li>
+<li>Anything requiring instrumenting user code.</li>
+</ul>
+<hr />
+<h2 id="3-why-the-shim-cant-be-the-scrape-target-topology">3. Why the shim can't be the scrape target (topology)<a class="headerlink" href="#3-why-the-shim-cant-be-the-scrape-target-topology" title="Permanent link">&para;</a></h2>
+<p>A containerd Runtime v2 shim process exists roughly for the lifetime of a task and
+is not addressable as a stable <code>/metrics</code> endpoint. Three viable emission paths:</p>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Mechanism</th>
+<th>Assessment</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>A. Shim → node-local sink; provisioner exports</strong> <em>(recommended)</em></td>
+<td>The shim writes structured per-task stats (JSON/textfile) to a host path (e.g. <code>/run/brewlet/metrics/&lt;id&gt;.prom</code>); the <strong>provisioner DaemonSet</strong> (already long-lived + privileged + per-node) runs a Prometheus textfile-collector-style <code>/metrics</code> server that aggregates them + node inventory.</td>
+<td>Reuses the one component that's already node-resident and long-lived; clean separation; survives shim exit.</td>
+</tr>
+<tr>
+<td><strong>B. Shim pushes to a gateway/OTel collector</strong></td>
+<td>Shim pushes to a node OTel collector or Prometheus pushgateway on exit.</td>
+<td>Adds a dependency; pushgateway semantics for short-lived jobs are awkward; keep as alternative.</td>
+</tr>
+<tr>
+<td><strong>C. Scrape containerd</strong></td>
+<td>Read containerd's own metrics + task list.</td>
+<td>Gives cgroup stats but not Brewlet's launch-phase internals; complementary, not sufficient.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recommendation: A.</strong> The provisioner already runs as a per-node DaemonSet pod
+that idles after setup (<code>exec sleep infinity</code>); give it a metrics HTTP server and a
+node-local aggregation directory the shim writes to. Operator/CRD metrics stay on
+the operator's existing endpoint (B/C-free, no new component).</p>
+<hr />
+<h2 id="4-how-to-surface-it">4. How to surface it<a class="headerlink" href="#4-how-to-surface-it" title="Permanent link">&para;</a></h2>
+<h3 id="41-prometheus-chart-gated">4.1 Prometheus, chart-gated<a class="headerlink" href="#41-prometheus-chart-gated" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># values.yaml (new block)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">metrics</span><span class="p">:</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">              </span><span class="c1"># opt-in</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">port</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">9095</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">serviceMonitor</span><span class="p">:</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">            </span><span class="c1"># create a Prometheus-Operator ServiceMonitor</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="c1"># operator metrics endpoint already exists (:8080); optionally scrape it too</span>
+</code></pre></div>
+<p>When enabled, the chart creates a <code>Service</code> (and optional <code>ServiceMonitor</code>) for the
+provisioner exporter and, if desired, for the operator's <code>:8080</code>. Ship a starter
+Grafana dashboard JSON (fleet readiness, cold-start percentiles, denial rates, JDK
+patch age).</p>
+<h3 id="42-metric-namespace-labels">4.2 Metric namespace + labels<a class="headerlink" href="#42-metric-namespace-labels" title="Permanent link">&para;</a></h3>
+<p>Standardize on <code>brewlet_</code> prefix and consistent labels (<code>node</code>, <code>dist</code>, <code>feature</code>,
+<code>launcher</code>, <code>reason</code>, <code>phase</code>) drawn from the existing vocabulary in
+<code>brewlet/kubernetes/internal/brewlet/labels.go</code> so metrics line up with the annotations
+operators already query in <a href="../observability/#watching-the-fleet">observability.md</a>.</p>
+<hr />
+<h2 id="5-implementation-sketch">5. Implementation sketch<a class="headerlink" href="#5-implementation-sketch" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Shim (<code>service_linux.go</code>):</strong> time the <code>Create()</code> phases already present
+  (<code>resolveArtifact</code>, <code>assembleBrewletBundle</code>, <code>setupOverlayRootfs</code>,
+  <code>mountClasspathLayers</code>) and write a small textfile record per task to
+  <code>/run/brewlet/metrics/</code>; record selected JDK/launcher and content-store hit/miss.
+  Keep it best-effort (never fail a launch because metrics couldn't be written).
+  <em>(Partly shipped: the shim already writes a best-effort <code>brewlet_cds_archive_mapped</code>
+  textfile under <code>BREWLET_METRICS_DIR</code> — <code>internal/runtime/cds_metric.go</code>. Phase
+  timing and content-store hit/miss are the remaining additions.)</em></li>
+<li><strong>Provisioner (<code>entrypoint.sh</code> + a small companion binary):</strong> run an HTTP
+  <code>/metrics</code> server that (a) reads/aggregates the shim textfiles, (b) emits node
+  inventory from what it installed (<code>JDKS</code>/<code>LAUNCHERS</code>) and JDK patch age
+  (from the JDK build date / <code>release</code> file), and (c) reflects readiness. A tiny Go
+  exporter is cleaner than bash for this.</li>
+<li><strong>Operator/admission:</strong> register custom collectors on the existing
+  controller-runtime metrics registry — reconcile results, <code>readyReplicas</code>,
+  <code>selectedJdk</code> (already on status), and <code>brewlet_admission_denied_total{reason}</code>
+  incremented in the webhook's deny path (<code>webhook.go</code>/<code>mutate.go</code>).</li>
+<li><strong>Chart:</strong> <code>Service</code>/<code>ServiceMonitor</code>, RBAC if needed, dashboard ConfigMap.</li>
+</ul>
+<hr />
+<h2 id="6-what-existing-features-this-touches">6. What existing features this touches<a class="headerlink" href="#6-what-existing-features-this-touches" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Interaction</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Shim (§6)</strong></td>
+<td>Add best-effort phase timing + a node-local textfile write; no behavior change to launch.</td>
+</tr>
+<tr>
+<td><strong>Provisioner (§5)</strong></td>
+<td>Gains a metrics HTTP server + inventory/patch-age exporter (companion binary alongside <code>entrypoint.sh</code>).</td>
+</tr>
+<tr>
+<td><strong>Operator/admission (§8)</strong></td>
+<td>Custom collectors on the <strong>existing</strong> <code>:8080</code> metrics endpoint; increment denial counters in the webhook.</td>
+</tr>
+<tr>
+<td><strong>Helm chart / values</strong></td>
+<td>New opt-in <code>metrics</code> block; <code>Service</code>/<code>ServiceMonitor</code>; dashboard.</td>
+</tr>
+<tr>
+<td><strong>Labels vocabulary</strong></td>
+<td>Reuse <code>labels.go</code> keys for metric label consistency.</td>
+</tr>
+<tr>
+<td><strong>JDK management (§ day-2)</strong></td>
+<td><code>brewlet_jdk_patch_age_days</code> operationalizes the "patch the node JDK, patch everything" story — a headline security metric (<a href="../security/">security.md</a>).</td>
+</tr>
+<tr>
+<td><strong>AppCDS</strong></td>
+<td>Provide the archive-map metrics that make that accelerator's payoff observable.</td>
+</tr>
+<tr>
+<td><strong>Docs</strong></td>
+<td>Promote the "shim can export per-sandbox metrics <em>(roadmap)</em>" line in <a href="../observability/">observability.md</a> to a configured feature.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="7-recommendation-phasing">7. Recommendation &amp; phasing<a class="headerlink" href="#7-recommendation-phasing" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Phase A — operator/admission metrics (cheapest).</strong> Add custom collectors to
+   the operator's existing metrics endpoint: reconcile stats, ready replicas,
+   <code>brewlet_admission_denied_total{reason}</code>. No new component. Immediately useful
+   for spotting <code>NoCompatibleJDK</code> storms and reconcile errors.</li>
+<li><strong>Phase B — node exporter via the provisioner.</strong> Node inventory + JDK patch age</li>
+<li>readiness on a provisioner <code>/metrics</code> server; chart <code>Service</code>/<code>ServiceMonitor</code>;
+   Grafana dashboard. Delivers the fleet + CVE-lever visibility.</li>
+<li><strong>Phase C — per-sandbox launch metrics from the shim.</strong> Best-effort phase timing</li>
+<li>content-store hit/miss written node-local and aggregated by the Phase-B
+   exporter. The AppCDS accelerator slice already landed — the shim emits
+   <code>brewlet_cds_archive_mapped</code> textfiles (<a href="../appcds/">appcds.md §4.3</a>); the Phase-B
+   exporter still needs to aggregate them.</li>
+</ol>
+<p>Scoping the exporter to <em>Brewlet-specific</em> runtime signals (not re-exporting app
+JVM metrics) keeps it small, avoids overlap with the app's own observability, and
+directly serves the operator questions Brewlet uniquely creates: <em>is the fleet
+compatible, are cold starts healthy, and how stale is my centrally-patched JDK?</em></p>
+<hr />
+<h2 id="8-references">8. References<a class="headerlink" href="#8-references" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="https://prometheus.io/docs/instrumenting/exposition_formats/">Prometheus exposition / textfile collector</a>,
+  <a href="https://prometheus-operator.dev/docs/operator/design/#servicemonitor">Prometheus Operator ServiceMonitor</a>.</li>
+<li><a href="https://book.kubebuilder.io/reference/metrics.html">controller-runtime metrics</a>
+  (the operator already serves <code>--metrics-bind-address</code>, default <code>:8080</code>).</li>
+<li><a href="https://github.com/containerd/containerd/blob/main/docs/man/containerd-config.toml.5.md">containerd metrics</a>.</li>
+<li>Brewlet: <a href="https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#12-networking-observability-day-2">SPECIFICATION §12</a>,
+  <a href="../observability/">observability.md</a>, <a href="../security/">security.md</a>,
+  <a href="../appcds/">appcds.md</a>;
+  <code>brewlet/brewlet/shim/cmd/containerd-shim-brewlet-v2/service_linux.go</code>,
+  <code>brewlet/brewlet/provisioner/entrypoint.sh</code>,
+  <code>brewlet/kubernetes/internal/admission/webhook.go</code>,
+  <code>brewlet/kubernetes/internal/brewlet/labels.go</code>.</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="https://unpkg.com/mermaid@10/dist/mermaid.min.js"></script>
+      
+        <script src="../javascripts/mermaid-init.js"></script>
+      
+    
+  </body>
+</html>

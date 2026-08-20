@@ -4,7 +4,7 @@
 > rationale for Brewlet's support of **modularized Java applications** (the Java
 > Platform Module System, JPMS) via `entry.mode: "module"` and the optional
 > `modulepath.layer.v1+tar` layer — resolving the module-path half of
-> [SPECIFICATION §16 Open Question #3](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#16-open-questions)
+> [SPECIFICATION §16 Open Question #3](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#16-open-questions)
 > ("Classpath/modular apps"). The schema and launch behavior described here are
 > live in the launch core, CLI, and Maven plugin.
 
@@ -314,5 +314,5 @@ concern, which is exactly the layer Brewlet already owns.
 - `java` launcher: `--module-path` / `--module`, `jar --describe-module`
 - [Layered classpath deployment](layered-classpath-deployment.md) — the
   class-path counterpart (thin JAR + dependency layers for registry dedup)
-- Brewlet: [SPECIFICATION §4 (artifact)](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md), [§16 Open Questions](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#16-open-questions),
+- Brewlet: [SPECIFICATION §4 (artifact)](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md), [§16 Open Questions](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#16-open-questions),
   [building & publishing](building-and-publishing.md), [reference](reference.md)

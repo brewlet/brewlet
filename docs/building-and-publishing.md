@@ -169,7 +169,7 @@ mvn clean package sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:push \
 By default (`brewlet.splitSnapshotLayers=true`) released dependencies and internal
 `-SNAPSHOT` dependencies land in separate `deps` / `snapshot-deps` layers (stable →
 volatile) for finer dedup; set it to `false` to pack all dependencies into one layer.
-See the [plugin README](https://github.com/brewlet/maven-plugin/blob/main/README.md#configuration-parameters)
+See the [plugin README](https://github.com/brewlet/brewlet/blob/main/maven-plugin/README.md#configuration-parameters)
 for the full option reference.
 
 **CLI.** Pre-build the dependency tar(s) yourself and attach them with
@@ -277,7 +277,7 @@ artifact rather than a container image.
 
 ### Option C — Maven plugin
 
-The [Brewlet Maven plugin](https://github.com/brewlet/maven-plugin/) wraps steps 2–3 so developers
+The [Brewlet Maven plugin](https://github.com/brewlet/brewlet/tree/main/maven-plugin/) wraps steps 2–3 so developers
 never touch ORAS or hand-author the launch config. It infers the entry point and
 framework from the project and JAR manifest; its `manifest` goal writes the
 descriptor's JDK feature request and infers the container `ports`.
@@ -310,9 +310,9 @@ Goals: `brewlet:config` (generate the launch config), `brewlet:build` (assemble 
 local OCI layout), `brewlet:push` (publish to a registry), `brewlet:manifest`
 (emit a `JavaApplication`/Deployment YAML), `brewlet:inspect` (dry-run preview),
 and `brewlet:appcds` (generate an AppCDS startup archive — see [AppCDS](appcds.md)).
-See the [plugin README](https://github.com/brewlet/maven-plugin/blob/main/README.md) for the full goal and
+See the [plugin README](https://github.com/brewlet/brewlet/blob/main/maven-plugin/README.md) for the full goal and
 parameter reference. A **Gradle plugin** is on the roadmap
-([SPECIFICATION §15](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md)).
+([SPECIFICATION §15](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)).
 
 ---
 

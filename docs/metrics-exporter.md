@@ -4,7 +4,7 @@
 > provisioner `/metrics` server, no operator/admission collectors, no chart
 > wiring), so it still fleshes out the Phase 4 roadmap item *"metrics exporter"*
 > and the "the shim can export node-level per-sandbox JVM metrics *(roadmap)*" note
-> in [SPECIFICATION §12](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#12-networking-observability-day-2) /
+> in [SPECIFICATION §12](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#12-networking-observability-day-2) /
 > [observability.md](observability.md#metrics--tracing). **One slice already
 > ships:** the shim-side emission half of Option A — a best-effort
 > `brewlet_cds_archive_mapped` textfile written under `BREWLET_METRICS_DIR` on every
@@ -172,7 +172,7 @@ compatible, are cold starts healthy, and how stale is my centrally-patched JDK?*
 - [controller-runtime metrics](https://book.kubebuilder.io/reference/metrics.html)
   (the operator already serves `--metrics-bind-address`, default `:8080`).
 - [containerd metrics](https://github.com/containerd/containerd/blob/main/docs/man/containerd-config.toml.5.md).
-- Brewlet: [SPECIFICATION §12](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md#12-networking-observability-day-2),
+- Brewlet: [SPECIFICATION §12](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#12-networking-observability-day-2),
   [observability.md](observability.md), [security.md](security.md),
   [appcds.md](appcds.md);
   `brewlet/brewlet/shim/cmd/containerd-shim-brewlet-v2/service_linux.go`,

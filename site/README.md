@@ -6,7 +6,7 @@
 This repository contains the [brewlet.sh](https://brewlet.sh) static website,
 user-facing documentation, workshop material, and Brewlet branding assets.
 It contains no runtime, Kubernetes, plugin, specification, or test implementation;
-those components are independently versioned in the repositories below.
+those components live in the Brewlet monorepo.
 
 ## Contents
 
@@ -19,13 +19,13 @@ those components are independently versioned in the repositories below.
 | `architecture-*.svg` | Architecture diagrams |
 | `CNAME` | GitHub Pages custom domain |
 
-## Related repositories
+## Related components
 
 - [brewlet/brewlet](https://github.com/brewlet/brewlet) — CLI, containerd shim, and core runtime
-- [brewlet/kubernetes](https://github.com/brewlet/kubernetes) — operator, provisioner, Helm chart, and manifests
-- [brewlet/maven-plugin](https://github.com/brewlet/maven-plugin) — Maven publishing plugin
-- [brewlet/specs](https://github.com/brewlet/specs) — specification and proposals
-- [brewlet/integration-tests](https://github.com/brewlet/integration-tests) — end-to-end integration suite
+- [kubernetes/](https://github.com/brewlet/brewlet/tree/main/kubernetes) — operator, provisioner, Helm chart, and manifests
+- [maven-plugin/](https://github.com/brewlet/brewlet/tree/main/maven-plugin) — Maven publishing plugin
+- [specs/](https://github.com/brewlet/brewlet/tree/main/specs) — specification and proposals
+- [integration-tests/](https://github.com/brewlet/brewlet/tree/main/integration-tests) — end-to-end integration suite
 
 ## Local preview
 

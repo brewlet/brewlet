@@ -4,7 +4,7 @@ Brewlet keeps **container-grade isolation** (runc) while adopting a Wasm-grade
 developer experience. This page covers the isolation model, defaults, supply-chain
 verification, and the one genuinely sharp edge: privileged node provisioning.
 
-See also [SPECIFICATION §11](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md).
+See also [SPECIFICATION §11](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md).
 
 ---
 

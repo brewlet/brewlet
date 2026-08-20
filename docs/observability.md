@@ -4,7 +4,7 @@ Because the shim is runc-backed and the workload is an ordinary pod, everything 
 already do to observe and operate Kubernetes workloads works unchanged. This page
 covers what to expect and the Brewlet-specific day‑2 tasks.
 
-See also [SPECIFICATION §12](https://github.com/brewlet/specs/blob/main/SPECIFICATION.md).
+See also [SPECIFICATION §12](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md).
 
 ---
 
