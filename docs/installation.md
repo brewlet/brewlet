@@ -168,8 +168,10 @@ and admission flags are in [Configuration](configuration.md#operator-flags).
 ## Verify the installation
 
 ```bash
-# Download the CLI from https://github.com/brewlet/brewlet/releases/latest,
-# then run the consolidated readiness check:
+# Install the CLI version that matches the chart, then run the readiness check:
+export BREWLET_VERSION="0.1.0"
+curl -fsSL https://brewlet.sh/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
 brewlet doctor --namespace default
 
 # 1. Components are running:
