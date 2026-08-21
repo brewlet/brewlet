@@ -1,76 +1,97 @@
 # Brewlet
 
-Brewlet runs Java applications packaged as OCI artifacts with a node-resident
-JDK. This monorepo contains the runtime, Kubernetes platform, Maven plugin,
-specification, and end-to-end tests.
+[![CI](https://github.com/brewlet/brewlet/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/brewlet/brewlet/actions/workflows/ci.yml)
+[![E2E](https://github.com/brewlet/brewlet/actions/workflows/e2e.yml/badge.svg?branch=main)](https://github.com/brewlet/brewlet/actions/workflows/e2e.yml)
+[![Release](https://img.shields.io/github/v/release/brewlet/brewlet?sort=semver)](https://github.com/brewlet/brewlet/releases/latest)
+[![Go version](https://img.shields.io/github/go-mod/go-version/brewlet/brewlet)](go.mod)
+[![License](https://img.shields.io/github/license/brewlet/brewlet)](LICENSE)
 
-- [Brewlet specification](specs/SPECIFICATION.md)
-- [User documentation](https://github.com/brewlet/site)
+**Run Java applications from OCI artifacts using JDKs managed once on each
+Kubernetes node.**
 
-## Repository layout
+Brewlet separates the application from the Java runtime. Developers publish
+their JAR and launch metadata as a standard OCI artifact, while platform teams
+control the JDK distributions and launchers installed on each node. Kubernetes
+schedules the workload onto a compatible node and containerd starts it through
+the Brewlet runtime shim.
 
-| Path | Purpose |
-| --- | --- |
-| `cmd/brewlet/` | CLI for artifacts, runtime bundles, JDK inventory, and cluster diagnostics |
-| `internal/artifact/` | OCI artifact formats and local OCI-layout storage |
-| `internal/doctor/` | Kubernetes readiness and developer-access diagnostics |
-| `internal/inventory/` | Node JDK inventory parsing and rendering |
-| `internal/runtime/` | JVM launch configuration and OCI bundle assembly |
-| `shim/` | containerd Runtime v2 shim and portable bundle preparation |
-| `provisioner/` | Linux node-provisioner image and host installation entrypoint |
-| `kubernetes/` | Operator, admission webhooks, CRDs, manifests, and Helm chart |
-| `maven-plugin/` | Maven build and OCI publishing integration |
-| `specs/` | Architecture, compatibility contracts, and proposals |
-| `integration-tests/` | End-to-end harness and fixture applications |
+This repository contains the complete Brewlet implementation: the CLI and
+runtime, Kubernetes platform, node provisioner, Maven plugin, specifications,
+and integration tests.
 
-## Requirements
+- [Documentation](https://brewlet.sh/)
+- [Getting started](https://brewlet.sh/docs/getting-started/)
+- [Ops workshop](https://github.com/brewlet/site/blob/main/WORKSHOP-OPS.md)
+- [Developer workshop](https://github.com/brewlet/site/blob/main/WORKSHOP-DEV.md)
+- [Latest release](https://github.com/brewlet/brewlet/releases/latest)
+- [Specification](specs/SPECIFICATION.md)
 
-- Go 1.26 or newer
-- A JDK 17 or newer for the optional AppCDS integration test
-- Docker with Buildx to build or publish the node-provisioner image
+## How it works
 
-Linux-specific shim services retain their `linux` build constraints. On other
-platforms, the portable bundle-assembly implementation is built instead.
+```text
+Developer                                  Kubernetes cluster
 
-## Build and test
-
-```bash
-make check-all
+JAR + launch metadata                      NodeProfile
+        |                                      |
+        v                                      v
+Maven plugin or Brewlet CLI  --->  OCI registry  --->  provisioned node
+                                                        |
+                                      RuntimeClass: brewlet
+                                                        |
+                                      containerd shim + node JDK
+                                                        |
+                                                        v
+                                                Java application
 ```
 
-`make check-all` validates the core runtime, Kubernetes platform, Maven plugin,
-and host-only integration tiers. Run `make check` for the core runtime alone.
-The AppCDS integration test automatically skips when a suitable JDK is not
-available.
+1. The platform operator installs Brewlet and defines the supported JDK and
+   launcher inventory through one or more `NodeProfile` resources.
+2. The node provisioner installs the containerd shim and approved runtimes on
+   matching nodes, then advertises their capabilities through node metadata.
+3. The developer packages a Java application with the CLI or Maven plugin and
+   publishes the resulting OCI artifact.
+4. The admission webhook validates the runtime requirements and directs the pod
+   to a compatible node.
+5. The Brewlet shim assembles an OCI bundle and launches the application with
+   the selected node-resident JDK.
 
-Build binaries into `bin/`:
+## Subprojects
+
+| Subproject | Path | Responsibility |
+| --- | --- | --- |
+| CLI and artifact tooling | [`cmd/brewlet/`](cmd/brewlet/) and [`internal/`](internal/) | Packages, inspects, runs, and bundles Java OCI artifacts; also provides version, inventory, and Kubernetes diagnostics. |
+| containerd runtime shim | [`shim/`](shim/) | Implements the containerd Runtime v2 boundary, resolves application layers, selects a node JDK, and launches the JVM through an OCI runtime. |
+| Node provisioner | [`provisioner/`](provisioner/) | Installs and removes the shim, JDK roots, launchers, and containerd configuration on Linux nodes. |
+| Kubernetes platform | [`kubernetes/`](kubernetes/) | Provides the operator, admission webhook, `NodeProfile` and `JavaApplication` APIs, RBAC, manifests, and Helm chart. |
+| Maven plugin | [`maven-plugin/`](maven-plugin/) | Builds and publishes Brewlet OCI artifacts and generates Kubernetes workload manifests directly from Maven projects. |
+| Specifications | [`specs/`](specs/) | Defines the architecture, artifact formats, runtime contracts, APIs, compatibility rules, and design proposals. |
+| Integration tests | [`integration-tests/`](integration-tests/) | Exercises the CLI, JVM execution, shim, Kubernetes control plane, node provisioning, Helm installation, and representative workloads. |
+| User documentation | [`brewlet/site`](https://github.com/brewlet/site) | Hosts installation, configuration, operations, workload deployment, troubleshooting, and workshop guidance published at [brewlet.sh](https://brewlet.sh/). |
+
+## Quick start
+
+### Install the CLI
+
+The checksum-verifying installer selects the correct Linux or macOS archive for
+the host. It installs `brewlet` to `$HOME/.local/bin` by default.
 
 ```bash
-make binaries
+curl -fsSL https://brewlet.sh/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+brewlet version
 ```
 
-Build or publish the Linux node-provisioner image:
+Set `BREWLET_VERSION` to pin a release or `BREWLET_INSTALL_DIR` to choose a
+different destination. See the
+[CLI documentation](https://brewlet.sh/docs/cli-reference/) for the artifact
+workflow.
 
-```bash
-make provisioner-image
-make provisioner-image-push
-```
+### Enable a Kubernetes cluster
 
-Override `REGISTRY`, `TAG`, or `PROVISIONER_IMAGE` to publish elsewhere.
-
-## Releases
-
-Tags matching `v*` publish:
-
-- multi-architecture `operator`, `admission`, and `node-provisioner` images to
-  `ghcr.io/brewlet`;
-- the Helm chart to `oci://ghcr.io/brewlet/charts/brewlet`; and
-- signed-version CLI archives plus checksums on the GitHub release.
-
-The chart's default component image tag follows its `appVersion`, so installing
-a versioned chart selects the matching platform images automatically.
-
-Install the current release:
+Brewlet requires containerd, cgroup v2, and permission to run a privileged
+host-modifying DaemonSet. The default chart profile provisions every node, so
+use named `NodeProfile`s to restrict production or shared clusters to
+platform-owned node pools.
 
 ```bash
 helm upgrade --install brewlet oci://ghcr.io/brewlet/charts/brewlet \
@@ -78,19 +99,54 @@ helm upgrade --install brewlet oci://ghcr.io/brewlet/charts/brewlet \
   --namespace brewlet \
   --create-namespace \
   --set-string provisioner.jdks=temurin-21
-```
 
-Install the matching CLI archive for Linux or macOS with the checksum-verifying
-installer, then run `brewlet doctor` before handing the cluster to application
-developers:
-
-```bash
-export BREWLET_VERSION=0.1.0
-curl -fsSL https://brewlet.sh/install.sh | sh
-export PATH="$HOME/.local/bin:$PATH"
+kubectl get nodes -L brewlet.sh/runtime
 brewlet doctor --namespace <developer-namespace>
 ```
 
+Follow the [installation guide](https://brewlet.sh/docs/installation/) for
+prerequisites, scoped node profiles, production configuration, upgrades, and
+safe removal.
+
+## Build and test
+
+Development requires Go 1.26 or newer. Maven plugin development requires Maven
+3.9+ and JDK 17+, while the optional AppCDS integration test requires a full JDK
+17 or newer. Docker with Buildx is required for provisioner images.
+
+Run all checks that do not require a Kubernetes cluster:
+
+```bash
+make check-all
+```
+
+This validates the core runtime, Kubernetes platform, Maven plugin, and
+host-only integration tiers. To build the CLI and shim into `bin/`:
+
+```bash
+make binaries
+```
+
+To run the full tiered integration harness against a suitable local cluster,
+see [`integration-tests/AGENTS.md`](integration-tests/AGENTS.md).
+
+## Releases
+
+Tags matching `v*` publish version-aligned artifacts:
+
+| Artifact | Location |
+| --- | --- |
+| CLI archives and checksums | [GitHub Releases](https://github.com/brewlet/brewlet/releases) |
+| Operator image | `ghcr.io/brewlet/operator:<version>` |
+| Admission webhook image | `ghcr.io/brewlet/admission:<version>` |
+| Node provisioner image | `ghcr.io/brewlet/node-provisioner:<version>` |
+| Helm chart | `oci://ghcr.io/brewlet/charts/brewlet` |
+| Maven plugin JAR and POM | [GitHub Releases](https://github.com/brewlet/brewlet/releases) |
+
+The Helm chart's `appVersion` selects matching component image tags by default.
+Release images support Linux `amd64` and `arm64`; CLI archives support those
+architectures on Linux and macOS.
+
 ## License
 
-This project is licensed under the terms in [LICENSE](LICENSE).
+Brewlet is licensed under the [MIT License](LICENSE).
