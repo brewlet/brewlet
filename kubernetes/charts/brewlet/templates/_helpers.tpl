@@ -4,6 +4,20 @@
 {{- default "brewlet" .Values.namespace -}}
 {{- end -}}
 
+{{/*
+Resolve a component image. Explicit images.<component> overrides the generated
+<registry>/<name>:<tag> reference; tag defaults to Chart.appVersion.
+*/}}
+{{- define "brewlet.image" -}}
+{{- $override := index .root.Values.images .component -}}
+{{- if $override -}}
+{{- $override -}}
+{{- else -}}
+{{- $tag := default .root.Chart.AppVersion .root.Values.images.tag -}}
+{{- printf "%s/%s:%s" (trimSuffix "/" .root.Values.images.registry) .name $tag -}}
+{{- end -}}
+{{- end -}}
+
 {{/* Standard labels applied to every rendered object. */}}
 {{- define "brewlet.labels" -}}
 app.kubernetes.io/name: brewlet

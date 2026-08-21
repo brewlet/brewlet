@@ -42,9 +42,12 @@ kubectl get nodes -L brewlet.sh/runtime
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `namespace` | `brewlet` | Namespace all components install into (created by the chart). |
-| `images.operator` | `ghcr.io/brewlet/operator:0.1.0` | Operator image. |
-| `images.provisioner` | `ghcr.io/brewlet/node-provisioner:0.1.0` | Provisioner image the operator runs. |
-| `images.admission` | `ghcr.io/brewlet/admission:0.1.0` | Admission webhook image. |
+| `images.registry` | `ghcr.io/brewlet` | Registry prefix used for generated component image references. |
+| `images.tag` | chart `appVersion` | Shared component tag. |
+| `images.operator` | generated | Explicit operator image override. |
+| `images.provisioner` | generated | Explicit provisioner image override. |
+| `images.admission` | generated | Explicit admission image override. |
+| `images.pullPolicy` | `IfNotPresent` | Image pull policy for all components. |
 | `provisioner.jdks` | `temurin-21,microsoft-25` | Comma-separated `<dist>-<feature>` JDK roots to install (§5.3). |
 | `provisioner.launchers` | `jaz` | Comma-separated launcher layers (§5.4). Empty = vanilla `java` only. |
 | `operator.leaderElect` | `true` | Enable operator leader election. |

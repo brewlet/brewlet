@@ -7,11 +7,15 @@
 # Namespace all brewlet components are installed into. Created by the chart.
 namespace: brewlet
 
-# Container images for each component. Pin to digests in production.
+# Container images for each component. Empty component values resolve to
+# <registry>/<component>:<tag>, where an empty tag uses Chart.appVersion.
+# Set a component explicitly to override the generated reference or pin a digest.
 images:
-  operator: ghcr.io/brewlet/operator:0.1.0
-  provisioner: ghcr.io/brewlet/node-provisioner:0.1.0
-  admission: ghcr.io/brewlet/admission:0.1.0
+  registry: ghcr.io/brewlet
+  tag: ""
+  operator: ""
+  provisioner: ""
+  admission: ""
   pullPolicy: IfNotPresent
 
 # What the operator installs on every opted-in node. `provisioner.jdks/launchers`

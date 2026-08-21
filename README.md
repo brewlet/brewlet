@@ -11,8 +11,9 @@ specification, and end-to-end tests.
 
 | Path | Purpose |
 | --- | --- |
-| `cmd/brewlet/` | CLI for pushing, inspecting, running, and bundling Brewlet artifacts |
+| `cmd/brewlet/` | CLI for artifacts, runtime bundles, JDK inventory, and cluster diagnostics |
 | `internal/artifact/` | OCI artifact formats and local OCI-layout storage |
+| `internal/doctor/` | Kubernetes readiness and developer-access diagnostics |
 | `internal/inventory/` | Node JDK inventory parsing and rendering |
 | `internal/runtime/` | JVM launch configuration and OCI bundle assembly |
 | `shim/` | containerd Runtime v2 shim and portable bundle preparation |
@@ -56,6 +57,18 @@ make provisioner-image-push
 ```
 
 Override `REGISTRY`, `TAG`, or `PROVISIONER_IMAGE` to publish elsewhere.
+
+## Releases
+
+Tags matching `v*` publish:
+
+- multi-architecture `operator`, `admission`, and `node-provisioner` images to
+  `ghcr.io/brewlet`;
+- the Helm chart to `oci://ghcr.io/brewlet/charts/brewlet`; and
+- signed-version CLI archives plus checksums on the GitHub release.
+
+The chart's default component image tag follows its `appVersion`, so installing
+a versioned chart selects the matching platform images automatically.
 
 ## License
 

@@ -99,11 +99,11 @@ spec:
         runAsNonRoot: true
       containers:
         - name: manager
-          image: {{ .Values.images.operator | quote }}
+          image: {{ include "brewlet.image" (dict "root" . "component" "operator" "name" "operator") | quote }}
           imagePullPolicy: {{ .Values.images.pullPolicy }}
           args:
             - --namespace={{ include "brewlet.namespace" . }}
-            - --provisioner-image={{ .Values.images.provisioner }}
+            - --provisioner-image={{ include "brewlet.image" (dict "root" . "component" "provisioner" "name" "node-provisioner") }}
             - --jdks={{ include "brewlet.jdkTokens" (dict "value" .Values.provisioner.jdks) }}
             - --launchers={{ .Values.provisioner.launchers }}
             {{- if .Values.operator.leaderElect }}

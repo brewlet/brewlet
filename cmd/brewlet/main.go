@@ -19,9 +19,12 @@ import (
 	"time"
 
 	"github.com/brewlet/brewlet/internal/artifact"
+	"github.com/brewlet/brewlet/internal/doctor"
 	"github.com/brewlet/brewlet/internal/inventory"
 	"github.com/brewlet/brewlet/internal/runtime"
 )
+
+var version = "dev"
 
 func main() {
 	if len(os.Args) < 2 {
@@ -40,6 +43,11 @@ func main() {
 		err = cmdBundle(os.Args[2:])
 	case "jdks":
 		err = cmdJDKs(os.Args[2:])
+	case "doctor":
+		err = cmdDoctor(os.Args[2:])
+	case "version", "--version":
+		fmt.Println(version)
+		return
 	case "-h", "--help", "help":
 		usage()
 		return
@@ -63,6 +71,8 @@ USAGE:
   brewlet run     <ref>       [--store DIR] [--jdk-root DIR] [--launcher NAME] [-- <extra jvm args>]
   brewlet bundle  <ref>       [--store DIR] [--cpu N] [--memory M] [--jdk-root DIR] [--launcher NAME] [--launcher-root DIR] [--out DIR]
   brewlet jdks                [--output table|wide|json] [--kubeconfig FILE] [--context CTX] [--selector SEL]
+  brewlet doctor              [--namespace NS] [--output table|json] [--kubeconfig FILE] [--context CTX]
+  brewlet version
 
   <ref> is name:tag, e.g. demo/hello:1.0.0
 `)
@@ -512,6 +522,56 @@ func cmdJDKs(args []string) error {
 		return inventory.RenderJSON(os.Stdout, nodes)
 	default:
 		return fmt.Errorf("unknown --output %q (want table, wide, or json)", *output)
+	}
+	return nil
+}
+
+func cmdDoctor(args []string) error {
+	fs := flag.NewFlagSet("doctor", flag.ExitOnError)
+	namespace := fs.String("namespace", "default", "namespace where the developer will create JavaApplication resources")
+	output := fs.String("output", "table", "output format: table or json")
+	kubeconfig := fs.String("kubeconfig", "", "path to kubeconfig (default: kubectl's own resolution)")
+	context := fs.String("context", "", "kubeconfig context to use")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+
+	executor := func(kubectlArgs ...string) ([]byte, error) {
+		cmd := exec.Command("kubectl", kubectlArgs...)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			if _, lookupErr := exec.LookPath("kubectl"); lookupErr != nil {
+				return out, fmt.Errorf("kubectl is not installed or not on PATH")
+			}
+		}
+		return out, err
+	}
+	report := doctor.Run(executor, doctor.Options{
+		Kubeconfig: *kubeconfig,
+		Context:    *context,
+		Namespace:  *namespace,
+	})
+
+	switch *output {
+	case "table":
+		for _, check := range report.Checks {
+			fmt.Printf("[%-4s] %-20s %s\n", strings.ToUpper(string(check.Status)), check.Name, check.Detail)
+			if check.Remediation != "" && check.Status != doctor.Pass {
+				fmt.Printf("       fix: %s\n", check.Remediation)
+			}
+		}
+	case "json":
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(report); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unknown --output %q (want table or json)", *output)
+	}
+
+	if !report.OK() {
+		return fmt.Errorf("doctor found one or more blocking checks")
 	}
 	return nil
 }

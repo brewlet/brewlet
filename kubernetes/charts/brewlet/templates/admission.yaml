@@ -105,7 +105,7 @@ spec:
         runAsNonRoot: true
       containers:
         - name: webhook
-          image: {{ .Values.images.admission | quote }}
+          image: {{ include "brewlet.image" (dict "root" . "component" "admission" "name" "admission") | quote }}
           imagePullPolicy: {{ .Values.images.pullPolicy }}
           args:
             - --webhook-port={{ .Values.admission.port }}
