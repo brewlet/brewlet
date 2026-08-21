@@ -23,7 +23,10 @@ the webhook.
 ## Install
 
 ```bash
-helm install brewlet ./kubernetes/charts/brewlet \
+helm upgrade --install brewlet oci://ghcr.io/brewlet/charts/brewlet \
+  --version 0.1.0 \
+  --namespace brewlet \
+  --create-namespace \
   --set provisioner.jdks="temurin-21,microsoft-25" \
   --set provisioner.launchers="jaz"
 

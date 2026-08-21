@@ -70,6 +70,21 @@ Tags matching `v*` publish:
 The chart's default component image tag follows its `appVersion`, so installing
 a versioned chart selects the matching platform images automatically.
 
+Install the current release:
+
+```bash
+helm upgrade --install brewlet oci://ghcr.io/brewlet/charts/brewlet \
+  --version 0.1.0 \
+  --namespace brewlet \
+  --create-namespace \
+  --set-string provisioner.jdks=temurin-21
+```
+
+Download the matching CLI archive for Linux or macOS from
+[GitHub Releases](https://github.com/brewlet/brewlet/releases/tag/v0.1.0), then
+run `brewlet doctor --namespace <developer-namespace>` before handing the
+cluster to application developers.
+
 ## License
 
 This project is licensed under the terms in [LICENSE](LICENSE).
