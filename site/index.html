@@ -121,8 +121,9 @@ $ docker push registry/app:1.4.2   <span class="c-cm"># ~250 MB</span></code></p
             <pre><code><span class="c-cm"># Push ONLY the JAR as an OCI artifact</span>
 $ brewlet push target/app.jar registry/app:1.4.2
 
-<span class="c-cm"># …or straight from your Maven build, no CLI:</span>
-$ mvn package brewlet:push <span class="c-key">-Dbrewlet.image</span>=registry/app:1.4.2
+<span class="c-cm"># …or with the installed v0.1.0 Maven plugin, no CLI:</span>
+$ mvn package sh.brewlet:brewlet-maven-plugin:0.1.0:push \
+    <span class="c-key">-Dbrewlet.image</span>=registry/app:1.4.2
 
 <span class="c-cm"># Deploy it — one Brewlet-specific line:</span>
 <span class="c-key">runtimeClassName</span>: <span class="c-val">brewlet</span>
@@ -230,7 +231,7 @@ $ mvn package brewlet:push <span class="c-key">-Dbrewlet.image</span>=registry/a
           <div class="step" data-reveal data-reveal-delay="1">
             <span class="step-num">2</span>
             <h3>Push</h3>
-            <p><code>brewlet push</code> (or the <a href="https://github.com/brewlet/brewlet/tree/main/maven-plugin">Maven plugin</a>'s <code>mvn brewlet:push</code>) uploads the JAR plus a tiny launch config as an OCI artifact. No Dockerfile.</p>
+            <p><code>brewlet push</code> (or the <a href="https://github.com/brewlet/brewlet/releases/tag/v0.1.0">released Maven plugin</a>) uploads the JAR plus a tiny launch config as an OCI artifact. No Dockerfile.</p>
           </div>
           <div class="step" data-reveal data-reveal-delay="2">
             <span class="step-num">3</span>
@@ -407,23 +408,32 @@ $ curl orders:8080/info
     <section class="section" id="quickstart">
       <div class="container">
         <h2 data-reveal>Quick start</h2>
-        <p class="section-lede">Clone the Brewlet monorepo. Requirements: JDK 21+ and Go 1.26+; Docker is needed only for the real-Linux runc tier.</p>
+        <p class="section-lede">Try Brewlet v0.1.0 locally with JDK 21+, Maven, and the released CLI. No Go, Docker, Kubernetes, or Brewlet source build required.</p>
         <div class="code-card wide" data-reveal>
           <div class="code-head"><span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span><span class="code-title">terminal</span></div>
-          <pre><code>$ git clone https://github.com/brewlet/brewlet.git
-$ cd brewlet
+          <pre><code><span class="c-cm"># Download the public release for your platform</span>
+$ OS="$(uname -s | tr '[:upper:]' '[:lower:]')"; ARCH="$(uname -m)"
+$ [ "$ARCH" = x86_64 ] &amp;&amp; ARCH=amd64; [ "$ARCH" = aarch64 ] &amp;&amp; ARCH=arm64
+$ curl -fL "https://github.com/brewlet/brewlet/releases/download/v0.1.0/brewlet_0.1.0_${OS}_${ARCH}.tar.gz" | tar -xz
+$ ./brewlet version
 
-<span class="c-cm"># Local CLI + node-resident JVM: build, push, inspect, run, and bundle</span>
-$ ./integration-tests/e2e/run.sh --tier 2
-
-<span class="c-cm"># Real Linux mechanism: shim → runc → java under cgroup limits</span>
-$ ./integration-tests/e2e/run.sh --tier 3</code></pre>
+<span class="c-cm"># Package only your JAR, then inspect and run it</span>
+$ ./brewlet push target/app.jar demo/app:0.1.0 --format artifact
+$ ./brewlet inspect demo/app:0.1.0
+$ ./brewlet run demo/app:0.1.0</code></pre>
         </div>
-       <p class="section-lede" data-reveal>Already have a Maven app? Publish it straight from your build with the <a href="https://github.com/brewlet/brewlet/tree/main/maven-plugin">Brewlet Maven plugin</a> (no CLI, no Dockerfile):</p>
+       <p class="section-lede" data-reveal>Already have a Maven app? Install the <a href="https://github.com/brewlet/brewlet/releases/tag/v0.1.0">released v0.1.0 plugin</a>, then publish without a Dockerfile:</p>
        <div class="code-card wide" data-reveal>
          <div class="code-head"><span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span><span class="code-title">your project</span></div>
-         <pre><code><span class="c-cm"># Build the fat JAR and push it as an OCI artifact in one line</span>
-$ mvn package brewlet:push <span class="c-key">-Dbrewlet.image</span>=registry/app:1.4.2</code></pre>
+         <pre><code><span class="c-cm"># Download and install the public release into your local Maven repository</span>
+$ curl -fLO https://github.com/brewlet/brewlet/releases/download/v0.1.0/brewlet-maven-plugin-0.1.0.jar
+$ curl -fLO https://github.com/brewlet/brewlet/releases/download/v0.1.0/brewlet-maven-plugin-0.1.0.pom
+$ mvn org.apache.maven.plugins:maven-install-plugin:3.1.4:install-file \
+    <span class="c-key">-Dfile</span>=brewlet-maven-plugin-0.1.0.jar <span class="c-key">-DpomFile</span>=brewlet-maven-plugin-0.1.0.pom
+
+<span class="c-cm"># Build the JAR and push its runnable OCI image</span>
+$ mvn package sh.brewlet:brewlet-maven-plugin:0.1.0:push \
+    <span class="c-key">-Dbrewlet.image</span>=registry/app:1.4.2</code></pre>
        </div>
        <div class="hero-cta center">
           <a class="btn btn-primary" href="/docs/getting-started/">Full quick start</a>

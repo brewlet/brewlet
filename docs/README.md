@@ -33,7 +33,7 @@ examples in
 |---|---|
 | **Developer** shipping a Java service | [Building & publishing application artifacts](building-and-publishing.md) → [Deploying workloads](deploying-workloads.md) |
 | **Platform / cluster operator** enabling Brewlet on a cluster | [Installation](installation.md) → [Configuration](configuration.md) → [JDK management](jdk-management.md) |
-| **Anyone** who wants to try it locally in minutes | [Getting started (local PoC)](getting-started.md) |
+| **Anyone** who wants to try the released CLI locally | [Getting started](getting-started.md) |
 | **Someone evaluating** the idea | [Concepts & architecture](concepts.md) |
 
 ---
@@ -45,9 +45,9 @@ examples in
   component inventory, and the end-to-end build/run flow.
 
 ### Try it
-- **[Getting started (local PoC)](getting-started.md)** — build the demo JAR, push
-  it as an OCI artifact, run it, and exercise the real `shim → runc → java -jar`
-  path under cgroups.
+- **[Getting started](getting-started.md)** — download the released CLI, build
+  the demo JAR, package and inspect it as an OCI artifact, run it with a
+  node-resident JDK, and preview the shim's runtime bundle.
 - **[Example: Spring PetClinic](spring-petclinic.md)** — the same flow with the
   **real upstream Spring Boot app**: build the fat JAR, ship only the JAR, run it
   via `shim → runc` under cgroups, and deploy it as a `JavaApplication`.

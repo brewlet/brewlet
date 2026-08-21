@@ -1,96 +1,154 @@
-# Getting started (local proof of concept)
+# Getting started with the released CLI
 
-Brewlet is developed in one monorepo. Runtime code lives at the root, the
-Kubernetes control plane lives in `kubernetes/`, and `integration-tests/` owns
-fixture applications and cross-component orchestration.
-
-This guide uses the integration harness so every command matches the same flow CI
-validates.
+In this local quick start you will download Brewlet v0.1.0, build a small Java
+application, package only its JAR into an OCI layout, inspect it, and run it with
+your installed JDK. You do not need Go, Docker, Kubernetes, or a Brewlet source
+build.
 
 ## Prerequisites
 
-| Tool | Why | Required for |
-|---|---|---|
-| **JDK 21+** | Builds and runs the fixture applications | Local CLI and runc tiers |
-| **Go 1.26+** | Builds the CLI and shim | Local CLI and runc tiers |
-| **Docker** | Provides Linux, runc, and cgroups on any host | runc tier only |
+You need:
 
-Point `JAVA_HOME` at a JDK 21 or newer:
+- JDK 21 or newer;
+- Maven 3.9 or newer;
+- `curl` and `tar`; and
+- macOS or Linux on `amd64` or `arm64`.
 
-```bash
-export JAVA_HOME="$HOME/.sdkman/candidates/java/current"   # or any JDK 21+
-```
-
-## Clone the repository
-
-Clone the monorepo:
+Confirm the tools before continuing:
 
 ```bash
-git clone https://github.com/brewlet/brewlet.git
-cd brewlet
+java -version
+mvn -version
+curl --version
 ```
 
-The harness uses the core at the repository root and `kubernetes/` by default.
-To test external checkouts, set explicit paths:
+## 1. Download Brewlet
+
+Select the release archive for the current operating system and architecture:
 
 ```bash
-export BREWLET_CORE_DIR=/path/to/brewlet
-export BREWLET_KUBERNETES_DIR=/path/to/kubernetes
+export BREWLET_VERSION="0.1.0"
+
+case "$(uname -s)-$(uname -m)" in
+  Darwin-x86_64)  BREWLET_PLATFORM="darwin_amd64" ;;
+  Darwin-arm64)   BREWLET_PLATFORM="darwin_arm64" ;;
+  Linux-x86_64)   BREWLET_PLATFORM="linux_amd64" ;;
+  Linux-aarch64|Linux-arm64) BREWLET_PLATFORM="linux_arm64" ;;
+  *) echo "unsupported platform: $(uname -s)-$(uname -m)" >&2; exit 1 ;;
+esac
+
+mkdir -p "$HOME/.local/bin"
+curl -fL "https://github.com/brewlet/brewlet/releases/download/v${BREWLET_VERSION}/brewlet_${BREWLET_VERSION}_${BREWLET_PLATFORM}.tar.gz" \
+  | tar -xz -C "$HOME/.local/bin"
+export PATH="$HOME/.local/bin:$PATH"
+
+brewlet version
 ```
 
-The harness never changes branches. When using external checkouts, select the
-desired revisions before running it.
+The last command must print `0.1.0`.
 
-## Layer 1: ship and run only a JAR
+## 2. Build the release example
 
-From the repository root:
+Download the example source from the matching release tag. This builds the
+application only; it does not build Brewlet.
 
 ```bash
-./integration-tests/e2e/run.sh --tier 2
+export BREWLET_WORK="${TMPDIR:-/tmp}/brewlet-quickstart-${BREWLET_VERSION}"
+mkdir -p "$BREWLET_WORK"
+
+curl -fL \
+  "https://github.com/brewlet/brewlet/archive/refs/tags/v${BREWLET_VERSION}.tar.gz" \
+  -o "$BREWLET_WORK/source.tar.gz"
+tar -xzf "$BREWLET_WORK/source.tar.gz" -C "$BREWLET_WORK"
+cd "$BREWLET_WORK/brewlet-${BREWLET_VERSION}"
+
+mvn -f integration-tests/fixtures/demo-app/pom.xml clean package
+test -f integration-tests/fixtures/demo-app/target/app.jar
 ```
 
-Tier 2:
+The result is an ordinary executable JAR. It contains neither Linux nor a JDK.
 
-1. Builds `brewlet` and `containerd-shim-brewlet-v2` from the monorepo root.
-2. Builds the dependency-free Java fixture from `integration-tests/fixtures/`.
-3. Pushes only its JAR into a local OCI layout.
-4. Inspects and runs the artifact with the JDK from `JAVA_HOME`.
-5. Emits an OCI runtime bundle and validates its CPU and memory settings.
-6. Repeats the flow for layered classpath and JPMS applications.
+## 3. Package only the application
 
-The printed work directory contains logs, OCI layouts, binaries, and generated
-bundles. Set `E2E_WORK` to retain them at a known path:
+Use the released CLI to write a native Brewlet artifact to a local OCI layout:
 
 ```bash
-E2E_WORK=/tmp/brewlet-e2e ./integration-tests/e2e/run.sh --tier 2
+export BREWLET_REF="demo/hello:${BREWLET_VERSION}"
+export BREWLET_STORE="$BREWLET_WORK/oci"
+
+brewlet push \
+  integration-tests/fixtures/demo-app/target/app.jar \
+  "$BREWLET_REF" \
+  --store "$BREWLET_STORE" \
+  --format artifact
 ```
 
-## Layer 2: run through shim, runc, and cgroups
+The command reports the manifest digest and confirms that no Dockerfile or base
+image was used.
+
+## 4. Inspect the launch contract
 
 ```bash
-./integration-tests/e2e/run.sh --tier 3
+brewlet inspect "$BREWLET_REF" --store "$BREWLET_STORE"
 ```
 
-Tier 3 cross-compiles the shim for Linux and runs it in a privileged container.
-The shim assembles the OCI bundle and `runc` launches Java as PID 1 under a
-1-CPU, 384 MiB cgroup. The fixture reports the limits observed from inside the
-JVM. The same tier verifies both `java -jar` and JPMS module-path launches.
+The output contains an OCI manifest and a JVM config whose `mainJar` is
+`app.jar`. The artifact does not choose a JDK or carry one; the runtime supplies
+the JDK when the application starts.
 
-## Validate the monorepo
+## 5. Run the application
 
-Run all host-side checks from the repository root:
+Start the artifact in one terminal:
 
 ```bash
-make check-all
+brewlet run "$BREWLET_REF" --store "$BREWLET_STORE"
 ```
 
-Cluster-backed integration tiers are separate because they require Docker,
-kubectl, and a reachable cluster.
+Brewlet selects the local JDK, extracts the JAR into a sandbox, prints the exact
+`java -jar` command, and starts the application on port 8080.
+
+In a second terminal:
+
+```bash
+curl -f http://127.0.0.1:8080/healthz
+curl -f http://127.0.0.1:8080/hello
+curl -f http://127.0.0.1:8080/info
+```
+
+The health endpoint returns `ok`, `/hello` identifies the Brewlet application,
+and `/info` reports the JDK that supplied the runtime. Return to the first
+terminal and press **Ctrl+C**.
+
+## 6. Preview the node runtime bundle
+
+Generate the OCI runtime bundle that the containerd shim would pass to `runc` on
+a Brewlet node:
+
+```bash
+brewlet bundle "$BREWLET_REF" \
+  --store "$BREWLET_STORE" \
+  --cpu 1 \
+  --memory 256Mi \
+  --out "$BREWLET_WORK/bundle"
+
+test -f "$BREWLET_WORK/bundle/config.json"
+```
+
+The bundle records the `java -jar /app/app.jar` process, a read-only node JDK
+mount, and the requested CPU and memory limits. Generating it is safe on macOS
+and Linux; executing the bundle with `runc` is a Linux node operation.
+
+## What you proved
+
+- Brewlet itself came from the public v0.1.0 release.
+- The application payload contains only the JAR and launch metadata.
+- A node-resident JDK can run the packaged application directly.
+- Brewlet can translate the same artifact into an OCI runtime bundle with
+  cgroup limits.
 
 ## Next steps
 
-- [Installation](installation.md) — install the Kubernetes components.
-- [Building and publishing](building-and-publishing.md) — publish your own app.
-- [Concepts and architecture](concepts.md) — understand component boundaries.
-- [Integration-test runbook](https://github.com/brewlet/brewlet/tree/main/integration-tests#readme) —
-  run individual Kubernetes and application tiers.
+- [Install Brewlet on a Kubernetes cluster](installation.md).
+- [Build and publish your own application](building-and-publishing.md).
+- [Complete the role-based workshop](https://github.com/brewlet/site/blob/main/WORKSHOP.md).
+- [Understand the architecture](concepts.md).

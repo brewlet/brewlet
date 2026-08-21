@@ -31,7 +31,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: azure/setup-helm@v4
-      - name: Verify public workshop artifacts
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Verify public release and Getting Started
         run: ./scripts/verify-release-artifacts.sh 0.1.0
 
   deploy:
