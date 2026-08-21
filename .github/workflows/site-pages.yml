@@ -9,6 +9,7 @@ on:
       - "*.svg"
       - "*.png"
       - "CNAME"
+      - "install.sh"
       - "mkdocs.yml"
       - "docs/**"
       - "WORKSHOP*.md"
@@ -35,7 +36,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-      - name: Verify public release and Getting Started
+      - name: Verify installer, public release, and Getting Started
         run: ./scripts/verify-release-artifacts.sh 0.1.0
 
   deploy:

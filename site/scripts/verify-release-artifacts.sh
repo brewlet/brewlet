@@ -4,6 +4,7 @@ set -euo pipefail
 version="${1:-0.1.0}"
 work="$(mktemp -d)"
 app_pid=""
+script_dir="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 
 cleanup() {
   if [[ -n "$app_pid" ]]; then
@@ -15,28 +16,9 @@ trap cleanup EXIT
 
 base="https://github.com/brewlet/brewlet/releases/download/v${version}"
 
-case "$(uname -s)" in
-  Darwin) os="darwin" ;;
-  Linux) os="linux" ;;
-  *)
-    echo "unsupported operating system: $(uname -s)" >&2
-    exit 1
-    ;;
-esac
-
-case "$(uname -m)" in
-  arm64 | aarch64) arch="arm64" ;;
-  x86_64 | amd64) arch="amd64" ;;
-  *)
-    echo "unsupported architecture: $(uname -m)" >&2
-    exit 1
-    ;;
-esac
-
-curl -fsSL -o "$work/brewlet.tar.gz" \
-  "$base/brewlet_${version}_${os}_${arch}.tar.gz"
-tar -xzf "$work/brewlet.tar.gz" -C "$work"
-test "$("$work/brewlet" version)" = "$version"
+cat "$script_dir/../install.sh" \
+  | BREWLET_VERSION="$version" BREWLET_INSTALL_DIR="$work/bin" sh
+test "$("$work/bin/brewlet" version)" = "$version"
 
 curl -fsSL -o "$work/source.tar.gz" \
   "https://github.com/brewlet/brewlet/archive/refs/tags/v${version}.tar.gz"
@@ -47,16 +29,16 @@ mvn -q -f "$example/pom.xml" clean package
 test -f "$example/target/app.jar"
 
 ref="demo/hello:${version}"
-"$work/brewlet" push "$example/target/app.jar" "$ref" \
+"$work/bin/brewlet" push "$example/target/app.jar" "$ref" \
   --store "$work/oci" \
   --format artifact \
   > "$work/push.log"
-"$work/brewlet" inspect "$ref" --store "$work/oci" \
+"$work/bin/brewlet" inspect "$ref" --store "$work/oci" \
   > "$work/inspect.log"
 grep -q '"mainJar": "app.jar"' "$work/inspect.log"
 
 port=$((18000 + ($$ % 1000)))
-"$work/brewlet" run "$ref" --store "$work/oci" \
+"$work/bin/brewlet" run "$ref" --store "$work/oci" \
   -- "-Dserver.port=${port}" \
   > "$work/run.log" 2>&1 &
 app_pid=$!
@@ -76,7 +58,7 @@ kill "$app_pid" 2>/dev/null || true
 wait "$app_pid" 2>/dev/null || true
 app_pid=""
 
-"$work/brewlet" bundle "$ref" \
+"$work/bin/brewlet" bundle "$ref" \
   --store "$work/oci" \
   --cpu 1 \
   --memory 256Mi \

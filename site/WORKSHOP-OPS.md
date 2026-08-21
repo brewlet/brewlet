@@ -36,20 +36,11 @@ export BREWLET_REGISTRY="<registry-host>/<team>"
 
 Authenticate with the registry using your organization's normal mechanism.
 
-Install the released CLI for your current operating system and architecture:
+Install the released CLI. The installer detects the operating system and
+architecture and verifies the release checksum:
 
 ```bash
-case "$(uname -s)-$(uname -m)" in
-  Darwin-x86_64)  BREWLET_CLI="darwin_amd64" ;;
-  Darwin-arm64)   BREWLET_CLI="darwin_arm64" ;;
-  Linux-x86_64)   BREWLET_CLI="linux_amd64" ;;
-  Linux-aarch64|Linux-arm64) BREWLET_CLI="linux_arm64" ;;
-  *) echo "unsupported platform" >&2; exit 1 ;;
-esac
-
-mkdir -p "$HOME/.local/bin"
-curl -fL "https://github.com/brewlet/brewlet/releases/download/v${BREWLET_VERSION}/brewlet_${BREWLET_VERSION}_${BREWLET_CLI}.tar.gz" \
-  | tar -xz -C "$HOME/.local/bin"
+curl -fsSL https://brewlet.sh/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 brewlet version
 ```

@@ -22,30 +22,24 @@ mvn -version
 curl --version
 ```
 
-## 1. Download Brewlet
+## 1. Install Brewlet
 
-Select the release archive for the current operating system and architecture:
+Run the installer. It detects macOS or Linux and `amd64` or `arm64`, downloads
+the matching release archive, and verifies its SHA-256 checksum before
+installing it:
 
 ```bash
 export BREWLET_VERSION="0.1.0"
-
-case "$(uname -s)-$(uname -m)" in
-  Darwin-x86_64)  BREWLET_PLATFORM="darwin_amd64" ;;
-  Darwin-arm64)   BREWLET_PLATFORM="darwin_arm64" ;;
-  Linux-x86_64)   BREWLET_PLATFORM="linux_amd64" ;;
-  Linux-aarch64|Linux-arm64) BREWLET_PLATFORM="linux_arm64" ;;
-  *) echo "unsupported platform: $(uname -s)-$(uname -m)" >&2; exit 1 ;;
-esac
-
-mkdir -p "$HOME/.local/bin"
-curl -fL "https://github.com/brewlet/brewlet/releases/download/v${BREWLET_VERSION}/brewlet_${BREWLET_VERSION}_${BREWLET_PLATFORM}.tar.gz" \
-  | tar -xz -C "$HOME/.local/bin"
+curl -fsSL https://brewlet.sh/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"
 
 brewlet version
 ```
 
 The last command must print `0.1.0`.
+
+Without `BREWLET_VERSION`, the installer selects the latest release. Set
+`BREWLET_INSTALL_DIR` to choose a directory other than `$HOME/.local/bin`.
 
 ## 2. Build the release example
 

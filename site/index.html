@@ -411,16 +411,15 @@ $ curl orders:8080/info
         <p class="section-lede">Try Brewlet v0.1.0 locally with JDK 21+, Maven, and the released CLI. No Go, Docker, Kubernetes, or Brewlet source build required.</p>
         <div class="code-card wide" data-reveal>
           <div class="code-head"><span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span><span class="code-title">terminal</span></div>
-          <pre><code><span class="c-cm"># Download the public release for your platform</span>
-$ OS="$(uname -s | tr '[:upper:]' '[:lower:]')"; ARCH="$(uname -m)"
-$ [ "$ARCH" = x86_64 ] &amp;&amp; ARCH=amd64; [ "$ARCH" = aarch64 ] &amp;&amp; ARCH=arm64
-$ curl -fL "https://github.com/brewlet/brewlet/releases/download/v0.1.0/brewlet_0.1.0_${OS}_${ARCH}.tar.gz" | tar -xz
-$ ./brewlet version
+          <pre><code><span class="c-cm"># Detect your platform, download the latest release, and verify its checksum</span>
+$ curl -fsSL https://brewlet.sh/install.sh | sh
+$ export PATH="$HOME/.local/bin:$PATH"
+$ brewlet version
 
 <span class="c-cm"># Package only your JAR, then inspect and run it</span>
-$ ./brewlet push target/app.jar demo/app:0.1.0 --format artifact
-$ ./brewlet inspect demo/app:0.1.0
-$ ./brewlet run demo/app:0.1.0</code></pre>
+$ brewlet push target/app.jar demo/app:0.1.0 --format artifact
+$ brewlet inspect demo/app:0.1.0
+$ brewlet run demo/app:0.1.0</code></pre>
         </div>
        <p class="section-lede" data-reveal>Already have a Maven app? Install the <a href="https://github.com/brewlet/brewlet/releases/tag/v0.1.0">released v0.1.0 plugin</a>, then publish without a Dockerfile:</p>
        <div class="code-card wide" data-reveal>

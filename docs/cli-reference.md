@@ -3,9 +3,17 @@
 The `brewlet` CLI lets a developer ship
 **their Java application** — a fat JAR, plus optional classpath layers — as an OCI
 artifact and the node-resident JVM runs it (e.g. `java -jar`). Download a
-platform archive from the
-[latest release](https://github.com/brewlet/brewlet/releases/latest), or build it
-with `make binaries` (producing `./bin/brewlet`).
+verified platform archive with the installer:
+
+```bash
+curl -fsSL https://brewlet.sh/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+brewlet version
+```
+
+The installer selects the latest release by default. Set `BREWLET_VERSION=0.1.0`
+to pin a release or `BREWLET_INSTALL_DIR=/custom/bin` to change the destination.
+You can instead build the CLI with `make binaries` (producing `./bin/brewlet`).
 
 ```
 brewlet push    <jar> <ref> [flags]   publish a JAR as an OCI artifact
