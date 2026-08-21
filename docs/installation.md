@@ -28,10 +28,13 @@ There are two paths:
 | A reachable **OCI registry** | Where developers push OCI artifacts (and where component + vendor JDK images live). |
 | Node access to **JDK images** | Vendor JDK/launcher images (Temurin, MS OpenJDK) pulled copy-from-image via the host containerd; mirror them for air-gapped clusters. |
 
-### Component images
+### Released components
 
-Brewlet ships three images. The defaults point at `ghcr.io/brewlet/*`; pin to your
-own registry/digests in production. Build them from source with the
+Brewlet publishes version-aligned multi-architecture component images and an OCI
+Helm chart. Installing chart `0.1.0` selects image tag `0.1.0` automatically.
+Pin to your own registry or immutable digests in production.
+
+To build the components from source instead, use the
 [Kubernetes component Makefile](https://github.com/brewlet/brewlet/blob/main/kubernetes/Makefile):
 
 ```bash
@@ -60,7 +63,10 @@ reconciles the provisioner DaemonSet and the `brewlet` RuntimeClass from the cha
 values — so there is a single runtime source of truth for the JDK/launcher inventory.
 
 ```bash
-helm install brewlet ./kubernetes/charts/brewlet \
+helm upgrade --install brewlet oci://ghcr.io/brewlet/charts/brewlet \
+  --version 0.1.0 \
+  --namespace brewlet \
+  --create-namespace \
   --set provisioner.jdks="temurin-21,microsoft-25" \
   --set provisioner.launchers="jaz"
 
@@ -75,10 +81,13 @@ kubectl get nodes -L brewlet.sh/runtime -w
 > `NodeProfile`s scoped to those pools — see [Configuration](configuration.md#helm-chart-values)
 > (`profiles` / `defaultProfile`) and [SPECIFICATION §5.6](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md).
 
-Point the chart at your own images if you built them:
+Point the chart at your own registry or image digests if required:
 
 ```bash
-helm install brewlet ./kubernetes/charts/brewlet \
+helm upgrade --install brewlet oci://ghcr.io/brewlet/charts/brewlet \
+  --version 0.1.0 \
+  --namespace brewlet \
+  --create-namespace \
   --set images.operator=<registry>/operator:<tag> \
   --set images.provisioner=<registry>/node-provisioner:<tag> \
   --set images.admission=<registry>/admission:<tag> \
@@ -100,8 +109,10 @@ upgrading an existing Brewlet installation to a release that adds custom JDK or
 jlink runtime sources, apply that release's `NodeProfile` CRD explicitly:
 
 ```bash
-kubectl apply -f kubernetes/deploy/nodeprofile-crd.yaml
-helm upgrade brewlet ./kubernetes/charts/brewlet -f values.yaml
+kubectl apply -f https://raw.githubusercontent.com/brewlet/brewlet/v0.1.0/kubernetes/deploy/nodeprofile-crd.yaml
+helm upgrade brewlet oci://ghcr.io/brewlet/charts/brewlet \
+  --version 0.1.0 \
+  -f values.yaml
 ```
 
 ### What the chart deploys vs. what the operator creates
@@ -157,6 +168,10 @@ and admission flags are in [Configuration](configuration.md#operator-flags).
 ## Verify the installation
 
 ```bash
+# Download the CLI from https://github.com/brewlet/brewlet/releases/latest,
+# then run the consolidated readiness check:
+brewlet doctor --namespace default
+
 # 1. Components are running:
 kubectl get pods -n brewlet
 

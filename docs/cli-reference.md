@@ -1,9 +1,11 @@
 # CLI reference — `brewlet`
 
-The `brewlet` CLI is the Phase‑0 PoC tool that proves the model: a developer ships
+The `brewlet` CLI lets a developer ship
 **their Java application** — a fat JAR, plus optional classpath layers — as an OCI
-artifact and the node-resident JVM runs it (e.g. `java -jar`). Build it with
-`make binaries` (producing `./bin/brewlet`).
+artifact and the node-resident JVM runs it (e.g. `java -jar`). Download a
+platform archive from the
+[latest release](https://github.com/brewlet/brewlet/releases/latest), or build it
+with `make binaries` (producing `./bin/brewlet`).
 
 ```
 brewlet push    <jar> <ref> [flags]   publish a JAR as an OCI artifact
@@ -11,6 +13,8 @@ brewlet inspect <ref>       [flags]   show the artifact manifest + config
 brewlet run     <ref>       [flags]   pull + launch java -jar on this node
 brewlet bundle  <ref>       [flags]   emit an OCI runc bundle (the shim path)
 brewlet jdks                [flags]   list JDKs available across the cluster
+brewlet doctor              [flags]   diagnose cluster and developer readiness
+brewlet version                       print the CLI version
 ```
 
 `<ref>` is a `name:tag`, e.g. `demo/hello:1.0.0`.
@@ -192,6 +196,45 @@ Nodes provisioned before the rich annotation existed fall back to the coarse
 `brewlet.sh/jdks` list (distribution + major only). See
 [JDK management → Inspecting the JDKs available](jdk-management.md#inspecting-the-jdks-available-on-the-cluster)
 for the equivalent plain-`kubectl` queries.
+
+---
+
+## `brewlet doctor`
+
+Check whether a cluster is ready to accept Brewlet workloads and whether the
+current identity can deploy a `JavaApplication` in a target namespace.
+
+```
+brewlet doctor [--namespace NS] [--output table|json]
+               [--kubeconfig FILE] [--context CTX]
+```
+
+The command checks the selected context, API connectivity, the `brewlet`
+RuntimeClass, the `JavaApplication` CRD, schedulable Brewlet-ready containerd
+nodes, advertised JDK inventory, and create permission in the selected
+namespace. Failed checks include a remediation hint.
+
+```bash
+brewlet doctor --namespace my-team
+brewlet doctor --context staging --namespace my-team
+brewlet doctor --namespace my-team --output json
+```
+
+The command exits non-zero when a blocking check fails. JSON output is suitable
+for CI and platform handoff automation.
+
+---
+
+## `brewlet version`
+
+Print the release version embedded in the binary:
+
+```bash
+brewlet version
+# 0.1.0
+```
+
+Source builds without release linker flags print `dev`.
 
 ---
 

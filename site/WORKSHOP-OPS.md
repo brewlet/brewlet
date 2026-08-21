@@ -12,9 +12,9 @@ You need:
 - cluster-admin access to a disposable Kubernetes cluster;
 - containerd nodes using cgroup v2;
 - permission to run privileged DaemonSets and modify the node runtime;
-- `kubectl`, Helm, Docker with `buildx`, and an OCI registry repository that
-  workshop participants can push to and cluster nodes can pull from; and
-- a clone of the Brewlet monorepo.
+- `kubectl`, Helm, and `curl`; and
+- an OCI registry repository that Dev participants can push to and cluster
+  nodes can pull from.
 
 Confirm the active cluster before changing it:
 
@@ -27,47 +27,41 @@ kubectl auth can-i create customresourcedefinitions.apiextensions.k8s.io
 Do not continue on a production or shared cluster unless its platform owner has
 approved host-level Brewlet provisioning.
 
-Set the registry location used by both workshop parts:
+Set the Brewlet release and application registry used by both workshop parts:
 
 ```bash
+export BREWLET_VERSION="0.1.0"
 export BREWLET_REGISTRY="<registry-host>/<team>"
-export BREWLET_TAG="workshop"
 ```
 
 Authenticate with the registry using your organization's normal mechanism.
 
-## 2. Build and publish the platform components
-
-Publish multi-architecture operator, admission, and node-provisioner images:
+Install the released CLI for your current operating system and architecture:
 
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64 \
-  -t "$BREWLET_REGISTRY/brewlet-operator:$BREWLET_TAG" \
-  --push kubernetes
+case "$(uname -s)-$(uname -m)" in
+  Darwin-x86_64)  BREWLET_CLI="darwin_amd64" ;;
+  Darwin-arm64)   BREWLET_CLI="darwin_arm64" ;;
+  Linux-x86_64)   BREWLET_CLI="linux_amd64" ;;
+  Linux-aarch64|Linux-arm64) BREWLET_CLI="linux_arm64" ;;
+  *) echo "unsupported platform" >&2; exit 1 ;;
+esac
 
-docker buildx build --platform linux/amd64,linux/arm64 \
-  --build-arg CMD=admission \
-  -t "$BREWLET_REGISTRY/brewlet-admission:$BREWLET_TAG" \
-  --push kubernetes
-
-make provisioner-image-push \
-  PROVISIONER_IMAGE="$BREWLET_REGISTRY/brewlet-node-provisioner:$BREWLET_TAG"
+mkdir -p "$HOME/.local/bin"
+curl -fL "https://github.com/brewlet/brewlet/releases/download/v${BREWLET_VERSION}/brewlet_${BREWLET_VERSION}_${BREWLET_CLI}.tar.gz" \
+  | tar -xz -C "$HOME/.local/bin"
+export PATH="$HOME/.local/bin:$PATH"
+brewlet version
 ```
 
-The component repositories must be readable by cluster nodes. Production
-installations should use immutable tags or digests instead of `workshop`.
-
-## 3. Preview the installation
+## 2. Preview the installation
 
 Render and inspect the chart before applying it:
 
 ```bash
-helm lint kubernetes/charts/brewlet
-helm template brewlet kubernetes/charts/brewlet \
+helm template brewlet oci://ghcr.io/brewlet/charts/brewlet \
+  --version "$BREWLET_VERSION" \
   --namespace brewlet \
-  --set images.operator="$BREWLET_REGISTRY/brewlet-operator:$BREWLET_TAG" \
-  --set images.admission="$BREWLET_REGISTRY/brewlet-admission:$BREWLET_TAG" \
-  --set images.provisioner="$BREWLET_REGISTRY/brewlet-node-provisioner:$BREWLET_TAG" \
   --set-string provisioner.jdks=temurin-21 \
   > /tmp/brewlet-rendered.yaml
 ```
@@ -76,15 +70,13 @@ This workshop uses the default `NodeProfile`, which targets every node. For a
 real shared cluster, disable it and create named profiles scoped to
 platform-owned node pools.
 
-## 4. Install Brewlet
+## 3. Install Brewlet
 
 ```bash
-helm upgrade --install brewlet kubernetes/charts/brewlet \
+helm upgrade --install brewlet oci://ghcr.io/brewlet/charts/brewlet \
+  --version "$BREWLET_VERSION" \
   --namespace brewlet \
   --create-namespace \
-  --set images.operator="$BREWLET_REGISTRY/brewlet-operator:$BREWLET_TAG" \
-  --set images.admission="$BREWLET_REGISTRY/brewlet-admission:$BREWLET_TAG" \
-  --set images.provisioner="$BREWLET_REGISTRY/brewlet-node-provisioner:$BREWLET_TAG" \
   --set-string provisioner.jdks=temurin-21
 ```
 
@@ -92,7 +84,22 @@ The chart installs the operator and admission components. The operator creates
 the `brewlet` RuntimeClass and a privileged provisioner DaemonSet that installs
 the shim and JDK on each selected node.
 
-## 5. Wait for the platform
+## 4. Prepare the developer namespace
+
+```bash
+export BREWLET_CONTEXT="$(kubectl config current-context)"
+export BREWLET_NAMESPACE="brewlet-workshop"
+export BREWLET_JDK="21"
+
+kubectl create namespace "$BREWLET_NAMESPACE" \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+Apply your normal developer RBAC before the handoff. Registry credentials and
+organization-specific RBAC remain part of the platform's existing security
+model.
+
+## 5. Wait for and diagnose the platform
 
 ```bash
 kubectl rollout status deployment/brewlet-operator -n brewlet --timeout=5m
@@ -102,6 +109,9 @@ kubectl rollout status daemonset -n brewlet \
 kubectl get pods -n brewlet
 kubectl get runtimeclass brewlet
 kubectl get nodes -L brewlet.sh/runtime
+brewlet doctor \
+  --context "$BREWLET_CONTEXT" \
+  --namespace "$BREWLET_NAMESPACE"
 ```
 
 Every node selected by the profile must report `brewlet.sh/runtime=ready`.
@@ -128,14 +138,6 @@ one schedulable node is ready.
 
 ## 6. Define the developer handoff
 
-Record these values for the Dev workshop:
-
-```bash
-export BREWLET_CONTEXT="$(kubectl config current-context)"
-export BREWLET_NAMESPACE="brewlet-workshop"
-export BREWLET_JDK="21"
-```
-
 Give the developer:
 
 | Value | Meaning |
@@ -144,17 +146,18 @@ Give the developer:
 | Namespace | Namespace where the developer may deploy |
 | RuntimeClass | `brewlet` |
 | Supported JDK | `21` in this workshop |
+| Brewlet version | `0.1.0` |
 | Registry prefix | Repository where the developer can push OCI images |
 | Pull secret | Required only when the registry is private |
 
-Create the namespace and grant your normal developer RBAC before the handoff:
-
 ```bash
-kubectl create namespace "$BREWLET_NAMESPACE"
+printf '%s\n' \
+  "export BREWLET_CONTEXT=\"$BREWLET_CONTEXT\"" \
+  "export BREWLET_NAMESPACE=\"$BREWLET_NAMESPACE\"" \
+  "export BREWLET_JDK=\"$BREWLET_JDK\"" \
+  "export BREWLET_VERSION=\"$BREWLET_VERSION\"" \
+  "export BREWLET_REGISTRY=\"$BREWLET_REGISTRY\""
 ```
-
-Registry credentials and organization-specific RBAC are intentionally left to
-the platform's existing security model.
 
 Continue with [Part 2: Build and deploy a workload](WORKSHOP-DEV.md).
 

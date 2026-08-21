@@ -19,17 +19,18 @@ For a shared session, pair one Ops participant with one Dev participant:
 Use a disposable cluster for the workshop. Brewlet node provisioning is
 privileged and changes the node's containerd configuration.
 
-## Repository
+## Released tools and example source
 
-Both parts use the Brewlet monorepo:
+The Ops workshop installs the released chart and CLI directly. The Dev workshop
+uses the example application from the matching release tag:
 
 ```bash
-git clone https://github.com/brewlet/brewlet.git
+git clone --depth 1 --branch v0.1.0 https://github.com/brewlet/brewlet.git
 cd brewlet
 ```
 
-The repository contains the runtime, Kubernetes components, Maven plugin,
-examples, and integration tests at one revision.
+No participant needs to build Brewlet's platform components or Maven plugin from
+source.
 
 ## Maintainer verification
 
@@ -43,3 +44,7 @@ make check-all
 Cluster-backed capabilities remain available through
 `integration-tests/e2e/run.sh`; see the
 [integration-test runbook](https://github.com/brewlet/brewlet/blob/main/integration-tests/AGENTS.md).
+The website deployment also runs
+[`scripts/verify-release-artifacts.sh`](scripts/verify-release-artifacts.sh) to
+confirm that the documented CLI, Maven plugin, chart, and component images are
+publicly downloadable.

@@ -12,6 +12,7 @@ on:
       - "mkdocs.yml"
       - "docs/**"
       - "WORKSHOP*.md"
+      - "scripts/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -25,7 +26,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  release-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: Verify public workshop artifacts
+        run: ./scripts/verify-release-artifacts.sh 0.1.0
+
   deploy:
+    needs: release-smoke
     runs-on: ubuntu-latest
     environment:
       name: github-pages

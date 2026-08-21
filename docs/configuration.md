@@ -47,9 +47,11 @@ with `--set key=value` or a values file.
 | Key | Default | Meaning |
 |---|---|---|
 | `namespace` | `brewlet` | Namespace all components install into (created by the chart). |
-| `images.operator` | `ghcr.io/brewlet/operator:0.1.0` | Operator image. |
-| `images.provisioner` | `ghcr.io/brewlet/node-provisioner:0.1.0` | Provisioner image the operator runs. |
-| `images.admission` | `ghcr.io/brewlet/admission:0.1.0` | Admission webhook image. |
+| `images.registry` | `ghcr.io/brewlet` | Registry prefix used to generate component image references. |
+| `images.tag` | chart `appVersion` | Shared component tag. A versioned OCI chart therefore selects matching images automatically. |
+| `images.operator` | generated | Explicit operator image override; supports tags or digests. |
+| `images.provisioner` | generated | Explicit provisioner image override; supports tags or digests. |
+| `images.admission` | generated | Explicit admission webhook image override; supports tags or digests. |
 | `images.pullPolicy` | `IfNotPresent` | Image pull policy for all components. |
 | `provisioner.jdks` | `temurin-21,microsoft-25` | Comma-separated curated `<dist>-<feature>` roots, or a structured list with `source.image` and `source.javaHome` for custom distributions ([§JDK management](jdk-management.md#custom-distributions-azul-zulu-example)). |
 | `provisioner.launchers` | `jaz` | Comma-separated launcher layers ([§Launchers](launchers.md)). Empty = vanilla `java` only. |
@@ -71,7 +73,8 @@ with `--set key=value` or a values file.
 Example production install (own registry, no `jaz`):
 
 ```bash
-helm install brewlet ./kubernetes/charts/brewlet \
+helm install brewlet oci://ghcr.io/brewlet/charts/brewlet \
+  --version 0.1.0 \
   --set images.operator=registry.example.com/brewlet/operator@sha256:… \
   --set images.provisioner=registry.example.com/brewlet/node-provisioner@sha256:… \
   --set images.admission=registry.example.com/brewlet/admission@sha256:… \
