@@ -80,10 +80,16 @@ helm upgrade --install brewlet oci://ghcr.io/brewlet/charts/brewlet \
   --set-string provisioner.jdks=temurin-21
 ```
 
-Download the matching CLI archive for Linux or macOS from
-[GitHub Releases](https://github.com/brewlet/brewlet/releases/tag/v0.1.0), then
-run `brewlet doctor --namespace <developer-namespace>` before handing the
-cluster to application developers.
+Install the matching CLI archive for Linux or macOS with the checksum-verifying
+installer, then run `brewlet doctor` before handing the cluster to application
+developers:
+
+```bash
+export BREWLET_VERSION=0.1.0
+curl -fsSL https://brewlet.sh/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+brewlet doctor --namespace <developer-namespace>
+```
 
 ## License
 
