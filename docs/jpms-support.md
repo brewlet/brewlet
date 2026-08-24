@@ -1,14 +1,9 @@
 # JPMS support & capabilities
 
-> **Status.** Implemented (issue #52). This note documents the design and
-> rationale for Brewlet's support of **modularized Java applications** (the Java
-> Platform Module System, JPMS) via `entry.mode: "module"` and the optional
-> `modulepath.layer.v1+tar` layer — resolving the module-path half of
-> [SPECIFICATION §16 Open Question #3](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#16-open-questions)
-> ("Classpath/modular apps"). The schema and launch behavior described here are
-> live in the launch core, CLI, and Maven plugin.
-
-Closes the research asked for in the "Research JPMS support and capabilities" issue.
+This page documents Brewlet's support for **modularized Java applications** (the
+Java Platform Module System, JPMS) via `entry.mode: "module"` and the optional
+`modulepath.layer.v1+tar` layer. The schema and launch behavior are available in
+the launch core, CLI, and Maven plugin.
 
 ---
 
@@ -19,13 +14,11 @@ Closes the research asked for in the "Research JPMS support and capabilities" is
   the node's shared JDK installation via `java --module-path … --module …`. It requires **no
   JVM baked into the artifact**, so it aligns with Brewlet's core model exactly the
   way a fat JAR does.
-- **The only new mechanism needed is a launch mode.** Add an `entry.mode: "module"`
-  to the launch config so the shim emits `java -p <module-path> -m <module>[/<mainClass>]`
+- **The launch mode is `entry.mode: "module"`.** It tells the shim to emit
+  `java -p <module-path> -m <module>[/<mainClass>]`
   instead of `java -jar`. Single modular JARs need nothing else.
-- **Multi-module apps need the "optional classpath/module layer"** already
-  anticipated in the spec: a directory of JARs mounted at `/app/mods` that becomes
-  the `--module-path`. This is a small extension of the artifact format, not a new
-  runtime.
+- **Multi-module apps use an optional module-path layer:** a directory of JARs
+  mounted at `/app/mods` that becomes the `--module-path`.
 - **Per-application `jlink` images and `jmod` artifact payloads are out of
   scope.** Administrators may instead install one shared, centrally controlled
   jlink runtime per node pool through a
@@ -42,13 +35,13 @@ application **and all its dependencies** into a single archive that runs on the
 **class path**:
 
 ```bash
-java -jar app.jar            # entry.mode = jar   (today's default)
+java -jar app.jar            # entry.mode = jar   (default)
 java -cp app.jar com.acme.Main   # entry.mode = classpath
 ```
 
 Everything lands in the *unnamed module*. There is no reliable dependency graph,
 no strong encapsulation, and split packages are silently tolerated. This is what
-Brewlet supports today (`internal/runtime/launch.go`, entry modes `jar` and
+Brewlet supports both forms (`internal/runtime/launch.go`, entry modes `jar` and
 `classpath`).
 
 ### 2.2 What JPMS is
@@ -107,7 +100,7 @@ shared and patched centrally (see the [project landing page](/) and
 - **Modular JAR + module path — aligns perfectly.** The artifact is still just
   JAR bytes; the module path is resolved *against the JAR(s) we already mount at
   `/app`*, and the node JDK does the launching. Nothing about JPMS requires a
-  bundled runtime. The only difference from today is the argv the shim assembles.
+  bundled runtime. The difference is the argv the shim assembles.
 - **`jlink` image — placement matters.** Shipping one in every application
   artifact re-introduces the duplicated JVM Brewlet removes. Installing one shared
   runtime through `NodeProfile`, however, keeps patching and the approved module
@@ -138,11 +131,10 @@ shared administrator-provided jlink runtimes. It does not ship jlink runtimes or
 
 ---
 
-## 5. Launch-config change: `entry.mode: "module"` (implemented)
+## 5. Launch config: `entry.mode: "module"`
 
-Extend the launch config (SPECIFICATION §4.2 / [reference](reference.md)) with a
-third entry mode. **Fully backward compatible** — existing configs omit it and get
-`jar`.
+The launch config (SPECIFICATION §4.2 / [reference](reference.md)) supports a
+third entry mode. Existing configs omit it and get `jar`.
 
 ```json
 {
@@ -191,20 +183,19 @@ argv differs.
 ## 6. Multi-module apps: the optional module/classpath layer
 
 A real modular app is usually **several** JARs (the app module + library modules).
-That is precisely the "optional classpath layer" the spec already anticipates
-(Open Question #3). The minimal, model-preserving design:
+Brewlet carries those dependencies in an optional module-path layer:
 
 ### 6.1 Artifact format
 
-Today the artifact carries one JAR layer
-(`application/vnd.brewlet.jar.layer.v1+jar`, `internal/artifact/artifact.go`).
-Add an **optional second layer** carrying a *directory of JARs* (a tar layer), e.g.
-`application/vnd.brewlet.modulepath.layer.v1+tar`, that the shim unpacks to `/app/mods`.
+The artifact carries the main JAR layer
+(`application/vnd.brewlet.jar.layer.v1+jar`) and can carry an optional tar layer
+of dependency JARs (`application/vnd.brewlet.modulepath.layer.v1+tar`) that the
+shim unpacks to `/app/mods`.
 
 > This tar-of-JARs layer is the **module-path twin** of the class-path
 > `classpath.layer.v1+tar` designed in the
 > [layered classpath deployment note](layered-classpath-deployment.md); the two can
-> share one implementation (unpack a tar of JARs to a well-known dir, feeding `-p`
+> use the same mechanism (unpack a tar of JARs to a well-known dir, feeding `-p`
 > here vs. `-cp` there). See that note's §8 for the mapping.
 
 ### 6.2 Mounting & launch
@@ -224,7 +215,7 @@ java -p /app/mods:/app/orders.jar -m com.acme.orders
 defaults to `mainJar` for the single-JAR case, or `/app/mods` when a mods layer is
 present.
 
-### 6.3 Mixed class path + module path (implemented)
+### 6.3 Mixed class path + module path
 
 Some apps run library JARs on the class path and only the app (plus modular
 dependencies) on the module path — e.g. a JPMS app that also depends on
@@ -240,7 +231,8 @@ java -cp /app/lib/* -p /app/orders.jar:/app/mods -m com.acme.orders[/<mainClass>
 Both a `classpath.layer.v1+tar` (→ `/app/lib`) and a `modulepath.layer.v1+tar`
 (→ `/app/mods`) may ship together. See
 [layered deployment §8.1](layered-classpath-deployment.md) for the full example
-and CLI usage. This closes SPECIFICATION §16 Open Question #3 for the mixed case.
+and CLI usage. This supports applications that mix modular and non-modular
+dependencies.
 
 ### 6.4 JDK matching is descriptor-driven
 
@@ -287,32 +279,12 @@ The tooling implements module detection and layout end to end:
 
 ---
 
-## 8. Recommendation & suggested phasing
-
-1. **Phase A — single modular JAR (small, high value). ✅ Implemented.**
-   `entry.mode: "module"` with `entry.module` + optional `entry.mainClass`, the one
-   `module` `case` in `BuildJVMArgs`, and CLI/Maven auto-detection of module JARs all
-   ship. No artifact-format change; this alone lets single-module services ship.
-2. **Phase B — module/classpath layer (multi-JAR). ✅ Implemented.** The optional
-   `…/modulepath.layer.v1+tar` layer is unpacked to `/app/mods` and defaults the
-   module path accordingly (attached via `brewlet push --module-layer` or the Maven
-   `layered` flag), resolving the rest of Open Question #3.
-3. **Runtime payloads remain a non-goal** — application artifacts do not carry
-   `jlink`/`jmod` payloads. Shared jlink runtimes are managed as node inventory
-   through `NodeProfile` (see §2.3 and SPECIFICATION §16 Q3).
-
-None of this requires changes to the shim's isolation, the provisioner, the
-RuntimeClass, or the resource→JVM mapping. JPMS is an **argv-and-artifact-layout**
-concern, which is exactly the layer Brewlet already owns.
-
----
-
-## 9. References
+## 8. References
 
 - [JEP 261: Module System](https://openjdk.org/jeps/261)
 - [JSR 376: Java Platform Module System](https://openjdk.org/projects/jigsaw/spec/)
 - `java` launcher: `--module-path` / `--module`, `jar --describe-module`
 - [Layered classpath deployment](layered-classpath-deployment.md) — the
   class-path counterpart (thin JAR + dependency layers for registry dedup)
-- Brewlet: [SPECIFICATION §4 (artifact)](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md), [§16 Open Questions](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#16-open-questions),
+- Brewlet: [SPECIFICATION §4 (artifact)](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md),
   [building & publishing](building-and-publishing.md), [reference](reference.md)

@@ -1,13 +1,11 @@
-# AppCDS (Application Class Data Sharing) — implementation guide
+# AppCDS (Application Class Data Sharing)
 
-> **Status.** **AppCDS is fully implemented and ships today.** Brewlet supports
-> both build-time archive delivery (`application/vnd.brewlet.cds.layer.v1+jsa`,
-> `brewlet push --appcds-archive`, and Maven `brewlet:appcds`) and node-side
-> regeneration (`spec.jvm.cds.regenerate`, `brewlet run/bundle --appcds-regenerate`).
-> The launch path uses `-Xshare:auto -XX:SharedArchiveFile` across local `run`,
-> `bundle`, and the production shim, so mismatches safely fall back while preserving
-> correctness. This document describes the shipped behavior, constraints, and design
-> rationale.
+Brewlet supports build-time archive delivery
+(`application/vnd.brewlet.cds.layer.v1+jsa`, `brewlet push
+--appcds-archive`, and Maven `brewlet:appcds`) and node-side regeneration
+(`spec.jvm.cds.regenerate`, `brewlet run/bundle --appcds-regenerate`). The
+launch path uses `-Xshare:auto -XX:SharedArchiveFile` so mismatches safely fall
+back while preserving correctness.
 
 ---
 
@@ -20,9 +18,8 @@
   (`classes.jsa`) ships inside the node JDK root, which Brewlet mounts read-only as
   the overlay lower layer (`setupOverlayRootfs`). It's shared across every sandbox
   on the node and warm in the page cache — a genuine, already-realized advantage.
-- **What's missing is *application* CDS** — an archive covering the app's own and
-  its libraries' classes. That needs a **training run** at build time and an
-  archive shipped alongside the JAR.
+- **Application CDS extends the shared archive to your app and its libraries.**
+  Generate it with a training run or let Brewlet regenerate it on the node.
 - **The sharp constraint: an AppCDS archive is bound to the exact JDK build (and
   classpath layout).** The binding is to the JVM's *full build identity* — not the
   feature release, not even the minor/patch version, but the exact
@@ -33,23 +30,21 @@
   therefore *invalidates* a shipped archive on every patch. CDS fails **safe**
   (ignores a stale archive and runs normally), so it's a *performance* optimization
   that degrades gracefully, never a correctness risk — but the win **silently
-  evaporates after any JDK patch**. This tension deserves to be designed around
-  (§4.3, §7).
-- **Recommended surfacing:** an optional artifact **archive layer** + a launch-config
-  flag, generated turnkey by the Maven plugin / CLI. Mostly an implementation
-  detail exposed through tooling, not a new developer concept.
+  evaporates after any JDK patch**. Node-side regeneration handles this
+  (§4.3, §6).
+- **Brewlet carries an optional archive layer and launch-config hint.** The Maven
+  plugin and CLI generate these values for you.
 
 ---
 
 ## 2. Background: the CDS ladder
 
-| Level | What it covers | How produced | Brewlet status |
+| Level | What it covers | How produced | Brewlet behavior |
 |---|---|---|---|
 | **Base / default CDS** | JDK (`java.base` etc.) classes | Ships in the JDK (`lib/server/classes.jsa`) | **Already shared** via the node JDK root overlay. |
-| **AppCDS (static)** | App + library classes | Training run: record a class list, then `-Xshare:dump` (or `-XX:ArchiveClassesAtExit` for dynamic) → `app.jsa` | **Shippable** as a `cds.layer.v1+jsa` layer (Phase A). |
-| **Dynamic CDS (JDK 13+)** | App + library classes | Single run with `-XX:ArchiveClassesAtExit=app.jsa` | Easiest to generate; **shippable** (Phase A). |
+| **AppCDS (static)** | App + library classes | Training run: record a class list, then `-Xshare:dump` (or `-XX:ArchiveClassesAtExit` for dynamic) → `app.jsa` | **Shippable** as a `cds.layer.v1+jsa` layer. |
+| **Dynamic CDS (JDK 13+)** | App + library classes | Single run with `-XX:ArchiveClassesAtExit=app.jsa` | Easiest to generate; **shippable**. |
 | **Auto-create archive (JDK 19+)** | App + library classes | `-XX:+AutoCreateSharedArchive -XX:SharedArchiveFile=app.jsa` — used if valid, (re)created at exit if missing/JDK-stale | Basis for node-side regen (§4.3); needs JDK 21 floor. |
-| **Auto-generation / AOT cache (JDK 24, JEP 483 Leyden)** | Classes (+ AOT-linked) | `-XX:AOTCacheOutput` / auto | Future; same shipping mechanics as AppCDS. |
 
 Launch consumes an app archive with:
 
@@ -87,7 +82,7 @@ warning: The shared archive file was created by a different version or build of 
 There is no "patch-tolerant" application-CDS mode: the same `_jvm_ident` check
 governs base, static-AppCDS, and dynamic archives alike. This is exactly why the
 build-time archive must be treated as best-effort seed data and paired with
-`-Xshare:auto` and/or node-side regeneration (§4.3, §7).
+`-Xshare:auto` and/or node-side regeneration (§4.3, §6).
 
 ### 2.2 Minimum JDK version
 
@@ -121,28 +116,28 @@ prefer 21 as the gate.
 - **The friction is JDK coupling.** Brewlet *deliberately* decouples the artifact
   from the JDK (the JDK lives on the node, patched centrally). An AppCDS archive
   re-introduces a coupling to the *exact* JDK build. This is the core design
-  problem (§7), and it's why AppCDS should lean on safe-fallback and/or node-side
+  problem (§6), so Brewlet uses safe fallback and/or node-side
   regeneration rather than a hard artifact↔JDK pin.
 
-**Conclusion:** in scope and valuable, but design it as a *best-effort accelerator*
-that never becomes a correctness or scheduling constraint.
+AppCDS is a *best-effort accelerator*, never a correctness or scheduling
+constraint.
 
 ---
 
-## 4. How to surface it
+## 4. Using AppCDS
 
 ### 4.1 Build-time archive layer (recommended primary)
 
-Add an **optional archive layer** to the artifact, e.g. media type
-`application/vnd.brewlet.cds.layer.v1+jsa`, carrying `app.jsa`. Extend the launch
-config with a small, backward-compatible hint:
+Brewlet carries `app.jsa` as an optional
+`application/vnd.brewlet.cds.layer.v1+jsa` archive layer. The launch config uses
+a small, backward-compatible hint:
 
 ```json
 {
   "schemaVersion": 1,
   "mainJar": "app.jar",
   "entry": { "mode": "jar" },
-  "cds": { "archive": "app.jsa", "mode": "dynamic" }   // optional (shipped in Phase A)
+  "cds": { "archive": "app.jsa", "mode": "dynamic" }   // optional
 }
 ```
 
@@ -153,14 +148,12 @@ default, so a mismatch falls back rather than fails). Ship a prebuilt archive wi
 file's basename); the same layer flows through `run`, `bundle`, and the production
 containerd shim.
 
-**This is mostly an implementation detail surfaced through tooling** — the
-developer points `--appcds-archive` at a prebuilt `.jsa`; the launch-config field is
-machine-authored.
+Point `--appcds-archive` at a prebuilt `.jsa`; the CLI writes the launch-config
+field.
 
 ### 4.2 Turnkey generation in the Maven plugin / CLI
 
-**Implemented (Maven).** The training run is the ergonomic hurdle, so the Maven
-plugin automates it with a dedicated goal:
+The Maven plugin automates the training run with a dedicated goal:
 
 - **Maven plugin — `brewlet:appcds`:** stages a copy of the built JAR with a
   canonical mtime (§4.4), then runs a training JVM with
@@ -215,8 +208,8 @@ gracefully on `SIGTERM`.
 
 ### 4.3 Node-side regeneration (the durable answer for a patched fleet)
 
-> **Status: implemented (Phase B).** Opt in per-**deployment** with the
-> `spec.jvm.cds.regenerate` field on the `JavaApplication` CRD — the controller
+Opt in per-**deployment** with the `spec.jvm.cds.regenerate` field on the
+`JavaApplication` CRD. The controller
 > stamps the `brewlet.sh/cds-regenerate` pod annotation, which the shim reads. For
 > local dev the `brewlet run` / `brewlet bundle` commands take an equivalent
 > `--appcds-regenerate` flag (with or without a seed archive). Regeneration is a
@@ -282,8 +275,7 @@ Two hard problems this design handles:
 The engine also evicts cache entries untouched for longer than `DefaultEvictTTL`
 (14d) on a best-effort pass, and emits a best-effort node-local metric
 (`brewlet_cds_archive_mapped{key,role}` as a textfile under `BREWLET_METRICS_DIR`)
-so operators can watch archive hits/rebuilds — the minimal Option A hook described in
-[metrics-exporter.md](metrics-exporter.md). Running app code to produce archives on
+so operators can watch archive hits/rebuilds. Running app code to produce archives on
 the node is inherent to this mechanism; it runs inside the same sandbox as the app.
 
 **Verified end to end in a real cluster.** [e2e Tier 8](https://github.com/brewlet/brewlet/blob/main/integration-tests/README.md)
@@ -357,21 +349,7 @@ the production shim's `applyBrewletLaunch`.
 
 ---
 
-## 6. What existing features this touches
-
-| Area | Interaction |
-|---|---|
-| **Artifact format (§4)** | New optional layer media type; append to `Manifest.Layers` beside the JAR/classpath layers (mirror `ClasspathLayers()`), dedup by digest in the registry/content store. |
-| **Launch core (`BuildJVMArgs`)** | New optional `cds` block → prepend `-XX:SharedArchiveFile`; strict `Validate()`/`DecodeConfig` must learn the field (it currently `DisallowUnknownFields`). |
-| **Shim (`service_linux.go`)** | Stage + bind-mount the archive at `/app/app.jsa` (reuse `StageClasspathLayers`/`mountClasspathLayers`). |
-| **Layered classpath ([doc](layered-classpath-deployment.md))** | The archive is **classpath-sensitive**: it must be trained against the exact classpath order/wildcards it runs with. Document the pairing; `lib/*` wildcard has CDS rules. |
-| **JDK matching (§5.3/§8.3)** | The archive is JDK-*build* specific, but Brewlet only matches on JDK *feature* and resolves the distribution per node. Do **not** turn CDS into a scheduling constraint — rely on `-Xshare:auto` fallback, or node-side regen (§4.3). |
-| **CLI / Maven plugin (Phase 2)** | Add the training-run + attach flow. |
-| **Multi-arch ([doc](multi-arch.md))** | A `.jsa` is arch-specific → shipping one archive breaks the "same artifact runs on any arch" property unless per-arch archives are shipped or archives are generated node-side. Prefer node-side/optional so the base artifact stays arch-independent. |
-
----
-
-## 7. The JDK-coupling problem (design core)
+## 6. JDK coupling and safe fallback
 
 Brewlet's value: *patch the node JDK once, patch everything.* An AppCDS archive is
 validated against the JDK's exact build identity (not the feature or patch
@@ -383,64 +361,18 @@ Mitigations, in order of preference:
    CDS. Worst case: you lose the *app* archive benefit until the archive is
    regenerated; you never break the app. This alone makes shipping an archive safe.
 2. **Node-side regeneration keyed on JDK build (§4.3), built on
-   `-XX:+AutoCreateSharedArchive` (JDK 19+).** *(Implemented — opt in with
-   `spec.jvm.cds.regenerate`.)* Fully decouples the artifact from the JDK build — the shipped
+   `-XX:+AutoCreateSharedArchive` (JDK 19+).** Opt in with
+   `spec.jvm.cds.regenerate`. This decouples the artifact from the JDK build — the shipped
    archive is optional seed data, and the node self-heals the archive on the next
    patch. This is the durable fix; see §4.3 for the server-doesn't-exit and
    thundering-herd handling.
-3. **Advertise archive staleness as a metric** (see [metrics-exporter.md](metrics-exporter.md)):
-   count launches where the app archive failed to map, so operators can see the
-   win eroding after a patch and trigger regeneration.
-
 Explicitly **reject** turning the archive into a hard artifact↔JDK-build pin (e.g.
 denying scheduling unless an exact JDK build is present) — that would resurrect the
 per-image-JVM coupling Brewlet exists to remove.
 
 ---
 
-## 8. Recommendation & phasing
-
-1. **Phase A0 — document the freebie.** State clearly that base JDK CDS is already
-   shared across sandboxes via the node JDK root. Zero code. *(Done.)*
-2. **Phase A — build-time archive layer.** *(Done.)* The optional `cds.layer`
-   (`application/vnd.brewlet.cds.layer.v1+jsa`) + `cds` launch-config block, the
-   `/app/<archive>` read-only mount, and the `-Xshare:auto -XX:SharedArchiveFile=…`
-   launch wiring ship across `run`, `bundle`, and the production shim; attach a
-   prebuilt archive with `brewlet push --appcds-archive`. Deterministic JAR-mtime
-   normalization (§4.4) makes the shipped archive actually map on the node — without
-   it a build-time archive is silently inert under `-Xshare:auto`.
-3. **Phase A′ — turnkey generation.** *(Done, Maven.)* The `brewlet:appcds` goal
-   runs a training JVM (`-XX:ArchiveClassesAtExit`) with canonical-mtime inputs
-   against the production layout — fat-JAR (`-jar`), layered class-path
-   (`-cp app.jar:lib/*`), or JPMS module (`-p app.jar:mods -m …`) — on a JDK 21+
-   runtime, and writes `target/brewlet/app.jsa` for
-   `brewlet:push -Dbrewlet.cdsArchive=…` (§4.2). Long-running servers use
-   `-Dbrewlet.appcds.mode=signal` (readiness → `SIGTERM`). A fat-JAR turnkey CLI
-   equivalent, `brewlet push --appcds`, is also available (§4.2).
-4. **Phase B — node-side regeneration.** *(Done.)* Opt in with the
-   `spec.jvm.cds.regenerate` deployment field (or `brewlet run/bundle
-   --appcds-regenerate` locally). The node caches
-   per-`(artifact-digest, JDK-build)` archives under `/opt/brewlet/cds` using
-   `-XX:+AutoCreateSharedArchive` (JDK 19+; hence the JDK 21 floor), regenerates on
-   JDK patch (the build token is part of the cache key), elects a single writer per
-   key to tame the thundering herd, evicts stale entries, and exposes an
-   archive-hit/rebuild metric. This is what makes AppCDS robust in a
-   centrally-patched-JDK fleet. **Caveat:** because `AutoCreateSharedArchive` only
-   writes at JVM exit, the app-archive win lands on the *second* rollout of a
-   long-running server, not the first boot (§4.3).
-
-**Minimum JDK:** gate the `cds` feature on **JDK 21** (Brewlet's default LTS and the
-lowest LTS with `AutoCreateSharedArchive`); JDK 17 is build-time-only, without
-auto-regeneration (§2.2).
-
-AppCDS is an **argv + optional-layer** concern — exactly the seam Brewlet already
-owns for the classpath layer — plus a build-time training step. It delivers most of
-the practical startup win at low risk, and is the recommended primary startup
-accelerator for Brewlet.
-
----
-
-## 9. References
+## 7. References
 
 - [JEP 310: Application Class-Data Sharing](https://openjdk.org/jeps/310),
   [JEP 350: Dynamic CDS Archives](https://openjdk.org/jeps/350).

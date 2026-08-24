@@ -1,17 +1,12 @@
 # Layered classpath deployment
 
-> **Status.** Design + **implemented in the PoC** (Phase A). The class-path runtime
-> path — `entry.classPath`, the `classpath.layer.v1+tar` layer, and unpacking it to
-> `/app/lib` — now ships in the reference CLI and shim; see the
-> [implementation status](#12-implementation-status). This note answers
-> [SPECIFICATION §16 Open Question #3](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#16-open-questions)
-> ("Classpath/modular apps") from the **class-path** angle: how Brewlet ships an
-> application as **several OCI layers split along dependency-stability boundaries**
-> (dependencies vs. application code) instead of one opaque fat JAR.
+The class-path runtime supports `entry.classPath`,
+`classpath.layer.v1+tar` layers, and unpacking dependencies to `/app/lib`. This
+page explains how Brewlet ships an application as **several OCI layers split
+along dependency-stability boundaries** instead of one opaque fat JAR.
 
-It is the class-path counterpart to the [JPMS support note](jpms-support.md), which
-covers the same layering idea for the **module path** (`-p`). Both resolve Open
-Question #3; this one targets the far more common non-modular, class-path app.
+It is the class-path counterpart to [JPMS support](jpms-support.md), which covers
+the same layering idea for the **module path** (`-p`).
 
 ---
 
@@ -27,11 +22,11 @@ Question #3; this one targets the far more common non-modular, class-path app.
   **volatile application classes** in another. Registries and the containerd content
   store then dedup the heavy dependency layers across versions *and* across apps by
   digest — only the small app layer moves on a typical rebuild.
-- **The only new mechanism needed is the classpath layer the spec already reserved.**
+- **Brewlet uses a classpath layer for dependencies.**
   [SPECIFICATION §4.1](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#41-media-types) and
   [reference](reference.md#oci-media-types) already list
   `application/vnd.brewlet.classpath.layer.v1+tar` as an *optional* layer "for
-  classpath mode". This note designs it: a tar of JARs unpacked to `/app/lib`, driven
+  classpath mode": a tar of JARs unpacked to `/app/lib`, driven
   by the existing `entry.mode: "classpath"` plus an optional `entry.classPath`.
 - **This is additive and fully backward compatible.** A single fat JAR
   (`entry.mode: jar`) stays the default and the recommended path for most teams. Layer
@@ -105,7 +100,7 @@ shared and patched centrally (see the [project landing page](/) and
   by the registry and the node's content store — exactly the layers Brewlet already
   leans on.
 
-**Conclusion:** Brewlet should support an **optional, ordered set of classpath layers**
+**Conclusion:** Brewlet supports an **optional, ordered set of classpath layers**
 that unpack to `/app/lib`, launched via the existing class-path entry mode. This is the
 concrete design for the `classpath.layer.v1+tar` media type the spec already names.
 
@@ -128,12 +123,12 @@ concrete design for the `classpath.layer.v1+tar` media type the spec already nam
 
 ---
 
-## 5. Launch-config change: `entry.classPath` (implemented)
+## 5. Launch config: `entry.classPath`
 
-Extend the launch config ([SPECIFICATION §4.2](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#42-launch-config-config-blob-schema)
-/ [reference](reference.md#launch-config-schema-config-blob)) with an optional
-`entry.classPath` used by the existing `classpath` mode. **Fully backward compatible** —
-existing `jar`/`classpath` configs omit it and behave exactly as today.
+The launch config ([SPECIFICATION §4.2](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#42-launch-config-config-blob-schema)
+/ [reference](reference.md#launch-config-schema-config-blob)) supports an optional
+`entry.classPath` for `classpath` mode. Existing `jar` and `classpath` configs
+can omit it.
 
 ```json
 {
@@ -219,8 +214,8 @@ digest → its own dedup unit). The thin application JAR keeps the existing
 java -cp /app/app.jar:/app/lib/* com.acme.orders.Main
 ```
 
-The shim's [§6.1](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#61-per-container-lifecycle-create) rootfs
-assembly gains one step: after mounting the JAR layer at `/app`, unpack each
+During [rootfs assembly](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#61-per-container-lifecycle-create),
+the shim mounts the JAR layer at `/app` and unpacks each
 `classpath.layer.v1+tar` into `/app/lib` (read-only, shared like the JAR). Everything
 else — overlayfs, cgroups, CNI, signals — is unchanged.
 
@@ -276,11 +271,10 @@ pointed at two different launch surfaces**:
 | Launch flag | `-cp /app/app.jar:/app/lib/*` | `-p /app/mods:/app/app.jar` |
 | Applies to | non-modular / mixed apps (the common case) | JPMS modular apps |
 
-They can share one implementation: a generic "tar-of-JARs layer that unpacks to a
-well-known dir", parameterized by target dir and whether the resulting dir feeds `-cp`
-or `-p`. Implementing either first makes the other nearly free.
+Brewlet uses the same tar-of-JARs mechanism for both, parameterized by target
+directory and whether the resulting directory feeds `-cp` or `-p`.
 
-### 8.1 Mixed class path + module path (implemented)
+### 8.1 Mixed class path + module path
 
 A modular (JPMS) app frequently needs **both** a module path (`-p`) and a
 supplementary class path (`-cp`) — e.g. a JPMS application that also depends on
@@ -319,15 +313,14 @@ Question #3 for the mixed case.
 
 ## 9. Tooling implications
 
-- **`brewlet` CLI (`push`).** *Implemented:* `--classpath-layer TAR` (repeatable)
+- **`brewlet` CLI (`push`).** `--classpath-layer TAR` (repeatable)
   attaches pre-built dependency tars as `classpath.layer.v1+tar` layers next to the
   thin `jar.layer`; `brewlet inspect` lists every layer with its media type and digest
-  so dedup is visible. *Still to add:* an opt-in split that builds those tars for you
-  (e.g. `--layer deps=./lib --thin`). Parsing a framework layering manifest such as
-  Spring Boot's `layers.idx` is a **non-goal** (see [§10 Non-goals](#non-goals)); the
+  so dedup is visible. Parsing a framework layering manifest such as Spring Boot's
+  `layers.idx` is a **non-goal** (see [§10 Non-goals](#10-non-goals)); the
   generic classes/deps split does not need it — see the [PetClinic interop
   walkthrough](spring-petclinic.md#layered-classpath-delivery).
-- **Maven plugin.** *Implemented:* setting `<layered>true</layered>` (or
+- **Maven plugin.** Setting `<layered>true</layered>` (or
   `-Dbrewlet.layered=true`) packs the project's resolved transitive dependency tree
   (`project.getArtifacts()`, compile+runtime scope) into reproducible
   `classpath.layer.v1+tar` layers next to a thin app JAR, split `deps` /
@@ -359,25 +352,7 @@ Question #3 for the mixed case.
 
 ---
 
-## 10. Recommendation & suggested phasing
-
-1. **Phase A — `entry.classPath` on the existing `classpath` mode (small). ✅ Implemented.**
-   `BuildJVMArgs` builds a multi-entry `-cp` from `entry.classPath`, and any
-   `classpath.layer.v1+tar` is unpacked to `/app/lib` in the sandbox/bundle assembly.
-   This enables thin-JAR + dependency-layer deployment today (see
-   [§12](#12-implementation-status)).
-2. **Phase B — multi-layer authoring in the tooling.** *Partly done:* the CLI accepts
-   pre-built dependency tars via `--classpath-layer` (repeatable), and the Maven plugin
-   auto-splits the resolved dependency tree into reproducible, normalized tars. Still to
-   do: an opt-in CLI split from a plain `lib/` directory. Automatic splitting is driven by
-   generic inputs (a resolved dependency set / a `dependency:copy-dependencies` output),
-   **not** by parsing a framework layering manifest like Spring Boot's `layers.idx` — that
-   remains a non-goal (below).
-3. **Phase C — unify with the JPMS `mods` layer (§8).** Share one tar-layer
-   implementation across `/app/lib` (`-cp`) and `/app/mods` (`-p`), closing Open
-   Question #3 for both class-path and module-path apps.
-
-### Non-goals
+## 10. Non-goals
 
 - **Not a reproducible-build guarantee for your JARs.** Brewlet normalizes the *layer
   tar*; reproducibility of the JAR contents themselves is your build's responsibility.
@@ -404,46 +379,6 @@ Question #3 for the mixed case.
   [Cloud Native Buildpacks](https://buildpacks.io/) — automatic dependency/app layering
 - `java` launcher class-path wildcard (`-cp 'lib/*'`)
 - Brewlet: [SPECIFICATION §4 (artifact)](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#4-the-oci-application-artifact),
-  [§16 Open Questions](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#16-open-questions),
   [JPMS support](jpms-support.md),
   [building & publishing](building-and-publishing.md),
   [reference](reference.md)
-
----
-
-## 12. Implementation status
-
-Phase A (the class-path runtime) and part of Phase B (pre-built layer authoring) ship
-in the PoC:
-
-| Piece | Where |
-|---|---|
-| `entry.classPath` field + `classpath.layer.v1+tar` media type | `internal/artifact/artifact.go` |
-| Multi-layer push / resolve (`PushWithLayers`, `Manifest.ClasspathLayers`) | `internal/artifact/artifact.go` |
-| Layered `-cp /app/app.jar:/app/lib/*` argv | `BuildJVMArgs` in `internal/runtime/launch.go` |
-| Unpack dependency tars to `/app/lib` (local run + runc bundle) | `AssembleSandbox` / `GenerateBundleWithLauncher` in `internal/runtime` |
-| Shim resolves dependency-layer blob paths (layout + containerd) | `shim/cmd/containerd-shim-brewlet-v2/{resolver,bundle_prepare}.go` |
-| CLI `push --classpath-layer TAR` (repeatable); `run`/`bundle` wire it | `cmd/brewlet/main.go` |
-| Maven plugin model parity (`Entry.classPath`, media-type constant) | [`maven-plugin/`](https://github.com/brewlet/brewlet/tree/main/maven-plugin): `src/main/java/sh/brewlet/maven/plugin/{model,oci}` |
-| Maven plugin **auto-splits the POM dependency tree** into reproducible `classpath.layer.v1+tar` layers (`brewlet.layered`) | [`maven-plugin/`](https://github.com/brewlet/brewlet/tree/main/maven-plugin): `src/main/java/sh/brewlet/maven/plugin/util` |
-| **Map a Spring Boot repackaged layered JAR onto generic classpath layers** (thin app JAR + per-group dependency layers, via structural steps — *no `layers.idx` parsing*) | [`integration-tests/`](https://github.com/brewlet/brewlet/blob/main/integration-tests/fixtures/spring-petclinic/layered-build.sh) fixture |
-
-Verified end-to-end: a thin `app.jar` (application classes only) loads a class from a
-dependency JAR delivered in a `classpath.layer.v1+tar` and unpacked to `/app/lib`.
-The [Spring PetClinic example](spring-petclinic.md#layered-classpath-delivery)
-additionally proves the value on a real ~63 MB app: rebuilding only the business code
-changes just the ~390 KB app-JAR layer while the dependency layer's digest is reused
-(deduped, not re-pushed), and the layered artifact runs through shim → runc as
-`java -cp app.jar:lib/* <MainClass>` under cgroups. See e2e **Tier 7**.
-
-**Not yet implemented (Phase B/C):** an opt-in CLI split from a plain `lib/` directory
-— the PetClinic split is a standalone reference script, not a `push` flag.
-
-(The **mixed `-cp` + module-path form**, and pairing a `classpath.layer.v1+tar` with
-the JPMS `modulepath.layer.v1+tar` in a single artifact, now ship — see
-[JPMS support §6.3](jpms-support.md#63-mixed-class-path-module-path-implemented)
-(`entry.mode: module` + `entry.classPath`, closing SPECIFICATION §16 Q3).)
-
-**Explicit non-goal:** parsing a framework layering manifest (Spring Boot's
-`layers.idx`) inside the CLI or Maven plugin — the generic classes/deps split covers
-the interop without it (see [§10 Non-goals](#non-goals)).

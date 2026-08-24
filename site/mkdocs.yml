@@ -59,6 +59,7 @@ nav:
   - Understand:
       - Home: README.md
       - Concepts & architecture: concepts.md
+      - Roadmap (planned work): roadmap.md
   - Try it:
       - Getting started: getting-started.md
       - Spring PetClinic: spring-petclinic.md
@@ -74,6 +75,7 @@ nav:
   - Operate:
       - Security: security.md
       - Observability: observability.md
+      - Multi-architecture fleets: multi-arch.md
       - Troubleshooting: troubleshooting.md
   - Reference:
       - CLI reference: cli-reference.md
@@ -82,9 +84,3 @@ nav:
       - JPMS support: jpms-support.md
       - Layered classpath deployment: layered-classpath-deployment.md
       - Runnable-image delivery: runnable-image.md
-  - Roadmap and research:
-      - Multi-arch fleets: multi-arch.md
-      - Supply-chain admission: supply-chain-admission.md
-      - Sandbox runtimes: sandbox-runtimes.md
-      - Metrics exporter: metrics-exporter.md
-      - Multi-runtime support (.NET): dotnet-runtime-support.md

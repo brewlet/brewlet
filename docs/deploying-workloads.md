@@ -9,7 +9,7 @@ Two ways to deploy:
 - **[Raw `Deployment`/`Pod`](#raw-deployment)** — works today, nothing but the
   RuntimeClass.
 - **[`JavaApplication` CRD](#javaapplication-crd)** — a higher-level descriptor;
-  the controller (delivered in Phase 2) is implemented and reconciles it into a
+  the controller reconciles it into a
   `Deployment` (+ `Service`, + optional `HPA`).
 
 ---
@@ -113,7 +113,7 @@ manifest that a controller reconciles into a `Deployment` (+ `Service`, + option
 
 > **Status.** The CRD ships in [`deploy/javaapplication-crd.yaml`](https://github.com/brewlet/brewlet/blob/main/kubernetes/deploy/javaapplication-crd.yaml)
 > and the reconciling controller (`JavaApplicationReconciler`,
-> [SPECIFICATION §8.2](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)) is implemented in the operator: apply
+> [SPECIFICATION §8.2](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)) runs in the operator: apply
 > a `JavaApplication` and it manages the `Deployment` (+ `Service`, + optional
 > `HPA`) for you, garbage-collecting them when the descriptor is deleted. The
 > [`kubernetes/charts/brewlet`](https://github.com/brewlet/brewlet/tree/main/kubernetes/charts/brewlet)

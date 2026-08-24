@@ -55,7 +55,7 @@ with `--set key=value` or a values file.
 | `images.pullPolicy` | `IfNotPresent` | Image pull policy for all components. |
 | `provisioner.jdks` | `temurin-21,microsoft-25` | Comma-separated curated `<dist>-<feature>` roots, or a structured list with `source.image` and `source.javaHome` for custom distributions ([§JDK management](jdk-management.md#custom-distributions-azul-zulu-example)). |
 | `provisioner.launchers` | `jaz` | Comma-separated launcher layers ([§Launchers](launchers.md)). Empty = vanilla `java` only. |
-| `provisioner.rollout.maxUnavailable` | `null` | Bounds the default profile's provisioner DaemonSet rolling update. `null` keeps the DaemonSet default (proposal 0002). |
+| `provisioner.rollout.maxUnavailable` | `null` | Bounds the default profile's provisioner DaemonSet rolling update. `null` keeps the DaemonSet default. |
 | `provisioner.rollout.validate` | `true` | Gate node readiness on the post-install JDK smoke test (`java -version` per root). Renders the provisioner `BREWLET_VALIDATE` env. |
 | `provisioner.rollout.containerdRestart` | `validated` | When/whether to reload containerd after writing its config: `validated`, `sighup`, or `none`. Renders `BREWLET_CONTAINERD_RESTART` ([§5.5](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)). |
 | `provisioner.registry.mirrors` | `{}` | `<upstream-host>: <mirror-host>` map applied to every copy-from-image pull for air-gapped clusters. Renders `MIRRORS`. |
@@ -90,7 +90,7 @@ helm install brewlet oci://ghcr.io/brewlet/charts/brewlet \
 
 ## Operator flags
 
-These flags are implemented by
+The source for these flags lives in
 [`cmd/manager`](https://github.com/brewlet/brewlet/tree/main/kubernetes/cmd/manager).
 When you install via Helm, the chart populates them for you.
 
@@ -114,8 +114,7 @@ When you install via Helm, the chart populates them for you.
 
 ## Node-provisioner environment variables
 
-The provisioner implementation and environment contract live in the core
-runtime's
+The provisioner environment contract lives in the core runtime's
 [`provisioner/README.md`](https://github.com/brewlet/brewlet/blob/main/provisioner/README.md).
 The Kubernetes operator sets these variables on the DaemonSet it manages; you
 only touch them directly if you hand-wire the DaemonSet.

@@ -242,10 +242,9 @@ brewlet push ./target/app.jar registry.example.com/team/app:1.4.2
   startup (mounted at `/app/app.jsa`, launched with `-Xshare:auto`). See [AppCDS](appcds.md).
 - Full flags: [CLI reference](cli-reference.md#brewlet-push).
 
-> **PoC scope.** The reference CLI writes to a local **OCI layout** (`--store`,
-> default `./oci`) that stands in for a registry. In production, push to a real
-> registry with `oras` (below) or the [Maven plugin](#option-c-maven-plugin);
-> a Gradle plugin is on the roadmap.
+> The native-artifact path can write to a local **OCI layout** (`--store`, default
+> `./oci`). To publish to a registry, use the default runnable-image format, ORAS
+> (below), or the [Maven plugin](#option-c-maven-plugin).
 
 Inspect what you built:
 
@@ -323,8 +322,7 @@ local OCI layout), `brewlet:push` (publish to a registry), `brewlet:manifest`
 (emit a `JavaApplication`/Deployment YAML), `brewlet:inspect` (dry-run preview),
 and `brewlet:appcds` (generate an AppCDS startup archive — see [AppCDS](appcds.md)).
 See the [plugin README](https://github.com/brewlet/brewlet/blob/main/maven-plugin/README.md) for the full goal and
-parameter reference. A **Gradle plugin** is on the roadmap
-([SPECIFICATION §15](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)).
+parameter reference.
 
 ---
 

@@ -27,9 +27,9 @@ brewlet version                       print the CLI version
 
 `<ref>` is a `name:tag`, e.g. `demo/hello:1.0.0`.
 
-> **PoC scope.** The reference CLI reads/writes a local **OCI layout** directory
-> (`--store`, default `./oci`) that stands in for a registry. In production, push to
-> a real registry with `oras`. See [Building & publishing](building-and-publishing.md).
+> The native-artifact path reads and writes a local **OCI layout** directory
+> (`--store`, default `./oci`). The default runnable-image format publishes to a
+> registry. See [Building & publishing](building-and-publishing.md).
 
 Flags may appear before *and* after positional arguments. For `run`, everything
 after a literal `--` is passed as **extra JVM args**.
@@ -252,7 +252,7 @@ Source builds without release linker flags print `dev`.
 |---|---|---|
 | `JAVA_HOME` | `run`, `push --appcds` | Default node JDK home if `--jdk-root` is unset (`run`); default training JVM if `--appcds-java` is unset (`push --appcds`). |
 | `BREWLET_JDK_HOME` | `run` | Overrides `JAVA_HOME` for JDK resolution. |
-| `BREWLET_STORE_ROOT` | shim (`layout` resolver) | OCI layout root the shim reads in the PoC/harness path. |
+| `BREWLET_STORE_ROOT` | shim (`layout` resolver) | OCI layout root used by the local layout resolver. |
 | `BREWLET_CDS_CACHE` | `run`, `bundle`, shim | Node AppCDS regeneration cache dir (default `/opt/brewlet/cds`). Used when a deployment opts into `spec.jvm.cds.regenerate` (or `--appcds-regenerate` locally) ([AppCDS §4.3](appcds.md)). |
 | `BREWLET_METRICS_DIR` | `run`, shim | Directory for the best-effort node-local CDS metric textfile (`brewlet_cds_archive_mapped`). Unset disables the metric. |
 

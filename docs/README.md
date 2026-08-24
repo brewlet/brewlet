@@ -19,11 +19,9 @@ architecture contracts in
 examples in
 [`integration-tests/`](https://github.com/brewlet/brewlet/tree/main/integration-tests).
 
-> ⚠️ **Status.** Brewlet has a working implementation spanning Phases 0–3
-> (artifact format, containerd shim, Helm packaging, operator, `JavaApplication`
-> CRD, `brewlet` CLI, Maven plugin, AppCDS, and multi-arch scheduling). It is **not
-> production-ready**. Where a page documents intended behavior that is not yet
-> implemented, it says so explicitly.
+> ⚠️ Brewlet is not production-ready. These docs cover functionality available in
+> the current release. Future work is kept separately in the
+> [roadmap](roadmap.md).
 
 ---
 
@@ -35,6 +33,7 @@ examples in
 | **Platform / cluster operator** enabling Brewlet on a cluster | [Installation](installation.md) → [Configuration](configuration.md) → [JDK management](jdk-management.md) |
 | **Anyone** who wants to try the released CLI locally | [Getting started](getting-started.md) |
 | **Someone evaluating** the idea | [Concepts & architecture](concepts.md) |
+| **Someone tracking planned work** | [Roadmap](roadmap.md) |
 
 ---
 
@@ -71,10 +70,12 @@ examples in
   become cgroup constraints and how the container-aware JVM (and `jaz`) react.
 
 ### Operate it
-- **[Security](security.md)** — isolation model, non-root defaults, supply-chain
-  verification, and the sharp edge of privileged node provisioning.
+- **[Security](security.md)** — isolation model, non-root defaults, artifact
+  integrity, and the sharp edge of privileged node provisioning.
 - **[Observability & day‑2](observability.md)** — networking, logs, metrics,
   probes, JDK upgrades, and multi-arch operations.
+- **[Multi-architecture fleets](multi-arch.md)** — run portable JARs across
+  `amd64` and `arm64`, and constrain workloads that bundle native libraries.
 - **[Troubleshooting](troubleshooting.md)** — failure modes, what they look like,
   and how to fix them.
 
@@ -94,51 +95,10 @@ examples in
   unpack it (the WASI/KWasm pull path), instead of custom media types that
   `ImagePullBackOff`.
 
-#### Phase 3 — hardening & speed ✅ implemented / Phase 4 — remaining (research)
+### Planned work
 
-Design notes for the [hardening & speed roadmap](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#15-phased-roadmap)
-items — whether each capability fits Brewlet, how to surface it, what it touches,
-and how to implement it. **AppCDS and multi-arch (Phase A) now ship (Phase 3);** the
-rest remain research for Phase 4:
-
-- **[AppCDS](appcds.md)** ✅ *(Phase 3, shipped)* — Application Class-Data Sharing for
-  faster startup: the free base-CDS win, the shippable archive layer, node-side
-  regeneration, and the JDK-coupling problem.
-- **[Multi-arch fleets](multi-arch.md)** ✅ *(Phase 3, Phase A shipped)* — the
-  arch-neutral-artifact advantage and the shipped `arch` constraint for non-portable
-  (JNI) JARs; Phase B (coverage observability + accelerator guardrails) remains research.
-- **[Supply-chain verification (cosign/SLSA)](supply-chain-admission.md)** *(Phase 4)* —
-  verifying artifact signatures/provenance at admission (digest-keyed), via a
-  policy engine or an optional fail-closed Brewlet webhook.
-- **[Sandbox runtimes (gVisor/Kata)](sandbox-runtimes.md)** *(Phase 4)* — stronger
-  isolation tiers for untrusted JARs; gVisor as a drop-in `runsc` swap vs. Kata's deeper
-  tradeoffs.
-- **[Metrics exporter](metrics-exporter.md)** *(Phase 4)* — Brewlet-specific runtime
-  telemetry (cold-start phases, JDK inventory/patch age, admission outcomes) as Prometheus.
-
-#### Enhancement proposals
-
-- **[Proposals index](https://github.com/brewlet/brewlet/tree/main/specs/proposals)** — KEP-style design docs for larger
-  changes, reviewed before they land in the spec and absorbed into it once implemented.
-  - **[0001 — Node profiles](https://github.com/brewlet/brewlet/blob/main/specs/proposals/0001-node-profiles.md)** *(Implemented)* — a cluster-scoped
-    `NodeProfile` CRD that maps a **node pool** to a JDK/launcher inventory
-    (heterogeneous per-pool inventories, autoscaler-safe opt-in, finalizer-based
-    cleanup, an immutable-image mode); absorbed into §5.6.
-  - **[0002 — Validated node reconfig](https://github.com/brewlet/brewlet/blob/main/specs/proposals/0002-validated-node-reconfig.md)** *(Partially implemented)* —
-    validated containerd reconfiguration + a readiness smoke gate. The smoke gate and
-    restart-mode knob ship; the reversible `config dump` + `systemctl restart` and
-    launcher probe remain.
-  - **[0003 — Capability-label taxonomy](https://github.com/brewlet/brewlet/blob/main/specs/proposals/0003-capability-label-taxonomy.md)** *(Draft)* —
-    the `brewlet.sh/jdk.*` scheduling labels as a stable, autoscaler-friendly contract.
-  - **[0004 — cert-manager admission](https://github.com/brewlet/brewlet/blob/main/specs/proposals/0004-cert-manager-admission.md)** *(Draft)* —
-    cert-manager for the admission webhook's serving cert.
-
-#### Future direction — multi-runtime (research)
-
-- **[Multi-runtime support: .NET](dotnet-runtime-support.md)** — why .NET
-  (framework-dependent) is the best second runtime family after Java, a fit analysis
-  vs. Node.js/Python, and how to generalize the artifact/provisioner/shim/admission/CRD
-  design (§4–§9) without forking the Java path.
+- **[Roadmap](roadmap.md)** — proposed capabilities and known follow-up work.
+  Roadmap items are not part of the shipped feature set.
 
 ---
 
