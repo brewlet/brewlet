@@ -3,7 +3,8 @@
 This directory is the authoritative source for Brewlet architecture and
 compatibility contracts. Implementations and user documentation must follow
 [`SPECIFICATION.md`](SPECIFICATION.md); substantial changes should begin as a
-reviewable design in [`proposals/`](proposals/).
+reviewable design in [`proposals/`](proposals/) and remain on the
+[roadmap](../ROADMAP.md) until they ship.
 
 ## Versioning and citations
 
@@ -23,6 +24,10 @@ requirements by section using the existing `§N` convention (for example, `§4.2
 
 Changes here describe the contract; implementation-specific behavior belongs in
 the directory that owns that component.
+
+The specification documents only behavior available in Brewlet releases.
+Proposed functionality belongs in the [roadmap](../ROADMAP.md), with detailed
+engineering designs retained under [`proposals/`](proposals/).
 
 ## Supporting project areas
 

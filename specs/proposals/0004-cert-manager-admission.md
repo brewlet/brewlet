@@ -1,13 +1,14 @@
 # Proposal 0004 — cert-manager integration for the admission webhook
 
-- **Status:** Draft
 - **Target spec sections:** amend **§8.3** (webhook serving cert)
 - **Related code:** [`kubernetes/`](../../kubernetes):
   `charts/brewlet` (admission templates + values), `cmd/admission`
 - **Split from:** the original [0001 (node profiles)](0001-node-profiles.md) draft. A chart-only
   change, independent of the `NodeProfile` CRD (0001 §7 uses the webhook serving cert this provisions).
 
-> Enhancement proposal (KEP-style), not yet implemented.
+This roadmap design adds optional cert-manager integration. Current releases use
+the chart-generated self-signed certificate described in the
+[specification](../SPECIFICATION.md).
 
 ---
 

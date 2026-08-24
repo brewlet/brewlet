@@ -1,8 +1,7 @@
 # Proposal 0001 — Node profiles: per-pool cluster preparation
 
-- **Status:** Implemented (Phases A–D)
-- **Target spec sections:** new **§5.6** (Node profiles) + amendments to **§8.1**,
-  **§8.3**, **§14** — landed.
+- **Specification sections:** **§5.6** (Node profiles), **§8.1**, **§8.3**, and
+  **§14**.
 - **Related code:** [`kubernetes/`](../../kubernetes):
   `api/nodeprofile/v1alpha1`, `internal/controller/nodeprofile_*.go`,
   `internal/admission/nodeprofile_webhook.go`, the `internal/brewlet` vocabulary,
@@ -16,12 +15,8 @@
   - [0003 — Stable capability-label taxonomy for autoscaling](0003-capability-label-taxonomy.md).
   - [0004 — cert-manager integration for the admission webhook](0004-cert-manager-admission.md).
 
-> **Implemented.** The `NodeProfile` CRD (`node.brewlet.sh/v1alpha1`),
-> `NodeProfileReconciler` (per-profile DaemonSet, catch-all default, pool-key
-> auto-detection, finalizer-driven cleanup, registry mirrors), the validating
-> webhook, the provisioner cleanup/mirror/restart modes, and the Helm surface are
-> all in tree with unit + envtest coverage. The CRD/reconcile sketches below are
-> the original design notes; the shipped API is authoritative in the code.
+This document preserves the design rationale for the `NodeProfile` API. The
+[specification](../SPECIFICATION.md) and shipped API are authoritative.
 
 ---
 
@@ -458,26 +453,11 @@ The implementation is end-to-end-test driven. Additions:
   annotation, and that `kubectl delete nodeprofile` + cleanup reverses host state
   (extends the existing provisioning tiers).
 
-## 9. Rollout plan (phased, non-breaking)
+## 9. Risks & mitigations
 
-1. **Phase A — CRD + default profile.** Add `node.brewlet.sh/v1alpha1` `NodeProfile`,
-   `NodeProfileReconciler` (pool-key detection + one DaemonSet per profile, catch-all
-   default), the validating webhook, RBAC/CRD lifecycle, and the chart-rendered
-   `default` profile. Existing installs behave identically; `--jdks/--launchers` still
-   work (seed the default profile).
-2. **Phase B — reversal.** Finalizer + `brewlet-cleanup` DaemonSet; pool-reassignment
-   cleanup.
-3. **Phase C — air-gap registry mirrors + label-only mode wiring** (mode itself from
-   0002).
-4. **Phase D — docs + deprecate the global-string flags.**
-
-Host hardening (validated restart + smoke gate) and cert-manager land on their own
-tracks via [0002](0002-validated-node-reconfig.md) / [0004](0004-cert-manager-admission.md).
-
-## 10. Risks & mitigations
-
-- **Two ways to configure (values vs. profiles).** Default-profile bridge + a single
-  "simple vs. advanced" story; deprecate the flags over one minor release.
+- **Two ways to configure (values vs. profiles).** The default-profile bridge
+  preserves the simple installation path while profiles serve heterogeneous
+  fleets.
 - **Ownership ambiguity.** Removed structurally: pools are disjoint, so a node belongs to
   exactly one named pool; the catch-all default is excluded from named pools via a
   `NotIn` term (§5.4). Duplicate pool names are rejected by the webhook, not raced at
@@ -488,23 +468,6 @@ tracks via [0002](0002-validated-node-reconfig.md) / [0004](0004-cert-manager-ad
 - **Cleanup vs. owner-ref GC race.** Finalizer runs host cleanup before GC (§5.7).
 - **CRD adds API surface.** Justified: it is the mechanism NVIDIA GPU Operator /
   runtime-class-manager use for the same heterogeneous-fleet problem.
-
-## 11. Open questions
-
-- Should `NodeProfile` also carry **taints/tolerations** so a pool can be reserved for
-  Brewlet workloads, or leave that to the platform team? (The RuntimeClass stays a
-  global singleton keyed on `runtime=ready`; profiles don't currently constrain
-  scheduling beyond capability labels.)
-- Should the default profile be **implicit** (operator-synthesized when no profile
-  exists) rather than chart-rendered, so raw-manifest installs also get the catch-all
-  "every node" behavior without shipping a YAML?
-- For clusters with **no pool labels at all** (hand-rolled kubeadm), is the empty-pool
-  "every node" default enough, or should we also support a hand-applied `brewlet.sh/pool`
-  label as the documented bare-metal pooling convention?
-- Per-profile **JDK GC policy** (retire roots not referenced by any ready pod after N
-  days), or keep roots purely additive as today (§5.3)?
-
----
 
 ## Appendix — spec integration points
 

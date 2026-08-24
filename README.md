@@ -25,6 +25,7 @@ and integration tests.
 - [Developer workshop](https://github.com/brewlet/site/blob/main/WORKSHOP-DEV.md)
 - [Latest release](https://github.com/brewlet/brewlet/releases/latest)
 - [Specification](specs/SPECIFICATION.md)
+- [Roadmap](ROADMAP.md)
 
 ## How it works
 
@@ -64,7 +65,7 @@ Maven plugin or Brewlet CLI  --->  OCI registry  --->  provisioned node
 | Node provisioner | [`provisioner/`](provisioner/) | Installs and removes the shim, JDK roots, launchers, and containerd configuration on Linux nodes. |
 | Kubernetes platform | [`kubernetes/`](kubernetes/) | Provides the operator, admission webhook, `NodeProfile` and `JavaApplication` APIs, RBAC, manifests, and Helm chart. |
 | Maven plugin | [`maven-plugin/`](maven-plugin/) | Builds and publishes Brewlet OCI artifacts and generates Kubernetes workload manifests directly from Maven projects. |
-| Specifications | [`specs/`](specs/) | Defines the architecture, artifact formats, runtime contracts, APIs, compatibility rules, and design proposals. |
+| Specifications | [`specs/`](specs/) | Defines the architecture, artifact formats, runtime contracts, APIs, and compatibility rules. Future work is tracked in the [roadmap](ROADMAP.md). |
 | Integration tests | [`integration-tests/`](integration-tests/) | Exercises the CLI, JVM execution, shim, Kubernetes control plane, node provisioning, Helm installation, and representative workloads. |
 | User documentation | [`brewlet/site`](https://github.com/brewlet/site) | Hosts installation, configuration, operations, workload deployment, troubleshooting, and workshop guidance published at [brewlet.sh](https://brewlet.sh/). |
 

@@ -1,6 +1,5 @@
 # Proposal 0002 — Validated containerd reconfiguration & readiness smoke gate
 
-- **Status:** Partially implemented
 - **Target spec sections:** amend **§5.2** (steps 4–5) + **§14** (failure modes)
 - **Related code:** [`brewlet/brewlet`](https://github.com/brewlet/brewlet):
   `provisioner/entrypoint.sh`; [`kubernetes/`](../../kubernetes):
@@ -8,22 +7,12 @@
   (labels/annotations vocabulary)
 - **Split from:** the original [0001 (node profiles)](0001-node-profiles.md) draft. This is
   independent of the `NodeProfile` CRD and can ship on the current global-inventory
-  model; 0001 consumes it via the `rollout.containerdRestart` / `rollout.validate`
-  knobs (0001 §5.1–§5.2) once profiles land.
+  model; 0001 consumes it through the `rollout.containerdRestart` and
+  `rollout.validate` settings.
 
-> **Partially implemented.** The readiness smoke gate and the restart-mode knob
-> landed with 0001: the provisioner honors `BREWLET_VALIDATE` (rendered from
-> `spec.rollout.validate`) to smoke-test `java -version` from every installed JDK
-> root before flipping `runtime=ready`, exposes
-> `BREWLET_CONTAINERD_RESTART=validated|sighup|none` (rendered from
-> `spec.rollout.containerdRestart`), and records `brewlet.sh/provision-error` on the
-> Node for the operator to surface as `ProvisionFailed`.
-> **Still outstanding** (this proposal's remaining scope):
-> 1. the *reversible* containerd reconfiguration — drop-in + `containerd config dump`
->    validation + `systemctl restart` + backup restore on failure; today `validated`
->    mode still reloads via `SIGHUP` with no automatic rollback, and
-> 2. the launcher `<launcher> -version` probe in the smoke gate (only `java -version`
->    runs today).
+This roadmap design covers the reversible containerd reconfiguration path and a
+launcher-specific readiness probe. Current provisioner behavior is documented in
+the [specification](../SPECIFICATION.md).
 
 ---
 

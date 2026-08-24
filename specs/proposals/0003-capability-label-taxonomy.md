@@ -1,6 +1,5 @@
 # Proposal 0003 — Stable capability-label taxonomy for autoscaling
 
-- **Status:** Draft
 - **Target spec sections:** amend **§5.2**, **§8.3** (document the labels as a public,
   versioned contract)
 - **Related code:** [`kubernetes/`](../../kubernetes):
@@ -11,8 +10,8 @@
   documentation/stability commitment, not a mechanism change; it stands on its own and
   makes 0001's heterogeneous fleets autoscaler-friendly.
 
-> Enhancement proposal (KEP-style). The labels already exist; this proposal promotes
-> them from an implementation detail to a supported public taxonomy.
+This roadmap design promotes existing implementation-detail labels to a supported
+public taxonomy.
 
 ---
 
