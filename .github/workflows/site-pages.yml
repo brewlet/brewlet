@@ -5,14 +5,12 @@ on:
     branches: [main]
     paths:
       - "index.html"
-      - "styles.css"
-      - "*.svg"
-      - "*.png"
+      - "assets/**"
       - "CNAME"
       - "install.sh"
       - "mkdocs.yml"
       - "docs/**"
-      - "WORKSHOP*.md"
+      - "workshops/**"
       - "scripts/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
