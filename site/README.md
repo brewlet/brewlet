@@ -12,13 +12,10 @@ those components live in the Brewlet monorepo.
 
 | Path | Purpose |
 |---|---|
-| `index.html`, `styles.css` | Static landing page |
+| `index.html`, `assets/` | Static landing page and its visual assets |
 | `docs/` | User and operator documentation |
-| `WORKSHOP.md` | Workshop entry point and role selector |
-| `WORKSHOP-OPS.md` | Cluster enablement workshop for platform operators |
-| `WORKSHOP-DEV.md` | Application build and deployment workshop for developers |
-| `brewlet-logo.svg`, `brewlet-social.png` | Brand assets |
-| `architecture-*.svg` | Architecture diagrams |
+| `workshops/` | Role-based workshop material for operators and developers |
+| `assets/images/` | Brand assets and architecture diagrams |
 | `CNAME` | GitHub Pages custom domain |
 
 ## Related components
@@ -50,6 +47,6 @@ Then open <http://localhost:8000/docs/>.
 
 ## Deployment
 
-Pushes to `main` that change the web assets, documentation, workshop, or Pages
+Pushes to `main` that change the web assets, documentation, workshops, or Pages
 workflow build and deploy the static landing page plus a rendered MkDocs site at
 `/docs/`.

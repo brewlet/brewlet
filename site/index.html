@@ -12,13 +12,13 @@
   <meta property="og:title" content="Brewlet — Java on Kubernetes, for real this time." />
   <meta property="og:description" content="Ship just your app.jar as an OCI artifact. No Dockerfile, no base image. The JDK lives on the node, patched centrally." />
   <meta property="og:url" content="https://brewlet.sh" />
-  <meta property="og:image" content="https://brewlet.sh/brewlet-social.png" />
+  <meta property="og:image" content="https://brewlet.sh/assets/images/brewlet-social.png" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Brewlet — Java on Kubernetes, for real this time." />
   <meta name="twitter:description" content="Ship just your app.jar as an OCI artifact. No Dockerfile, no base image." />
-  <meta name="twitter:image" content="https://brewlet.sh/brewlet-social.png" />
+  <meta name="twitter:image" content="https://brewlet.sh/assets/images/brewlet-social.png" />
 
-  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml" />
   <link rel="canonical" href="https://brewlet.sh/" />
 
   <!-- Display typeface (headings only; body stays system). Non-blocking, swap. -->
@@ -27,7 +27,7 @@
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap" />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap" media="print" onload="this.media='all'" />
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap" /></noscript>
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="assets/css/styles.css" />
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -260,8 +260,8 @@ $ mvn package sh.brewlet:brewlet-maven-plugin:0.1.0:push \
           node, the shim pulls that artifact straight from the registry and runs it.
         </p>
         <figure class="arch-fig" data-reveal>
-          <img class="arch-img arch-img-desktop" src="architecture-desktop.svg" alt="Brewlet architecture: Developer/CI pushes an artifact to an OCI registry; the control plane generates and schedules a pod; on the worker node the shim pulls the artifact and runs it under runc in a sandbox." width="1000" height="366" loading="lazy" decoding="async" />
-          <img class="arch-img arch-img-mobile" src="architecture-mobile.svg" alt="Brewlet architecture: Developer/CI and the control plane both feed the worker node, where the shim runs your JAR under runc in a sandbox." width="360" height="486" loading="lazy" decoding="async" />
+          <img class="arch-img arch-img-desktop" src="assets/images/architecture-desktop.svg" alt="Brewlet architecture: Developer/CI pushes an artifact to an OCI registry; the control plane generates and schedules a pod; on the worker node the shim pulls the artifact and runs it under runc in a sandbox." width="1000" height="366" loading="lazy" decoding="async" />
+          <img class="arch-img arch-img-mobile" src="assets/images/architecture-mobile.svg" alt="Brewlet architecture: Developer/CI and the control plane both feed the worker node, where the shim runs your JAR under runc in a sandbox." width="360" height="486" loading="lazy" decoding="async" />
         </figure>
         <p class="center muted" data-reveal>
           The control plane never touches your JAR &mdash; it only schedules the pod and

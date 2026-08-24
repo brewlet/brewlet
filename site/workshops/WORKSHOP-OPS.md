@@ -150,7 +150,7 @@ printf '%s\n' \
   "export BREWLET_REGISTRY=\"$BREWLET_REGISTRY\""
 ```
 
-Continue with [Part 2: Build and deploy a workload](WORKSHOP-DEV.md).
+Continue with [Part 2: Build and deploy a workload](./WORKSHOP-DEV.md).
 
 ## 7. Optional platform exercises
 

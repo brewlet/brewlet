@@ -5,8 +5,8 @@ complete both to exercise the platform handoff end to end.
 
 | Workshop | Audience | Outcome |
 |---|---|---|
-| [Part 1: Enable a cluster](WORKSHOP-OPS.md) | Kubernetes platform and operations teams | A cluster with ready Brewlet nodes, the `brewlet` RuntimeClass, an approved JDK inventory, and a documented developer handoff |
-| [Part 2: Build and deploy a workload](WORKSHOP-DEV.md) | Java application developers | A JAR published as a runnable OCI image and running on the Brewlet-enabled cluster |
+| [Part 1: Enable a cluster](./WORKSHOP-OPS.md) | Kubernetes platform and operations teams | A cluster with ready Brewlet nodes, the `brewlet` RuntimeClass, an approved JDK inventory, and a documented developer handoff |
+| [Part 2: Build and deploy a workload](./WORKSHOP-DEV.md) | Java application developers | A JAR published as a runnable OCI image and running on the Brewlet-enabled cluster |
 
 ## Recommended format
 
