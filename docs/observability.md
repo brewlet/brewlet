@@ -143,4 +143,4 @@ health/readiness endpoint (`--health-probe-bind-address`, default `:8081`).
 
 - **[Troubleshooting](troubleshooting.md)** — when something's wrong.
 - **[Security](security.md)** — hardening and supply chain.
-- **[Roadmap](roadmap.md#observability)** — planned Brewlet-specific telemetry.
+- **[Roadmap](https://github.com/brewlet/brewlet/blob/main/ROADMAP.md#observability)** — planned Brewlet-specific telemetry.

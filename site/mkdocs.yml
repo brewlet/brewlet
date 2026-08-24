@@ -59,7 +59,7 @@ nav:
   - Understand:
       - Home: README.md
       - Concepts & architecture: concepts.md
-      - Roadmap (planned work): roadmap.md
+      - Roadmap (planned work): https://github.com/brewlet/brewlet/blob/main/ROADMAP.md
   - Try it:
       - Getting started: getting-started.md
       - Spring PetClinic: spring-petclinic.md

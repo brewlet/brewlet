@@ -109,4 +109,4 @@ Mitigations and guardrails:
       (not the Helm self-signed cert). See [Configuration](configuration.md#admission-webhook).
 - [ ] Plan JDK patch cadence — it's now a single centralized lever.
 
-Future security capabilities are tracked in the [roadmap](roadmap.md#security-and-isolation).
+Future security capabilities are tracked in the [roadmap](https://github.com/brewlet/brewlet/blob/main/ROADMAP.md#security-and-isolation).
