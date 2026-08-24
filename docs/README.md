@@ -21,7 +21,7 @@ examples in
 
 > ⚠️ Brewlet is not production-ready. These docs cover functionality available in
 > the current release. Future work is kept separately in the
-> [roadmap](roadmap.md).
+> [roadmap](https://github.com/brewlet/brewlet/blob/main/ROADMAP.md).
 
 ---
 
@@ -33,7 +33,7 @@ examples in
 | **Platform / cluster operator** enabling Brewlet on a cluster | [Installation](installation.md) → [Configuration](configuration.md) → [JDK management](jdk-management.md) |
 | **Anyone** who wants to try the released CLI locally | [Getting started](getting-started.md) |
 | **Someone evaluating** the idea | [Concepts & architecture](concepts.md) |
-| **Someone tracking planned work** | [Roadmap](roadmap.md) |
+| **Someone tracking planned work** | [Roadmap](https://github.com/brewlet/brewlet/blob/main/ROADMAP.md) |
 
 ---
 
@@ -97,7 +97,7 @@ examples in
 
 ### Planned work
 
-- **[Roadmap](roadmap.md)** — proposed capabilities and known follow-up work.
+- **[Roadmap](https://github.com/brewlet/brewlet/blob/main/ROADMAP.md)** — proposed capabilities and known follow-up work.
   Roadmap items are not part of the shipped feature set.
 
 ---
