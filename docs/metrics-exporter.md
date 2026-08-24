@@ -168,7 +168,7 @@ compatible, are cold starts healthy, and how stale is my centrally-patched JDK?*
 ## 8. References
 
 - [Prometheus exposition / textfile collector](https://prometheus.io/docs/instrumenting/exposition_formats/),
-  [Prometheus Operator ServiceMonitor](https://prometheus-operator.dev/docs/operator/design/#servicemonitor).
+  [Prometheus Operator ServiceMonitor](https://prometheus-operator.dev/docs/getting-started/design/#servicemonitor).
 - [controller-runtime metrics](https://book.kubebuilder.io/reference/metrics.html)
   (the operator already serves `--metrics-bind-address`, default `:8080`).
 - [containerd metrics](https://github.com/containerd/containerd/blob/main/docs/man/containerd-config.toml.5.md).

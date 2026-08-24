@@ -240,7 +240,7 @@ beside the digest resolution Brewlet already performs.
 - [SLSA provenance](https://slsa.dev/spec/v1.0/provenance) and
   [slsa-verifier](https://github.com/slsa-framework/slsa-verifier).
 - [Sigstore policy-controller](https://docs.sigstore.dev/policy-controller/overview/),
-  [Kyverno image verification](https://kyverno.io/docs/writing-policies/verify-images/).
+  [Kyverno image verification](https://kyverno.io/docs/policy-types/cluster-policy/verify-images/overview/).
 - Brewlet: [SPECIFICATION §11 (security)](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#11-security-model),
   [§8.3 (admission webhook)](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md), [security.md](security.md),
   [building & publishing](building-and-publishing.md);
