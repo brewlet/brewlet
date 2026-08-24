@@ -1,13 +1,12 @@
 # Proposal 0005 — Replica coalescing: fewer, larger JVMs
 
-- **Status:** Draft
 - **Target spec sections:** amend **§8.2**, **§9**, and **§10**
 - **Related code:** [`kubernetes/`](../../kubernetes):
   `api/v1alpha1`, `internal/controller`
 
-> Enhancement proposal (KEP-style). This proposal introduces an opt-in capacity
-> model in which the requested replica count represents logical capacity units that
-> Brewlet may realize as fewer, larger JVMs.
+This roadmap design introduces an opt-in capacity model in which the requested
+replica count represents logical capacity units that Brewlet may realize as
+fewer, larger JVMs.
 
 ---
 

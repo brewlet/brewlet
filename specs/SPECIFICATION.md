@@ -1,7 +1,6 @@
 # Brewlet — Run Java applications on Kubernetes like WASM
 
-**Status:** Draft v0.1 — living specification that tracks the implementation
-(Phases 0–3 landed; see §15). Not production-ready.
+**Version:** 0.1
 **Audience:** Platform engineers, Kubernetes operators, JVM platform owners
 **Analogous prior art:** [KWasm](https://kwasm.sh/) / [SpinKube](https://www.spinkube.dev/) / [runwasi](https://github.com/containerd/runwasi)
 
@@ -182,7 +181,7 @@ config describing how to launch it.
   `jar` mode must not carry `mainClass`/`classPath` (the manifest `Main-Class`
   wins), `classpath` mode requires `mainClass`, and `module` mode requires
   `module` and additionally permits `classPath` (the **mixed form**: a
-  supplementary `-cp` alongside the module path — §16 Q3). Unknown modes and foreign-mode
+  supplementary `-cp` alongside the module path). Unknown modes and foreign-mode
   fields are rejected by the Maven plugin at build time and by the launch core at
   publish and launch time; unknown JSON *fields* are additionally rejected by the
   launch core, which parses configs with strict field checking (publish and launch
@@ -213,7 +212,7 @@ oras push registry.example.com/team/app:1.4.2 \
 
 The `brewlet` CLI (`brewlet push ./target/app.jar registry.example.com/team/app:1.4.2`)
 and the [Brewlet Maven plugin](../maven-plugin) (`mvn brewlet:push`) wrap
-steps 2–3 so developers never touch ORAS directly. A Gradle plugin is on the roadmap.
+steps 2–3 so developers never touch ORAS directly.
 
 ### 4.4 Runnable-image delivery mode (kubelet-pullable, the WASI-style pull path)
 
@@ -427,9 +426,9 @@ a descriptor requesting a launcher the node lacks fails admission with
 > modifies the host. It must be scoped to nodes the platform team controls, and is
 > not recommended for hostile multi-tenant nodes without further isolation (§11).
 
-### 5.5 Implementation status
+### 5.5 Provisioner
 
-The provisioner is **implemented** as a container image built from the
+The provisioner is a container image built from the
 [`provisioner/`](https://github.com/brewlet/brewlet/tree/main/provisioner)
 directory (`Dockerfile` + `entrypoint.sh`) and deployed by
 [`deploy/node-provisioner.yaml`](../kubernetes/deploy/node-provisioner.yaml):
@@ -455,9 +454,9 @@ directory (`Dockerfile` + `entrypoint.sh`) and deployed by
   (`get`/`patch` on nodes) the labelling step needs.
 
 Node provisioning is driven by the **operator** (§8.1) and admission is handled
-by the **pod webhook** (§8.3) — both implemented. The whole set is packaged by
+by the **pod webhook** (§8.3). The whole set is packaged by
 the [`charts/brewlet`](../kubernetes/charts/brewlet)
-Helm chart (Phase 1).
+Helm chart.
 
 Operator reference for the provisioner (env-var interface, copy-from-image
 mechanics, curated distribution → image matrix, deployment): see
@@ -570,9 +569,9 @@ bundle and delegates isolation to runc*. This maximizes correctness and reuse.
   containers, and metrics-server all behave normally.
 - The novel part stays small: artifact disassembly + rootfs assembly + arg building.
 
-### 6.4 Implementation status
+### 6.4 Runtime shim
 
-The shim is **implemented** in the
+The shim lives in the
 [`shim/cmd/containerd-shim-brewlet-v2`](https://github.com/brewlet/brewlet/tree/main/shim/cmd/containerd-shim-brewlet-v2)
 package
 and builds/runs on Linux:
@@ -593,7 +592,7 @@ and builds/runs on Linux:
   backend reads a Brewlet-local OCI layout (the PoC/e2e harness path).
 
 The artifact reference and manifest digest are stamped **cluster-side, not in the
-shim**: the `brewlet-admission` webhook (§8.3, implemented) stamps the
+shim**: the `brewlet-admission` webhook (§8.3) stamps the
 `brewlet.sh/artifact-ref` and `brewlet.sh/artifact-digest` annotations onto pods
 using `runtimeClassName: brewlet`, so the shim can resolve the artifact from the
 content store. On non-Linux dev hosts only the portable bundle-assembly core builds locally;
@@ -636,7 +635,7 @@ Two responsibilities, the first identical in spirit to `kwasm-operator`:
   provisioner DaemonSet + the shared `RuntimeClass`, with finalizer-driven cleanup.
 - Surfaces node readiness/health and JDK inventory as conditions/events.
 
-> **Implementation status.** Built as a controller-runtime operator in
+> Built as a controller-runtime operator in
 > the [`kubernetes/`](../kubernetes)
 > module (separate from the shim, to isolate client-go /
 > controller-runtime from the containerd-pinned deps). Two controllers split the
@@ -662,8 +661,7 @@ Two responsibilities, the first identical in spirit to `kwasm-operator`:
 > [`config/operator.yaml`](../kubernetes/config/operator.yaml)
 > and the [`charts/brewlet`](../kubernetes/charts/brewlet)
 > Helm chart. The `NoCompatibleJDK` / `NoCompatibleLauncher`
-> events are owned by the pod admission/scheduling webhook (§8.3, implemented);
-> the `JavaApplication` controller (§8.2) is implemented too.
+> events are owned by the pod admission/scheduling webhook (§8.3).
 
 ### 8.2 `JavaApplication` controller (developer ergonomics)
 - Watches the `JavaApplication` CRD (§9) and reconciles it into a managed
@@ -678,7 +676,7 @@ Two responsibilities, the first identical in spirit to `kwasm-operator`:
 This is what the prompt calls *“provisioning a container with CPU and Memory limits
 as per deployment descriptor.”* The descriptor is the `JavaApplication`.
 
-> **Implementation status.** Built as `JavaApplicationReconciler` in the operator
+> Built as `JavaApplicationReconciler` in the operator
 > module (`internal/controller/javaapplication_controller.go`, with pure,
 > unit-tested builders in `javaapplication_resources.go`). It reconciles the
 > Deployment/Service/HPA, owns them via controller references, stamps the
@@ -724,7 +722,7 @@ defaults the JDK to feature 21 (lexically-first installed distribution) and the
 launcher to `java`. `failurePolicy: Ignore`
 ensures a webhook outage never blocks workloads.
 
-> **Implementation status.** Built as a second binary in the operator module
+> Built as a second binary in the operator module
 > ([`cmd/admission`](../kubernetes/cmd/admission)
 > + pure, unit-tested logic in
 > `internal/admission`). Deployed — with a self-signed serving cert — by the
@@ -899,16 +897,11 @@ descriptor's `jvm.args`.
   is treated as untrusted code.
 - **Non-root by default.** JVM runs as an unprivileged uid; root squashed unless
   explicitly requested via `securityContext`.
-- **Supply-chain verification.** The shim/operator will be able to require a valid
-  **cosign** signature and/or SLSA provenance on the OCI artifact before launch
-  (admission policy) — *planned, not yet implemented.* Digest-pinned refs
-  recommended today. See the
-  [supply-chain verification research note](https://github.com/brewlet/site/blob/main/docs/supply-chain-admission.md).
+- **Artifact identity.** Digest-pinned references are recommended so the admitted
+  artifact cannot change between deployments.
 - **Privileged provisioning is the sharp edge.** As with KWasm, the node provisioner
   is privileged and mutates the host. Scope it to platform-owned node pools; document
-  the blast radius; consider gVisor/Kata as the underlying OCI runtime for stronger
-  isolation on shared nodes. See the
-  [sandbox runtimes research note](https://github.com/brewlet/site/blob/main/docs/sandbox-runtimes.md).
+  the blast radius, and do not use it on hostile multi-tenant nodes.
 - **JDK CVE management is centralized.** Patching the node JDK patches *all*
   workloads at once — a major advantage over per-image JVMs.
 
@@ -920,8 +913,7 @@ descriptor's `jvm.args`.
   NetworkPolicy unchanged.
 - **Logs:** JVM stdout/stderr → containerd → `kubectl logs`.
 - **Metrics/Tracing:** JMX/Micrometer/OTel work as usual; JFR can be enabled via
-  `jvm.args`. Node-level JVM metrics (per-sandbox RSS, GC) would be exported by the
-  shim — *planned, not yet built* ([research](https://github.com/brewlet/site/blob/main/docs/metrics-exporter.md)).
+  `jvm.args`.
 - **Probes & exec:** `kubectl exec`, ephemeral debug containers, and all probe types
   work because runc backs the sandbox.
 - **Upgrades:** JDK roots are versioned and additive on nodes; old versions retained
@@ -950,7 +942,6 @@ caching and JVM features:
   per-`(artifact, JDK-build)` archive cache driven by `-XX:+AutoCreateSharedArchive`
   (JDK 19+) that self-heals on every central JDK patch. See the
   [AppCDS note](https://github.com/brewlet/site/blob/main/docs/appcds.md).
-- **Project Leyden (AOT):** track for future static-image-like startup.
 
 ---
 
@@ -962,7 +953,6 @@ caching and JVM features:
 | Requested launcher not installed on node   | Pod stays `Pending`; event `NoCompatibleLauncher`; scheduler skips node |
 | Non-portable JAR needs an arch with no ready node | Pod stays `Pending`; event `NoCompatibleArch`; scheduler skips node |
 | OCI artifact missing/unauthorized          | `ImagePull`-style failure surfaced on the pod                       |
-| Signature/provenance verification fails    | Admission denied (if policy enabled); clear reason on the object    |
 | JVM OOM                                     | `ExitOnOutOfMemoryError` → exit → kubelet restart per `restartPolicy`|
 | Node provisioning fails                     | Node not labeled `ready`; operator event `ProvisionFailed`          |
 | NodeProfile names a pool with no matching nodes | Profile `Ready=False` reason `EmptyPool`; DaemonSet lands nowhere |
@@ -981,110 +971,7 @@ caching and JVM features:
 
 ---
 
-## 15. Phased Roadmap
-
-**Phase 0 — Proof of concept**
-- OCI artifact format + ORAS push.
-- `containerd-shim-brewlet-v2` implementing the containerd Runtime v2 (TTRPC)
-  Task service (runc-backed): embeds `runtime/v2/shim`, assembles an overlay-rootfs
-  `java -jar` sandbox from a node-resident JDK, and resolves the OCI artifact from
-  containerd's content store (see §6.4).
-- `brewlet-node-provisioner` image + entrypoint that installs the shim + JDK
-  roots + launcher layers and registers the containerd runtime on opted-in nodes
-  (see §5.5).
-- `brewlet-operator` node lifecycle controller (§8.1) that watches provision-opted
-  nodes, manages the provisioner DaemonSet, and reconciles the `RuntimeClass`
-  (replacing the by-hand wiring).
-
-**Phase 1 — KWasm parity (MVP) ✅ implemented**
-- Helm chart to package the operator + provisioner + RuntimeClass with `jdks:` /
-  `launchers:` values (the KWasm-style `helm install` activation) —
-  [`charts/brewlet`](../kubernetes/charts/brewlet).
-- Pod admission/scheduling webhook: matches a pod's requested JDK/launcher against
-  ready nodes (`NoCompatibleJDK` / `NoCompatibleLauncher`) and stamps the artifact
-  ref/digest annotations the shim resolves —
-  [`cmd/admission`](../kubernetes/cmd/admission)
-  (§8.3).
-- `kubectl logs/exec`, probes, Services — work unchanged because the shim runs a
-  real runc task with the CRI-provided netns/cgroups (see
-  [`deploy/raw-deployment.yaml`](../kubernetes/deploy/raw-deployment.yaml)).
-
-**Phase 2 — Developer ergonomics**
-- `JavaApplication` CRD + controller ✅ implemented (`JavaApplicationReconciler`,
-  §8.2) — reconciles descriptors into Deployment + Service + HPA.
-- `brewlet` CLI ✅ implemented
-  ([`cmd/brewlet`](https://github.com/brewlet/brewlet/tree/main/cmd/brewlet) —
-  `push` / `inspect` / `run` /
-  `bundle` / `jdks`; see [CLI reference](https://github.com/brewlet/site/blob/main/docs/cli-reference.md)).
-- Brewlet **Maven plugin** ✅ implemented
-  ([`maven-plugin/`](../maven-plugin) — goals
-  `config` / `build` / `push` / `manifest` / `inspect` (plus `appcds`, §13);
-  wraps §4.3 steps 2–3 so
-  developers never touch ORAS). Supports both delivery formats via
-  `-Dbrewlet.format` (runnable `image`, the default, and native `artifact`, §4.4).
-- User-supplied JVM tuning via `jvm.args` + custom launcher support (e.g. jaz).
-
-**Phase 3 — Hardening & speed ✅ implemented**
-- AppCDS ✅ implemented — build-time class-data archives (the
-  `application/vnd.brewlet.cds.layer.v1+jsa` layer + the `brewlet:appcds` Maven goal /
-  `brewlet push --appcds-archive`, with `-Xshare:auto -XX:SharedArchiveFile` launch
-  wiring and deterministic JAR-mtime normalization) **and** node-side regeneration
-  (`spec.jvm.cds.regenerate` / `--appcds-regenerate`, backed by
-  `-XX:+AutoCreateSharedArchive` and a per-`(artifact, jdk-build)` node cache that
-  self-heals on every central JDK patch) both ship ([docs/appcds.md](https://github.com/brewlet/site/blob/main/docs/appcds.md), §13).
-- Multi-arch ✅ implemented (Phase A) — per-node-arch JDK provisioning (the
-  provisioner's copy-from-image selects the matching platform), multi-arch component
-  images (buildx `*-image-push` targets), and an optional `arch` launch-config/CRD
-  constraint that steers non-portable (JNI) JARs via `kubernetes.io/arch` nodeAffinity
-  with a `NoCompatibleArch` denial ([docs/multi-arch.md](https://github.com/brewlet/site/blob/main/docs/multi-arch.md)).
-- HPA ✅ — landed in Phase 2; the `JavaApplication` controller reconciles a
-  `HorizontalPodAutoscaler` (§8.2).
-
-**Phase 4 — Hardening & speed (remaining)**
-- cosign/SLSA supply-chain admission ([research](https://github.com/brewlet/site/blob/main/docs/supply-chain-admission.md));
-  gVisor/Kata stronger-isolation option ([research](https://github.com/brewlet/site/blob/main/docs/sandbox-runtimes.md)).
-- Metrics exporter ([research](https://github.com/brewlet/site/blob/main/docs/metrics-exporter.md)); multi-arch Phase B —
-  coverage observability + accelerator guardrails ([research](https://github.com/brewlet/site/blob/main/docs/multi-arch.md)).
-
-**Phase 5 — Additional developer ergonomics**
-- Brewlet **Gradle plugin** (`config` / `build` / `push` / `manifest` / `inspect`
-  parity with the Maven plugin; wraps §4.3 steps 2–3 so developers never touch ORAS).
-
----
-
-## 16. Open Questions
-
-1. **JDK distribution & licensing on nodes** — which builds ship by default
-   (Temurin only?), and how are LTS upgrades rolled out across node pools?
-2. **Shim build base** — *resolved (PoC):* the shim embeds containerd's own
-   `runtime/v2/shim` framework and reuses its runc-backed Task service (the Go
-   equivalent of the runwasi/`runc-v2` approach), rather than a from-scratch Go
-   shim over `runc` libcontainer. See §6.4.
-3. **Classpath/modular apps** — *implemented in the PoC.* Non-modular
-   apps can be split into stable dependency layers + a thin app layer for registry
-   dedup via `entry.classPath` over the `classpath.layer.v1+tar` layer (unpacked to
-   `/app/lib`) — see [docs/layered-classpath-deployment.md](https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md).
-   Modular (JPMS) apps launch via `entry.mode: module` (emit `java -p … -m …`)
-   with an optional `modulepath.layer.v1+tar` module layer (unpacked to
-   `/app/mods`) — see [docs/jpms-support.md](https://github.com/brewlet/site/blob/main/docs/jpms-support.md). The **mixed
-   form** is also supported: `entry.mode: module` additionally permits
-   `entry.classPath`, emitting `java -cp … -p … -m …` so a modular app can carry
-   automatic-module or non-modular libraries on the class path
-   ([§8.1](https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md)).
-   Application artifacts do not carry `jlink` runtimes or `.jmod` files. A
-   platform administrator may install a shared jlink runtime, including centrally
-   approved modules, as node inventory through a `NodeProfile` custom source; the
-   application remains an ordinary JAR artifact.
-4. **Artifact format standardization** — pursue a shared/standard media type so the
-   ecosystem (registries, scanners, CLIs) recognizes "JAR-as-OCI-artifact"?
-5. **Strong multi-tenancy** — is runc isolation sufficient, or is Kata/gVisor the
-   default for untrusted JARs?
-6. **Cold-start SLOs** — what startup targets justify shipping AppCDS archives (§13)
-   over relying on the shared, pre-warmed node JDK alone?
-
----
-
-## 17. Glossary
+## 15. Glossary
 
 - **OCI Artifact** — non-image content stored/distributed via an OCI registry using
   custom media types (OCI Image Spec ≥ 1.1).
