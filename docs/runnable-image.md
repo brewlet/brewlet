@@ -1,8 +1,7 @@
 # Runnable-image delivery (kubelet-pullable, the WASI-style pull path)
 
-> **Status.** Design + **implemented in the PoC**. `brewlet push --format=image`, the
-> shim's runnable-image resolver, and end-to-end proof (e2e tier 12) ship in the
-> reference CLI and shim. This note documents the delivery contract referenced by
+`brewlet push --format=image` publishes a kubelet-pullable OCI image that the Brewlet
+shim runs with the node-resident JDK. This page documents the delivery contract referenced by
 > [SPECIFICATION §4.4](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#4-the-oci-application-artifact). It answers
 > the question "how does a `runtimeClassName: brewlet` pod name the app as its `image:`
 > and let kubelet pull it, exactly like a `runtimeClassName: wasmtime` pod names a
@@ -17,8 +16,7 @@
   `…classpath.layer.v1+tar`, `…modulepath.layer.v1+tar`) are not among the media types
   containerd's CRI differ can unpack (`tar`, `tar+gzip`, `tar+zstd`). A pod that sets
   `image: <native-artifact-ref>` therefore **fails to pull** (`ImagePullBackOff`); the
-  payload has to reach the node **out of band** (a future node pre-puller, or the e2e
-  harness's `ctr images import`).
+  payload has to reach the node **out of band**, such as with `ctr images import`.
 - **Runnable-image mode fixes this without changing the native format.** `brewlet push
   --format=image` publishes the *same* JAR as a **standard, kubelet-pullable OCI
   image**. containerd/kubelet pull + unpack it with no special configuration; the shim
@@ -128,9 +126,9 @@ The default runnable image gives the pure `image: <ref>` experience end to end �
 WASI/KWasm parity goal. Opt into `--format=artifact` when you have (or are building) a
 node pre-puller and want the leanest registry footprint / self-describing media types.
 
-## 7. Proof (e2e tier 12)
+## 7. End-to-end behavior
 
-Tier 12 of the [e2e suite](https://github.com/brewlet/brewlet/blob/main/integration-tests/README.md) provisions a real `kind`/CI node,
+The runnable-image tier of the [e2e suite](https://github.com/brewlet/brewlet/blob/main/integration-tests/README.md) provisions a real `kind`/CI node,
 `brewlet push --format=image`s the demo JAR, imports it into the node's `k8s.io`
 content store, and asserts **`ctr images unpack` SUCCEEDS** — the exact operation that
 `ImagePullBackOff`s for a native artifact. It then runs a `runtimeClassName: brewlet`
@@ -138,18 +136,3 @@ Deployment whose container **`image:` is the brewlet ref itself** (no placeholde
 `imagePullPolicy: Never`) and asserts the pod is Ready with that image, serves a `200`
 from `/hello`, and that the JVM is cgroup-aware (`availableProcessors == 1`, bounded
 `maxMemory`).
-
-## 8. Implementation status
-
-- **Implemented (PoC):** `brewlet push --format=image`, `brewlet inspect` (reports
-  native artifact vs runnable image), the shim's runnable-image resolver (both the
-  `containerd` content-store backend and the `layout` test backend), multi-arch index
-  emission + `GOARCH` resolution, and e2e tier 12. The **Maven plugin** reaches parity:
-  `mvn brewlet:push -Dbrewlet.format=image` (or `<format>image</format>`) publishes a
-  byte-compatible runnable image via `RunnableImageBuilder`, and `brewlet:inspect`
-  reports the runnable-image shape.
-- **Not yet:** a Gradle plugin does not exist yet (it is on the roadmap — see
-  [SPECIFICATION §15](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#15-phased-roadmap), Phase 5 — and will reach
-  format parity with the Maven plugin when it lands). A registry-based variant of tier
-  12 (kubelet pulls over the network rather than a side-loaded import) is also a future
-  addition — the pulled bytes are byte-identical, so the shim path is the same.

@@ -1,7 +1,7 @@
 # Security
 
 Brewlet keeps **container-grade isolation** (runc) while adopting a Wasm-grade
-developer experience. This page covers the isolation model, defaults, supply-chain
+developer experience. This page covers the isolation model, defaults, digest
 verification, and the one genuinely sharp edge: privileged node provisioning.
 
 See also [SPECIFICATION §11](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md).
@@ -49,18 +49,13 @@ upper/scratch layer is writable.
 
 ---
 
-## Supply-chain verification
+## Artifact integrity
 
 Because the JAR is a first-class OCI artifact, standard supply-chain controls apply:
 
 - **Digest-pin** artifact references (`repo@sha256:…`). The admission webhook stamps
   `brewlet.sh/artifact-digest`, and the shim resolves the JAR straight from
   containerd's content store by digest. See [Building & publishing](building-and-publishing.md#4-pin-to-a-digest-recommended).
-- **cosign signatures / SLSA provenance** *(roadmap, Phase 4)*: the shim/operator can
-  require a valid signature and/or provenance on the artifact before launch, via
-  admission policy. Verification failure → admission denied with a clear reason.
-  See the [supply-chain verification research note](supply-chain-admission.md) for
-  the design (policy-engine vs. a fail-closed Brewlet webhook, and turnkey signing).
 
 ---
 
@@ -89,7 +84,6 @@ Mitigations and guardrails:
 | **Provisioning is scoped, but broad by default** | The chart's default `NodeProfile` provisions **every** node (§5.6). To limit the blast radius, disable it (`defaultProfile.enabled=false`) and define named `NodeProfile`s scoped to platform-owned pools. The legacy standalone DaemonSet instead touches only nodes carrying the `brewlet.sh/provision=true` **label**. |
 | **Scope to platform-owned pools** | Use named `NodeProfile` pools (or the `brewlet.sh/provision` label for the standalone path) to restrict provisioning to nodes your platform team controls. Do **not** provision shared/hostile multi-tenant nodes. |
 | **The operator is unprivileged** | The operator only talks to the API server; only the DaemonSet it manages is privileged. |
-| **Stronger isolation for untrusted JARs** | Use **gVisor** or **Kata** as the underlying OCI runtime on shared nodes *(roadmap option)*. |
 | **Webhook can't block workloads** | `admission.failurePolicy: Ignore` (default) means a webhook outage never wedges deployments. |
 
 > ⚠️ Treat enabling Brewlet on a node the same way you'd treat any privileged
@@ -101,11 +95,8 @@ Mitigations and guardrails:
 
 - **Trusted tenants / your own services:** runc isolation is equivalent to ordinary
   containers — appropriate as-is.
-- **Untrusted or hostile JARs:** layer gVisor/Kata under the sandbox and keep
-  provisioning off shared nodes. runc alone is the same trust boundary as a normal
-  container — no more, no less. See the
-  [sandbox runtimes research note](sandbox-runtimes.md) for how the isolation
-  tiers would be built (gVisor as a `runsc` swap; Kata's tradeoffs).
+- **Untrusted or hostile JARs:** keep Brewlet provisioning off shared nodes. runc
+  provides the same trust boundary as a normal container, no more and no less.
 
 ---
 
@@ -117,4 +108,5 @@ Mitigations and guardrails:
 - [ ] Use **cert-manager** for the admission webhook serving cert in production
       (not the Helm self-signed cert). See [Configuration](configuration.md#admission-webhook).
 - [ ] Plan JDK patch cadence — it's now a single centralized lever.
-- [ ] For untrusted workloads, evaluate gVisor/Kata.
+
+Future security capabilities are tracked in the [roadmap](roadmap.md#security-and-isolation).

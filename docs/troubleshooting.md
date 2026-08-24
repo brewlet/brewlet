@@ -12,7 +12,6 @@ failure-mode summary is from [SPECIFICATION §14](https://github.com/brewlet/bre
 | No compatible JDK on any ready node | Pod stays `Pending`; event `NoCompatibleJDK`; scheduler skips nodes | [→ JDK issues](#pod-is-pending-with-nocompatiblejdk) |
 | Requested launcher not installed | Pod stays `Pending`; event `NoCompatibleLauncher`; scheduler skips nodes | [→ launcher issues](#pod-is-pending-with-nocompatiblelauncher) |
 | OCI artifact missing/unauthorized | `ImagePull`-style failure on the pod | [→ artifact pull](#imagepull-style-failure) |
-| Signature/provenance verification fails | Admission denied (if policy enabled) with a clear reason | [Security](security.md) |
 | JVM OOM | `ExitOnOutOfMemoryError` → exit → kubelet restart | [→ OOM](#pod-restarts-oomkilled) |
 | Node provisioning fails | Node not labeled `ready`; condition/event `ProvisionFailed` | [→ provisioning](#node-never-becomes-ready) |
 | Shim crash | containerd reports task failure; pod restarts | [→ shim](#task-shim-failures) |
@@ -155,7 +154,7 @@ grep -A2 runtimes.brewlet /etc/containerd/config.toml
 
 ---
 
-## Local PoC issues
+## Local development issues
 
 - **The harness cannot find a component directory** — run it from a complete
   `brewlet/brewlet` monorepo checkout. For external component checkouts, set

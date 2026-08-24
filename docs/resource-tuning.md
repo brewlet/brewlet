@@ -138,17 +138,15 @@ does not touch ports at all.
 
 ## Startup performance
 
-Cold start is the JVM's classic weakness vs. Wasm. Brewlet mitigates it and has more
-on the roadmap:
+Cold start is the JVM's classic weakness vs. Wasm. Brewlet mitigates it with:
 
 - **Shared, pre-warmed JDK** on the node → no per-pod JDK pull/unpack.
 - **Artifact caching:** containerd's content store caches the JAR layer; only the
   (small) JAR moves over the network, not a full image.
-- **AppCDS / dynamic CDS** *(implemented)*: ships a class-data archive as a dedicated
+- **AppCDS / dynamic CDS:** ships a class-data archive as a dedicated
   `cds.layer` — build-time via the Maven `brewlet:appcds` goal / `brewlet push
   --appcds-archive`, plus opt-in node-side regeneration — to cut startup. See
   [AppCDS](appcds.md).
-- **Project Leyden (AOT)** *(tracking)*: static-image-like startup.
 
 See [SPECIFICATION §13](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md).
 

@@ -301,15 +301,14 @@ as needed.
 
 ---
 
-## Known limitations (PoC)
+## Known limitations
 
 - Custom images must expose the same Java-home path on every architecture in the
   selected node pool.
 - **A requested `<feature>` must be published as an image** by the chosen vendor for
   the node's architecture.
 - **containerd reload is `SIGHUP`.** On some distros a full `systemctl restart
-  containerd` is more reliable for picking up the new runtime; operator-driven
-  hardening is a follow-up.
+  containerd` is more reliable for picking up the new runtime.
 
 ## Next steps
 

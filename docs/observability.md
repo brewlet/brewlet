@@ -41,10 +41,6 @@ kubectl logs <pod> --previous          # after a restart
   (e.g. `-XX:StartFlightRecording=...`).
 - **metrics-server / HPA** work because the sandbox is a real cgroup-backed
   container.
-- The shim can export node-level per-sandbox JVM metrics (RSS, GC) *(roadmap)*.
-  See the [metrics exporter research note](metrics-exporter.md) for the proposed
-  Brewlet-specific telemetry (cold-start phases, JDK inventory/patch age, admission
-  outcomes) and how it would be exposed as Prometheus.
 
 ```yaml
 jvm:
@@ -147,3 +143,4 @@ health/readiness endpoint (`--health-probe-bind-address`, default `:8081`).
 
 - **[Troubleshooting](troubleshooting.md)** — when something's wrong.
 - **[Security](security.md)** — hardening and supply chain.
+- **[Roadmap](roadmap.md#observability)** — planned Brewlet-specific telemetry.
