@@ -60,6 +60,10 @@ body {
   color: var(--brewlet-ink);
 }
 
+.md-header__title {
+  color: inherit;
+}
+
 .md-tabs {
   background: var(--brewlet-coffee-deep);
 }
