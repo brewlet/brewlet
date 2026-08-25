@@ -85,8 +85,8 @@ already pins it to the arch.
 
 | Project | Node-prep mechanism | Idea we adopt |
 |---|---|---|
-| **KWasm / runtime-class-manager** (CNCF) | Operator + node-installer DaemonSet; a **`Shim` CRD** describes what to install. | CRD-per-capability, targeted by selector. |
-| **SpinKube / spin-operator** | `SpinAppExecutor` CR selects runtime. | RuntimeClass + selection as first-class CRs. |
+| **SpinKube / Runtime Class Manager** | An operator-managed node installer handles shim lifecycle; a **`Shim` CRD** describes the containerd-shim-spin/runwasi integration to install. | CRD-per-capability, targeted by selector. |
+| **SpinKube / Spin Operator** | `SpinAppExecutor` CR selects runtime. | RuntimeClass + selection as first-class CRs. |
 | **Kata `kata-deploy`** | DaemonSet installs artifacts; targets nodes by label; ships a **`kata-cleanup` DaemonSet**. | Per-capability targeting + an explicit **cleanup** path for reversal. |
 | **NVIDIA GPU Operator** | A single **`ClusterPolicy`** CR drives the whole config; **validator pods** gate readiness. | One CR = whole config surface; validation gate. |
 | **gVisor on GKE / Bottlerocket / Talos** | Shim baked into the **node image**; pick a "sandbox node pool". | First-class **immutable-image path** — no privileged host mutation. |

@@ -2,10 +2,11 @@
 
 // containerd-shim-brewlet-v2 is the Brewlet containerd Runtime v2 shim.
 //
-// It is the JVM analogue of the KWasm/runwasi Wasm shims: instead of running a
-// normal OCI container, it disassembles the Brewlet JAR *artifact*, assembles a
-// sandbox from the node-resident JDK + the JAR, and launches `java -jar app.jar`
-// under runc with the pod's CPU/memory limits applied as cgroups.
+// It is the JVM analogue of SpinKube's containerd-shim-spin/runwasi integration:
+// instead of running a Spin-compatible Wasm application, it disassembles the
+// Brewlet JAR *artifact*, assembles a sandbox from the node-resident JDK + the
+// JAR, and launches `java -jar app.jar` under runc with the pod's CPU/memory
+// limits applied as cgroups.
 //
 // The real containerd Runtime v2 TTRPC Task service (Create/Start/Kill/…) is
 // implemented in main_linux.go / service_linux.go against the containerd shim

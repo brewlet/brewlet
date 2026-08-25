@@ -28,8 +28,8 @@
 # NOTE: brewlet artifacts use custom OCI layer media types that kubelet's
 # ImageStatus cannot unpack, so the pod `image` is a normal placeholder
 # (busybox) and the artifact is delivered purely via annotations — the shim's
-# setupOverlayRootfs replaces the rootfs entirely (the KWasm property), so the
-# placeholder image is never executed.
+# setupOverlayRootfs replaces the rootfs entirely; as with SpinKube's Wasm
+# runtime path, no Linux userland from the workload image is executed.
 
 T8_REF="demo/hello:appcds-e2e"
 T8_JDK="temurin-21"

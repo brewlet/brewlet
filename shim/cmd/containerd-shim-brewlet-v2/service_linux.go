@@ -275,8 +275,9 @@ func assembleBrewletBundle(r *taskAPI.CreateTaskRequest) error {
 // upper/work layers are per-container writable scratch. containerd's runc
 // container setup mounts r.Rootfs onto <bundle>/rootfs, so replacing the
 // (nonexistent, for an OCI artifact) snapshot mounts with this overlay gives the
-// JVM a writable root backed by the shared JDK userland — no container image or
-// snapshot required, exactly the KWasm property.
+// JVM a writable root backed by the shared JDK userland — no container image
+// userland or snapshot required, paralleling containerd-shim-spin's Wasm runtime
+// path.
 func setupOverlayRootfs(r *taskAPI.CreateTaskRequest, ra resolvedArtifact) error {
 	scratch := filepath.Join(r.Bundle, "brewlet")
 	upper := filepath.Join(scratch, "upper")

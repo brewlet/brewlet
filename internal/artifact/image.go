@@ -9,8 +9,8 @@
 // reaches the shim — so the artifact can only be delivered to a node out of band
 // (e.g. `ctr images import`), not by kubelet.
 //
-// A *runnable OCI image* is the WASI/KWasm-style twin that closes that gap: the
-// exact same JAR + optional dependency/module layers, but packaged as a
+// A *runnable OCI image* is the SpinKube-style counterpart that closes that gap:
+// the exact same JAR + optional dependency/module layers, but packaged as a
 // STANDARD, kubelet-pullable OCI image — real `application/vnd.oci.image.config`
 // config, standard `tar+gzip` layers, and (when the JAR is pure bytecode) a
 // multi-arch image index so any provisioned node matches. containerd pulls and
@@ -18,8 +18,9 @@
 // contract from the manifest's `brewlet.sh/jvm-config` annotation and runs it on
 // the node-resident JDK exactly as for a native artifact. This is what lets a
 // `runtimeClassName: brewlet` pod set `image: <ref>` and Just Work, like a
-// `runtimeClassName: wasmtime` pod does for a Wasm module. See https://github.com/brewlet/brewlet/tree/main/specs
-// §4 and https://github.com/brewlet/site/blob/main/docs/runnable-image.md.
+// SpinKube does for a Spin-compatible Wasm application. See
+// https://github.com/brewlet/brewlet/tree/main/specs §4 and
+// https://github.com/brewlet/site/blob/main/docs/runnable-image.md.
 package artifact
 
 import (

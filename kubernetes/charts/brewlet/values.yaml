@@ -1,6 +1,7 @@
 # Default values for the brewlet chart.
-# This is the KWasm-style single-install activation: it deploys the operator,
-# the provisioner RBAC the operator's DaemonSet needs, and the admission webhook.
+# This single-install activation combines the node/shim lifecycle role of
+# SpinKube's Runtime Class Manager with the workload role of Spin Operator: it
+# deploys the operator, its provisioner RBAC, and the admission webhook.
 # The operator then creates/reconciles the provisioner DaemonSet + RuntimeClass
 # from the `provisioner` values below (one runtime source of truth).
 

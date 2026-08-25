@@ -241,7 +241,7 @@ no AppCDS benefit); see [AppCDS §7](https://github.com/brewlet/site/blob/main/d
 
 | Format | What it publishes | When a pod names it as `image:` |
 |---|---|---|
-| `image` (default) | A **runnable OCI image**: your JAR (+ dependency/module/CDS payload) packaged as standard `tar+gzip` layers with a real OCI image config and a multi-arch index. The Brewlet launch contract rides in the `brewlet.sh/jvm-config` manifest annotation. | kubelet/containerd pull and unpack it like any image, so a `runtimeClassName: brewlet` pod can set `image: <ref>` directly — the WASI-style workflow. |
+| `image` (default) | A **runnable OCI image**: your JAR (+ dependency/module/CDS payload) packaged as standard `tar+gzip` layers with a real OCI image config and a multi-arch index. The Brewlet launch contract rides in the `brewlet.sh/jvm-config` manifest annotation. | kubelet/containerd pull and unpack it like any image, so a `runtimeClassName: brewlet` pod can set `image: <ref>` directly — the SpinKube-style workflow. |
 | `artifact` | The **native Brewlet OCI artifact**: your JAR plus a launch-config blob under Brewlet [media types](https://github.com/brewlet/site/blob/main/docs/reference.md#oci-media-types) (`artifactType: application/vnd.brewlet.app.v1+json`). Compact and the canonical Brewlet shape. | kubelet/containerd **cannot** unpack the custom layer media types, so a bare pod `image:` reference `ImagePullBackOff`s. It is resolved by the shim out-of-band via the `brewlet.sh/artifact-*` annotations the admission webhook stamps. |
 
 ```bash

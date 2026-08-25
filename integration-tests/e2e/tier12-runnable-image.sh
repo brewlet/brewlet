@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tier 12 — the WASI/KWasm delivery model, for real: a brewlet workload whose pod
+# Tier 12 — the SpinKube workload-delivery model, for real: a brewlet workload whose pod
 # `image:` IS the OCI artifact, PULLED and UNPACKED by containerd/kubelet like any
 # ordinary image — no placeholder, no out-of-band blob delivery — then RUN by the
 # shim on the node-resident JDK.
@@ -12,8 +12,8 @@
 # tiers therefore give the pod a busybox placeholder image and hand the artifact
 # to the shim via `ctr images import` + brewlet.sh/artifact-* annotations. That
 # proves the runtime, but NOT the developer-facing promise: `kubectl run
-# --image=<my-app>` the way a `runtimeClassName: wasmtime` pod names a Wasm
-# module.
+# --image=<my-app>` the way SpinKube delivers a Spin-compatible Wasm application
+# from OCI to containerd-shim-spin.
 #
 # `brewlet push --format=image` fixes this by publishing the SAME jar as a
 # STANDARD, kubelet-pullable OCI image (real image config, tar+gzip layers, the
@@ -130,7 +130,7 @@ _t12_curl_retry() {
 }
 
 tier12_runnable_image() {
-  section "Tier 12 — kubelet pulls + unpacks the artifact as its image (WASI model)"
+  section "Tier 12 — kubelet pulls + unpacks the artifact as its image (SpinKube model)"
   if ! have kubectl || ! k8s_reachable; then skip "tier12: runnable image pulled by kubelet" "no reachable cluster"; return 0; fi
   if ! have docker || ! docker info >/dev/null 2>&1; then skip "tier12: runnable image pulled by kubelet" "docker daemon not available"; return 0; fi
   if ! have go; then skip "tier12: runnable image pulled by kubelet" "go not installed"; return 0; fi
@@ -271,7 +271,7 @@ YAML
   # kubelet resolved + unpacked it and the shim ran it. No placeholder.
   local podimg
   podimg="$(kubectl get pod -n "$T12_NS" -l app="$T12_APP" -o jsonpath='{.items[0].spec.containers[0].image}' 2>/dev/null)"
-  assert_contains "tier12: the running pod's image is the brewlet artifact (WASI model, no placeholder)" "$podimg" "$T12_REF"
+  assert_contains "tier12: the running pod's image is the brewlet artifact (SpinKube model, no placeholder)" "$podimg" "$T12_REF"
   pass "tier12: kubelet pulled/unpacked the brewlet image and the shim ran it (java -jar as PID 1)"
 
   # (2) It actually serves, and is cgroup-aware.
