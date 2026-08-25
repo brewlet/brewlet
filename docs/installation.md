@@ -6,7 +6,7 @@ provisioner, and the admission webhook. After this, any pod with
 
 There are two paths:
 
-- **[Helm (recommended)](#helm-recommended)** — the KWasm-style single-command
+- **[Helm (recommended)](#helm-recommended)** — the SpinKube-style single-command
   activation.
 - **[Manual](#manual-without-helm)** — apply the raw manifests yourself.
 

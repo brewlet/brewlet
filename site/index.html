@@ -70,7 +70,7 @@
             <strong>No Dockerfile. No OS base image. No JVM bundled with every app.</strong>
           </p>
           <p class="sub" data-reveal data-reveal-delay="2">
-            Brewlet brings the node-resident runtime model used by KWasm and SpinKube to <strong>Java</strong>.
+            Brewlet brings SpinKube's node-resident runtime model to <strong>Java</strong>.
           </p>
           <div class="hero-cta" data-reveal data-reveal-delay="3">
             <a class="btn btn-primary" href="#quickstart">Get started</a>
@@ -334,7 +334,7 @@ $ curl orders:8080/info
     <!-- COMPARE -->
     <section class="section" id="compare">
       <div class="container">
-        <h2 data-reveal>Brewlet vs. containers vs. KWasm</h2>
+        <h2 data-reveal>Brewlet vs. containers vs. SpinKube</h2>
         <div class="table-wrap">
           <table>
             <thead>
@@ -342,20 +342,22 @@ $ curl orders:8080/info
                 <th></th>
                 <th>Traditional container</th>
                 <th class="col-highlight">Brewlet (JVM)</th>
-                <th>KWasm (Wasm)</th>
+                <th>SpinKube (Wasm)</th>
               </tr>
             </thead>
             <tbody>
-              <tr><th>Developer artifact</th><td>full OCI image</td><td class="col-highlight"><strong>app.jar</strong> as OCI artifact</td><td>.wasm as OCI artifact</td></tr>
+              <tr><th>Workload</th><td>any containerized process</td><td class="col-highlight"><strong>existing JVM applications</strong></td><td>Spin-compatible Wasm applications</td></tr>
+              <tr><th>Developer artifact</th><td>full OCI image</td><td class="col-highlight"><strong>JAR, classpath, or JPMS app</strong> in OCI</td><td>Wasm/Spin application in OCI</td></tr>
               <tr><th>Dockerfile required</th><td>yes</td><td class="col-highlight"><strong>no</strong></td><td>no</td></tr>
-              <tr><th>Runtime location</th><td>inside the image</td><td class="col-highlight"><strong>on the node (shared JDK install)</strong></td><td>on the node</td></tr>
+              <tr><th>Runtime location</th><td>inside the image</td><td class="col-highlight"><strong>shared node JDK</strong></td><td>node-installed Wasm runtime</td></tr>
               <tr><th>Patch the runtime</th><td>rebuild every image</td><td class="col-highlight"><strong>upgrade the node JDK once</strong></td><td>upgrade node runtime once</td></tr>
               <tr><th>Isolation</th><td>namespaces + cgroups (runc)</td><td class="col-highlight"><strong>namespaces + cgroups (runc)</strong></td><td>Wasm sandbox</td></tr>
               <tr><th>K8s integration</th><td>full</td><td class="col-highlight"><strong>full (Services, probes, HPA, logs)</strong></td><td>full</td></tr>
+              <tr><th>Best fit</th><td>general-purpose workloads</td><td class="col-highlight"><strong>JVM compatibility without full images</strong></td><td>small, fast-starting Wasm workloads</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="center muted">Isolation through runc, with a payload-only workflow: build and push the application, not its runtime.</p>
+        <p class="center muted">Brewlet favors JVM compatibility; SpinKube favors the smaller footprint and capability model of WebAssembly.</p>
       </div>
     </section>
 

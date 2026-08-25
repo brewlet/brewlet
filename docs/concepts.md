@@ -13,10 +13,10 @@ Shipping a Java service to Kubernetes today forces every developer to also becom
 keep a JVM baked into every image, and push hundreds of megabytes — to deliver an
 artifact that is, in reality, a single self-executable (fat/uber) JAR.
 
-WebAssembly already solved this. With [KWasm](https://kwasm.sh/), the Wasm
-*runtime* lives on the node, the developer ships only a `.wasm` module as an OCI
-artifact, and a `RuntimeClass` tells Kubernetes to execute it. No Dockerfile, no
-base image.
+WebAssembly already solved this. With [SpinKube](https://www.spinkube.dev/), the
+Wasm *runtime* lives on the node, the developer ships a Wasm/Spin application as
+an OCI artifact, and a `RuntimeClass` routes it through a containerd shim. No
+Dockerfile, no base image.
 
 **Brewlet brings that exact model to the JVM.** You publish **your Java application** —
 most often a single `app.jar`, but just as well a layered classpath app or a
@@ -42,16 +42,23 @@ One JDK upgrade on the node pool patches **every** workload at once.
 
 ---
 
-## The KWasm parallel (what Brewlet copies)
+## The SpinKube parallel
 
-| Concern | KWasm (Wasm) | Brewlet (JVM) |
+| Concern | SpinKube (Wasm) | Brewlet (JVM) |
 |---|---|---|
-| Developer artifact | `.wasm` module as OCI artifact | `app.jar` as OCI artifact |
+| Primary workload | Spin-compatible Wasm applications | Existing JVM applications |
+| Developer artifact | Wasm/Spin application in OCI | JAR, layered classpath, or JPMS app in OCI |
 | Runtime location | Wasm runtime on the node | JDK/JVM distribution on the node |
-| Node enablement | privileged provisioner DaemonSet installs shim | privileged provisioner DaemonSet installs shim + JDK |
-| Execution routing | `RuntimeClass` → containerd shim | `RuntimeClass` → containerd shim |
+| Node enablement | Runtime Class Manager installs and manages containerd shims | privileged provisioner DaemonSet installs shim + JDK |
+| Execution routing | `RuntimeClass` → runwasi-based containerd shim | `RuntimeClass` → Brewlet containerd shim → runc |
+| Workload API | `SpinApp` / `SpinAppExecutor` CRDs | Pod or `JavaApplication` CRD |
+| Isolation | Wasm sandbox and capability model | Linux namespaces and cgroups through runc |
 | Container build needed? | no | no |
-| Operator | `kwasm-operator` provisions nodes | `brewlet-operator` provisions nodes (+ reconciles CRD) |
+| Main advantage | small footprint, fast startup, low idle resource use | JVM compatibility without bundling a runtime in every app |
+
+[Runtime Class Manager](https://github.com/spinframework/runtime-class-manager),
+SpinKube's shim lifecycle operator, corresponds primarily to Brewlet's
+node-provisioning layer. SpinKube as a whole is the closer comparison to Brewlet.
 
 Brewlet deliberately keeps **container-grade isolation** (runc) while adopting the
 **Wasm-grade developer experience** (ship only the payload).
@@ -74,7 +81,7 @@ directories. Each implementation maps to a section of the
 | **`brewlet-admission`** | Mutating+validating webhook. Stamps the artifact ref/digest onto brewlet pods and matches/steers requested JDK/launcher onto compatible nodes. | [`kubernetes/cmd/admission/`](https://github.com/brewlet/brewlet/tree/main/kubernetes/cmd/admission), spec §8.3 |
 | **`RuntimeClass/brewlet`** | Routes pods to the shim handler; its `nodeSelector` keeps workloads on ready nodes. | [`deploy/runtimeclass.yaml`](https://github.com/brewlet/brewlet/blob/main/kubernetes/deploy/runtimeclass.yaml), spec §7 |
 | **`JavaApplication` CRD** | The higher-level developer-facing deployment descriptor, reconciled by the operator's `JavaApplication` controller (§8.2). | [`deploy/javaapplication-crd.yaml`](https://github.com/brewlet/brewlet/blob/main/kubernetes/deploy/javaapplication-crd.yaml), spec §9 |
-| **Helm chart** | KWasm-style single-command activation of the operator + provisioner RBAC + webhook. | [`charts/brewlet/`](https://github.com/brewlet/brewlet/tree/main/kubernetes/charts/brewlet/) |
+| **Helm chart** | SpinKube-style single-command activation of the operator + provisioner RBAC + webhook. | [`charts/brewlet/`](https://github.com/brewlet/brewlet/tree/main/kubernetes/charts/brewlet/) |
 
 ---
 
@@ -112,7 +119,8 @@ directories. Each implementation maps to a section of the
 
 ### Run time (cluster)
 
-3. The **node provisioner** (privileged DaemonSet, KWasm-style) installs the shim
+3. The **node provisioner** (privileged DaemonSet, similar to node runtime
+   installers in the Wasm ecosystem) installs the shim
    and one or more **JDK runtime roots** onto opted-in nodes, then labels them
    ready. See [JDK management](jdk-management.md).
 4. A pod with `runtimeClassName: brewlet` is admitted: the **admission webhook**

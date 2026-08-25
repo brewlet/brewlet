@@ -21,12 +21,12 @@ shim runs with the node-resident JDK. This page documents the delivery contract 
   --format=image` publishes the *same* JAR as a **standard, kubelet-pullable OCI
   image**. containerd/kubelet pull + unpack it with no special configuration; the shim
   recognizes it and runs it on the node-resident JDK.
-- **The developer experience becomes the WASI/KWasm one:** `image: <ref>` +
+- **The developer experience becomes the WASI/SpinKube one:** `image: <ref>` +
   `runtimeClassName: brewlet` and nothing else. kubelet pulls, containerd unpacks, the
   shim launches `java -jar` under the pod's cgroup.
 - **Runnable-image mode is now the default.** `brewlet push` (and `mvn brewlet:push`)
   produce a runnable image unless you opt into `--format=artifact`
-  (`-Dbrewlet.format=artifact`). It is the delivery path that fulfils the WASI/KWasm
+  (`-Dbrewlet.format=artifact`). It is the delivery path that fulfils the WASI/SpinKube
   parity goal, so it is the out-of-the-box behaviour; the native artifact remains an
   opt-in choice for registry-native / pre-puller flows.
 
@@ -100,7 +100,7 @@ raw-blob path, unchanged). For a runnable image the shim:
    `java -jar` / `-cp` / `-p -m` sandbox on the node-resident JDK, under the pod's
    cgroup limits.
 
-Nothing about JVM launch, cgroup-awareness, JDK/launcher selection, or the KWasm-style
+Nothing about JVM launch, cgroup-awareness, JDK/launcher selection, or Brewlet's
 overlay rootfs (shared read-only JDK lower + per-container upper) changes.
 
 ## 5. Operator & webhook: no change required
@@ -123,7 +123,7 @@ overlay rootfs (shared read-only JDK lower + per-container upper) changes.
 | Developer UX | pure WASI-style `image: <ref>` | ref + node delivery |
 
 The default runnable image gives the pure `image: <ref>` experience end to end — the
-WASI/KWasm parity goal. Opt into `--format=artifact` when you have (or are building) a
+WASI/SpinKube parity goal. Opt into `--format=artifact` when you have (or are building) a
 node pre-puller and want the leanest registry footprint / self-describing media types.
 
 ## 7. End-to-end behavior
