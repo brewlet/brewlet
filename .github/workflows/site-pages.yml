@@ -27,8 +27,8 @@ jobs:
   release-smoke:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
+      - uses: actions/checkout@v5
+      - uses: azure/setup-helm@v5
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
