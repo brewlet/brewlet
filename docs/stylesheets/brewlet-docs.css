@@ -11,7 +11,8 @@
   --brewlet-muted: #6b5d51;
   --brewlet-line: #e7dcc9;
   --brewlet-bg: #fffdf9;
-  --brewlet-rail: #f8f0e3;
+  --brewlet-rail-primary: #f2e7d7;
+  --brewlet-rail-secondary: #faf6ef;
   --brewlet-panel: #f8efe0;
   --brewlet-panel-hover: #f1e3cd;
   --brewlet-focus: rgba(50, 108, 229, 0.4);
@@ -72,17 +73,24 @@ body {
   background: transparent;
 }
 
-.md-sidebar {
-  background: var(--brewlet-rail);
-}
-
 /* Keep both navigation rails quiet so the article remains the focal point. */
 @media screen and (min-width: 76.25em) {
   .md-grid {
     max-width: 78rem;
   }
 
+  .md-main__inner {
+    background:
+      linear-gradient(
+        to right,
+        var(--brewlet-rail-primary) 0 13.5rem,
+        var(--brewlet-bg) 13.5rem calc(100% - 13.5rem),
+        var(--brewlet-rail-secondary) calc(100% - 13.5rem)
+      );
+  }
+
   .md-sidebar {
+    background: transparent;
     width: 13.5rem;
   }
 
@@ -205,7 +213,7 @@ body {
 /* Secondary navigation: a compact outline with a precise active marker. */
 .md-nav--primary .md-nav__title,
 .md-nav--secondary .md-nav__title {
-  background: var(--brewlet-rail);
+  background: transparent;
   box-shadow: none;
 }
 
