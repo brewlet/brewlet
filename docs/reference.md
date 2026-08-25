@@ -210,7 +210,7 @@ The provisioner appends this to `/etc/containerd/config.toml`:
 | Term | Definition |
 |---|---|
 | **OCI Artifact** | Non-image content stored/distributed via an OCI registry using custom media types (OCI Image Spec ≥ 1.1). |
-| **containerd Runtime v2 shim** | Pluggable per-runtime process containerd talks to (TTRPC) to manage a container/task — the integration seam KWasm/runwasi use. |
+| **containerd Runtime v2 shim** | Pluggable per-runtime process containerd talks to (TTRPC) to manage a container/task — the integration seam SpinKube/runwasi use. |
 | **RuntimeClass** | Kubernetes object selecting which node runtime/handler executes a pod. |
 | **JDK runtime root** | A minimal, read-only Linux userland + JDK installed on the node and overlay-mounted into every JVM sandbox. |
 | **Launcher** | The java-compatible program that fronts the entrypoint (`java`, or `jaz`). |

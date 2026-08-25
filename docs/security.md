@@ -87,7 +87,8 @@ Mitigations and guardrails:
 | **Webhook can't block workloads** | `admission.failurePolicy: Ignore` (default) means a webhook outage never wedges deployments. |
 
 > ⚠️ Treat enabling Brewlet on a node the same way you'd treat any privileged
-> node-bootstrap DaemonSet (this is the KWasm model). Document the blast radius.
+> node-bootstrap DaemonSet (a pattern also used for node runtime installation in
+> the Wasm ecosystem). Document the blast radius.
 
 ---
 

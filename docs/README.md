@@ -40,7 +40,7 @@ examples in
 ## Table of contents
 
 ### Understand it
-- **[Concepts & architecture](concepts.md)** — the model, the KWasm parallel, the
+- **[Concepts & architecture](concepts.md)** — the model, the SpinKube comparison, the
   component inventory, and the end-to-end build/run flow.
 
 ### Try it
@@ -52,7 +52,7 @@ examples in
   via `shim → runc` under cgroups, and deploy it as a `JavaApplication`.
 
 ### Run it on a cluster
-- **[Installation](installation.md)** — prerequisites, the KWasm-style `helm
+- **[Installation](installation.md)** — prerequisites, the SpinKube-style `helm
   install`, the manual (no-Helm) path, and how to verify the fleet is ready.
 - **[Configuration](configuration.md)** — every knob: Helm values, provisioner
   env vars, operator/admission flags, the RuntimeClass, and precedence rules.
@@ -92,7 +92,7 @@ examples in
 - **[Runnable-image delivery](runnable-image.md)** — `brewlet push --format=image`
   publishes the JAR as a standard, kubelet-pullable OCI image so a
   `runtimeClassName: brewlet` pod can set `image: <ref>` and let kubelet pull +
-  unpack it (the WASI/KWasm pull path), instead of custom media types that
+  unpack it (the WASI/SpinKube pull path), instead of custom media types that
   `ImagePullBackOff`.
 
 ### Planned work
