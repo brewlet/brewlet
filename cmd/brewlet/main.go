@@ -63,7 +63,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Print(`Brewlet PoC — run Java applications on Kubernetes like WASM
+	fmt.Print(`Brewlet PoC — the JVM analogue to SpinKube
 
 USAGE:
   brewlet push    <jar> <ref> [--format image|artifact] [--store DIR] [--config FILE] [--arch amd64,arm64] [--no-arch] [--classpath-layer TAR ...] [--module-layer TAR ...] [--appcds-archive JSA]
@@ -129,7 +129,7 @@ func cmdPush(args []string) error {
 	appcds := fs.Bool("appcds", false, "generate an AppCDS archive by running a self-terminating training JVM against the JAR, then ship it (turnkey equivalent of --appcds-archive); fat-JAR only. See https://github.com/brewlet/site/blob/main/docs/appcds.md §4.2")
 	appcdsJava := fs.String("appcds-java", "", "java executable (or JAVA_HOME dir) for --appcds training; defaults to $JAVA_HOME/bin/java, else java on PATH")
 	appcdsTimeout := fs.Int("appcds-timeout", 120, "seconds to wait for the --appcds training JVM to self-terminate")
-	format := fs.String("format", "image", "delivery format: \"image\" (default; a standard, kubelet-pullable OCI image — a runtimeClassName: brewlet pod can set image: <ref> and containerd/kubelet pull+unpack it like a WASI module) or \"artifact\" (native Brewlet OCI artifact, custom media types — registry-native, delivered to nodes out of band). See https://github.com/brewlet/site/blob/main/docs/runnable-image.md")
+	format := fs.String("format", "image", "delivery format: \"image\" (default; a standard, kubelet-pullable OCI image — a runtimeClassName: brewlet pod can set image: <ref> and containerd/kubelet pull+unpack it as SpinKube does for a Spin-compatible Wasm application) or \"artifact\" (native Brewlet OCI artifact, custom media types — registry-native, delivered to nodes out of band). See https://github.com/brewlet/site/blob/main/docs/runnable-image.md")
 	var appcdsArgs stringSlice
 	fs.Var(&appcdsArgs, "appcds-arg", "workload argument passed to the --appcds training JVM to drive class loading (repeatable)")
 	pos, err := parseInterspersed(fs, args)

@@ -1,6 +1,7 @@
 # brewlet Helm chart
 
-The KWasm-style single-install activation for Brewlet. `helm install` deploys:
+Brewlet's single-install activation combines roles split across SpinKube's
+Runtime Class Manager and Spin Operator. `helm install` deploys:
 
 - **brewlet-operator** — the node lifecycle controller (§8.1). It creates and
   reconciles the `brewlet-node-provisioner` DaemonSet and the `brewlet`

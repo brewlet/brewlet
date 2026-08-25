@@ -12,7 +12,8 @@
 # root + containerd `brewlet` runtime), imports the demo artifact into the node
 # content store, and delivers the artifact purely via the brewlet.sh/artifact-*
 # annotations the admission webhook stamps — the shim's setupOverlayRootfs then
-# replaces the rootfs entirely (the KWasm property).
+# replaces the rootfs entirely; as with SpinKube's Wasm runtime path, no Linux
+# userland from the workload image is executed.
 #
 # WHY BUILD THE DEPLOYMENT DIRECTLY (not via the operator): brewlet artifacts use
 # custom OCI layer media types kubelet's ImageStatus cannot unpack, so a pod whose

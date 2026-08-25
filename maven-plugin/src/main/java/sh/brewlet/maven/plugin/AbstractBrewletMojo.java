@@ -236,7 +236,8 @@ public abstract class AbstractBrewletMojo extends AbstractMojo {
      *       (real image config, {@code tar+gzip} layers, the launch config in the
      *       {@code brewlet.sh/jvm-config} manifest annotation, multi-arch index).
      *       A {@code runtimeClassName: brewlet} pod can set {@code image: <ref>}
-     *       and containerd/kubelet pull + unpack it like a WASI module.</li>
+     *       and containerd/kubelet pull + unpack it as SpinKube does for a
+     *       Spin-compatible Wasm application.</li>
      *   <li>{@code "artifact"} — a native Brewlet OCI artifact with custom media
      *       types. Registry-native and deployment-agnostic, but containerd cannot
      *       unpack it, so it must be delivered to nodes out of band (not by

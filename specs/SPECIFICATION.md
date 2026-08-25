@@ -1,8 +1,13 @@
-# Brewlet — Run Java applications on Kubernetes like WASM
+# Brewlet — The JVM analogue to SpinKube
 
 **Version:** 0.1
 **Audience:** Platform engineers, Kubernetes operators, JVM platform owners
-**Analogous prior art:** [KWasm](https://kwasm.sh/) / [SpinKube](https://www.spinkube.dev/) / [runwasi](https://github.com/containerd/runwasi)
+**Comparison point:** [SpinKube](https://www.spinkube.dev/), including
+[Spin Operator](https://github.com/spinframework/spin-operator),
+[Runtime Class Manager](https://github.com/spinframework/runtime-class-manager),
+and
+[containerd-shim-spin](https://github.com/spinframework/containerd-shim-spin) on
+[runwasi](https://github.com/containerd/runwasi)
 
 ---
 
@@ -15,10 +20,11 @@ The actual artifact they care about — a single self-executable (fat/uber) JAR 
 buried inside hundreds of megabytes of OS and JVM packaging that they did not write
 and do not want to maintain.
 
-WebAssembly on Kubernetes solved the analogous problem. With **KWasm**, the Wasm
-*runtime* lives on the node, the developer ships only a Wasm *module* as an OCI
-artifact, and a `RuntimeClass` tells the kubelet/containerd to execute that module
-directly. There is no base image, no OS layer, no Dockerfile.
+SpinKube solves the analogous problem for Spin-compatible WebAssembly
+applications. Developers deliver a Wasm application through OCI; Spin Operator
+manages the workload, Runtime Class Manager manages the node-side runtime
+integration, and containerd-shim-spin/runwasi executes it with a Wasm sandbox and
+capability model.
 
 > **Brewlet brings the same model to Java.**
 > Developers push **their Java application** to their OCI registry — most commonly a
@@ -27,16 +33,17 @@ directly. There is no base image, no OS layer, no Dockerfile.
 > isolated sandbox with CPU/memory limits taken from the deployment descriptor. No
 > Dockerfile, no base image, no container build step.
 
-### 1.1 The KWasm parallel (what we are copying)
+### 1.1 The SpinKube parallel
 
-| Concern                  | KWasm (Wasm)                                  | Brewlet (JVM)                                       |
-|--------------------------|-----------------------------------------------|-----------------------------------------------------|
-| Developer artifact       | `.wasm` module pushed as OCI artifact         | `app.jar` pushed as OCI artifact                    |
-| Runtime location         | Wasm runtime (wasmtime/wasmedge) on the node  | JDK/JVM distribution on the node                    |
-| Node enablement          | Privileged provisioner DaemonSet installs shim| Privileged provisioner DaemonSet installs shim+JDK  |
-| Execution routing        | `RuntimeClass` → containerd shim              | `RuntimeClass` → containerd shim                    |
-| Container build needed?  | No                                            | No                                                  |
-| Operator                 | `kwasm-operator` provisions nodes             | `brewlet-operator` provisions nodes + reconciles CRD|
+| Concern | SpinKube (Wasm) | Brewlet (JVM) |
+|---|---|---|
+| Developer workload | Spin-compatible Wasm application delivered through OCI | Existing JAR, layered classpath, or JPMS content delivered through OCI |
+| Runtime location | Wasm runtime on the node | JDK/JVM distribution on the node |
+| Node/shim lifecycle | Runtime Class Manager installs and configures containerd-shim-spin/runwasi | Brewlet operator and provisioner install the Brewlet shim and JDK |
+| Workload control plane | Spin Operator reconciles Spin applications | Brewlet operator reconciles `JavaApplication` resources |
+| Execution routing | `RuntimeClass` → containerd-shim-spin/runwasi | `RuntimeClass` → containerd-shim-brewlet-v2 → runc |
+| Isolation model | Wasm sandbox and capability model | Linux container isolation delegated to runc |
+| Primary tradeoff | Smaller footprint, fast startup, and low idle resource usage | Compatibility with existing JVM applications and tooling |
 
 ---
 
@@ -50,8 +57,9 @@ directly. There is no base image, no OS layer, no Dockerfile.
   invocation (e.g. `java -jar app.jar`); no wrapper semantics change.
 - **G3 — Declarative resources.** CPU/memory limits, replicas, ports, and JVM
   options come from a Kubernetes deployment descriptor and are enforced via cgroups.
-- **G4 — KWasm-grade ergonomics.** Enabling a node is a single Helm install +
-  node annotation; deploying a workload is a single manifest with a `runtimeClassName`.
+- **G4 — Declarative Kubernetes ergonomics.** Enabling the runtime is a single
+  Helm install; deploying a workload is a single `JavaApplication` manifest or
+  a standard pod manifest with `runtimeClassName: brewlet`.
 - **G5 — Shared, patchable JVM.** The JDK is owned by the platform, lives on the
   node, is shared across workloads, and is upgraded independently of app artifacts.
 - **G6 — First-class Kubernetes citizen.** Services, Ingress, probes, HPA, logs,
@@ -101,8 +109,9 @@ directly. There is no base image, no OS layer, no Dockerfile.
 3. **`containerd-shim-brewlet-v2`** (§6) — containerd Runtime v2 shim that assembles
    a sandbox from the node JDK + the JAR layer and launches `java -jar`.
 4. **`RuntimeClass/brewlet`** (§7) — routes pods to the shim handler.
-5. **`brewlet-operator`** (§8) — provisions nodes (KWasm-style) and reconciles the
-   higher-level `JavaApplication` CRD into Deployments.
+5. **`brewlet-operator`** (§8) — combines the node/shim lifecycle role analogous
+   to Runtime Class Manager with reconciliation of the higher-level
+   `JavaApplication` CRD into Deployments.
 6. **`JavaApplication` CRD** (§9) — the developer-facing deployment descriptor.
 
 ---
@@ -214,16 +223,17 @@ The `brewlet` CLI (`brewlet push ./target/app.jar registry.example.com/team/app:
 and the [Brewlet Maven plugin](../maven-plugin) (`mvn brewlet:push`) wrap
 steps 2–3 so developers never touch ORAS directly.
 
-### 4.4 Runnable-image delivery mode (kubelet-pullable, the WASI-style pull path)
+### 4.4 Runnable-image delivery mode (kubelet-pullable, the SpinKube-style pull path)
 
 The native artifact above is **registry-native but not runnable by containerd**: its
 custom layer media types (`…+jar`, `.classpath+tar`, `.modulepath+tar`) are not
 `tar`/`tar+gzip`/`tar+zstd`, so containerd's CRI differ cannot unpack them. A pod that
 names such an artifact as its `image:` therefore fails to pull (`ImagePullBackOff`),
 and the payload must be delivered to nodes **out of band** (a node pre-puller, or the
-e2e harness's `ctr images import`). That breaks the KWasm/WASI promise that a
-`runtimeClassName: brewlet` pod can simply set `image: <ref>` and let kubelet pull it,
-exactly as a `runtimeClassName: wasmtime` pod names a Wasm module.
+e2e harness's `ctr images import`). That breaks the SpinKube-style delivery
+promise that a `runtimeClassName: brewlet` pod can simply set `image: <ref>` and
+let kubelet pull it, as SpinKube does for a Spin-compatible Wasm application
+routed to containerd-shim-spin.
 
 **Runnable-image mode** closes this gap without changing the native format. `brewlet
 push --format=image` (and the Maven plugin's `mvn brewlet:push -Dbrewlet.format=image`)
@@ -263,9 +273,10 @@ live node by the end-to-end test suite.
 
 ## 5. Node Provisioning (`brewlet-node-provisioner`)
 
-Mirrors KWasm's bootstrap: a privileged DaemonSet — placed by a `NodeProfile`
-pool (§5.6), or by a `brewlet.sh/provision` node label on the standalone no-operator
-path (§5.5) — installs the runtime onto the host and wires it into containerd.
+Mirrors Runtime Class Manager's node/shim lifecycle: a privileged DaemonSet —
+placed by a `NodeProfile` pool (§5.6), or by a `brewlet.sh/provision` node label
+on the standalone no-operator path (§5.5) — installs the runtime onto the host
+and wires it into containerd.
 
 ### 5.1 Activation
 ```bash
@@ -274,8 +285,8 @@ helm install -n brewlet --create-namespace brewlet brewlet/brewlet-operator
 ```
 
 The chart renders a **default `NodeProfile`** (§5.6) that provisions **every
-node** — the KWasm-style "all nodes" activation, with no per-node opt-in step to
-manage. To scope provisioning to specific pools instead, define named
+node** — a Runtime Class Manager-style "all nodes" activation, with no per-node
+opt-in step to manage. To scope provisioning to specific pools instead, define named
 `NodeProfile`s or disable the default profile (`defaultProfile.enabled=false`,
 §5.6). The legacy per-node opt-in — a `brewlet.sh/provision=true` node **label**
 (not an annotation; it drives `nodeAffinity`) consumed by the standalone
@@ -422,7 +433,7 @@ OpenJDK. The node advertises what it installed via `brewlet.sh/launchers=…`, a
 a descriptor requesting a launcher the node lacks fails admission with
 `NoCompatibleLauncher` (§14).
 
-> **Security note (inherited from KWasm):** node provisioning is privileged and
+> **Security note (shared with Runtime Class Manager):** node provisioning is privileged and
 > modifies the host. It must be scoped to nodes the platform team controls, and is
 > not recommended for hostile multi-tenant nodes without further isolation (§11).
 
@@ -527,7 +538,8 @@ design detail in [`proposals/0001-node-profiles.md`](proposals/0001-node-profile
 ## 6. The containerd Shim (`containerd-shim-brewlet-v2`)
 
 Implements the **containerd Runtime v2 (TTRPC) shim API**, the same integration
-point runwasi/Spin shims use. Brewlet takes the **runc-backed** approach: rather
+seam used by SpinKube through containerd-shim-spin/runwasi. Brewlet takes the
+**runc-backed** approach: rather
 than re-implement namespaces, cgroups, and CNI, the shim *assembles an OCI runtime
 bundle and delegates isolation to runc*. This maximizes correctness and reuse.
 
@@ -576,10 +588,9 @@ The shim lives in the
 package
 and builds/runs on Linux:
 
-- It embeds containerd's `runtime/v2/shim` framework and reuses the runc-backed
-  Task service for the full lifecycle (`Create`/`Start`/`Kill`/`Delete`/`Exec`/
-  `Wait`), exactly as runwasi's `runc-v2` shim does (`main_linux.go`,
-  `service_linux.go`).
+- It embeds containerd's `runtime/v2/shim` framework and reuses containerd's
+  runc-backed Task service for the full lifecycle (`Create`/`Start`/`Kill`/
+  `Delete`/`Exec`/`Wait`) (`main_linux.go`, `service_linux.go`).
 - The Brewlet-specific work is a `Create()` decorator that performs §6.1
   steps 1–4: it resolves the OCI artifact, selects the node JDK/launcher,
   assembles the **overlay rootfs** (shared RO JDK lower + per-container
@@ -627,7 +638,8 @@ convenience on top of this.
 
 ## 8. The Operator (`brewlet-operator`)
 
-Two responsibilities, the first identical in spirit to `kwasm-operator`:
+Two responsibilities: node/shim lifecycle analogous to SpinKube's Runtime Class
+Manager, and workload reconciliation analogous to Spin Operator:
 
 ### 8.1 Node lifecycle controller
 - Watches `Node` objects and reflects each provisioned node's state.
@@ -792,7 +804,7 @@ status:
       status: "True"
 ```
 
-### 9.1 Minimal example (the “hello world”, KWasm-style)
+### 9.1 Minimal example (the SpinKube-style declarative workload)
 
 ```yaml
 apiVersion: apps.brewlet.sh/v1alpha1
@@ -899,9 +911,10 @@ descriptor's `jvm.args`.
   explicitly requested via `securityContext`.
 - **Artifact identity.** Digest-pinned references are recommended so the admitted
   artifact cannot change between deployments.
-- **Privileged provisioning is the sharp edge.** As with KWasm, the node provisioner
-  is privileged and mutates the host. Scope it to platform-owned node pools; document
-  the blast radius, and do not use it on hostile multi-tenant nodes.
+- **Privileged provisioning is the sharp edge.** As with SpinKube's Runtime Class
+  Manager, the node provisioner is privileged and mutates the host. Scope it to
+  platform-owned node pools; document the blast radius, and do not use it on
+  hostile multi-tenant nodes.
 - **JDK CVE management is centralized.** Patching the node JDK patches *all*
   workloads at once — a major advantage over per-image JVMs.
 
@@ -926,8 +939,10 @@ descriptor's `jvm.args`.
 
 ## 13. Performance & Startup
 
-Cold-start is the JVM's classic weakness vs. Wasm. Brewlet leans on node-resident
-caching and JVM features:
+Compared with SpinKube's smaller Wasm footprint, fast startup, and low idle
+resource usage, Brewlet prioritizes compatibility with existing JVM applications.
+It offsets the JVM's heavier startup and memory profile with node-resident caching
+and JVM features:
 
 - **Shared, pre-warmed JDK** on the node → no per-pod JDK pull/unpack.
 - **Artifact caching:** containerd content store caches the JAR layer; only the
@@ -976,7 +991,8 @@ caching and JVM features:
 - **OCI Artifact** — non-image content stored/distributed via an OCI registry using
   custom media types (OCI Image Spec ≥ 1.1).
 - **containerd Runtime v2 shim** — pluggable per-runtime process that containerd
-  talks to (TTRPC) to manage a container/task; the integration seam used by KWasm.
+  talks to (TTRPC) to manage a container/task; the integration seam used by
+  SpinKube through containerd-shim-spin/runwasi.
 - **RuntimeClass** — Kubernetes object selecting which node runtime/handler executes
   a pod.
 - **JDK runtime root** — a minimal, read-only Linux userland + JDK installed on the
