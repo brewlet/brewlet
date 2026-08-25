@@ -396,7 +396,10 @@ code {
   margin: 0;
   padding: 20px;
   overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+.code-card pre::-webkit-scrollbar { display: none; }
 .code-card code {
   background: none;
   color: #e9dfd4;
