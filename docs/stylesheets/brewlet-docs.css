@@ -11,6 +11,9 @@
   --brewlet-muted: #6b5d51;
   --brewlet-line: #e7dcc9;
   --brewlet-bg: #fffdf9;
+  --brewlet-panel: #f8efe0;
+  --brewlet-panel-hover: #f1e3cd;
+  --brewlet-focus: rgba(50, 108, 229, 0.4);
 
   --md-primary-fg-color: var(--brewlet-coffee);
   --md-primary-fg-color--light: #8a6244;
@@ -24,6 +27,11 @@
 
 body {
   font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+}
+
+:focus-visible {
+  outline: 3px solid var(--brewlet-focus);
+  outline-offset: 2px;
 }
 
 .md-typeset h1,
@@ -54,11 +62,205 @@ body {
   background: var(--brewlet-coffee-deep);
 }
 
-.md-sidebar,
-.md-nav,
-.md-nav__source,
 .md-search__form {
   background: var(--brewlet-cream-soft);
+}
+
+.md-sidebar,
+.md-nav,
+.md-nav__source {
+  background: transparent;
+}
+
+/* Keep both navigation rails quiet so the article remains the focal point. */
+@media screen and (min-width: 76.25em) {
+  .md-grid {
+    max-width: 78rem;
+  }
+
+  .md-sidebar {
+    width: 13.5rem;
+  }
+
+  .md-sidebar--primary {
+    border-right: 1px solid var(--brewlet-line);
+  }
+
+  .md-sidebar--secondary {
+    border-left: 1px solid var(--brewlet-line);
+  }
+
+  .md-sidebar__scrollwrap {
+    margin: 0;
+    scrollbar-color: rgba(111, 78, 55, 0.25) transparent;
+    scrollbar-width: thin;
+  }
+
+  .md-sidebar--primary .md-sidebar__inner {
+    padding: 1.5rem 1.25rem 2.5rem 0.5rem;
+  }
+
+  .md-sidebar--secondary .md-sidebar__inner {
+    padding: 1.5rem 0.5rem 2.5rem 1.25rem;
+  }
+}
+
+.md-nav__title {
+  background: transparent;
+  box-shadow: none;
+  color: var(--brewlet-ink);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  line-height: 1.3;
+  padding: 0 0.6rem 0.75rem;
+  text-transform: uppercase;
+}
+
+.md-nav__list {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.md-nav__item {
+  padding: 0;
+}
+
+.md-nav__link {
+  align-items: center;
+  border-radius: 0.45rem;
+  color: var(--brewlet-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  margin: 0;
+  min-height: 2rem;
+  padding: 0.38rem 0.6rem;
+  transition: background-color 140ms ease-out, color 140ms ease-out;
+}
+
+.md-nav__link:hover {
+  background: var(--brewlet-panel);
+  color: var(--brewlet-coffee-dark);
+}
+
+.md-nav__link:focus-visible {
+  outline: 3px solid var(--brewlet-focus);
+  outline-offset: -1px;
+}
+
+.md-nav__link--active,
+.md-nav__link[aria-current="page"] {
+  background: var(--brewlet-panel-hover);
+  color: var(--brewlet-coffee-dark);
+  font-weight: 700;
+}
+
+/* Primary navigation: section labels establish rhythm without looking clickable. */
+.md-nav--primary > .md-nav__list > .md-nav__item {
+  margin-top: 0.9rem;
+}
+
+.md-nav--primary > .md-nav__list > .md-nav__item:first-child {
+  margin-top: 0;
+}
+
+.md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link {
+  color: var(--brewlet-coffee);
+  font-family: "Bricolage Grotesque", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.69rem;
+  font-weight: 800;
+  letter-spacing: 0.045em;
+  min-height: auto;
+  padding-bottom: 0.25rem;
+  padding-top: 0.25rem;
+  text-transform: uppercase;
+}
+
+.md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link:hover {
+  background: transparent;
+  color: var(--brewlet-coffee-dark);
+}
+
+.md-nav--primary .md-nav__item .md-nav__list {
+  padding-left: 0;
+}
+
+.md-nav--primary .md-nav__item .md-nav__item .md-nav__link {
+  color: var(--brewlet-ink);
+}
+
+.md-nav--primary .md-nav__item .md-nav__item .md-nav__link:hover {
+  color: var(--brewlet-coffee-dark);
+}
+
+.md-nav--primary .md-nav__item .md-nav__item .md-nav__link--active,
+.md-nav--primary .md-nav__item .md-nav__item .md-nav__link[aria-current="page"] {
+  color: var(--brewlet-coffee-dark);
+}
+
+/* Secondary navigation: a compact outline with a precise active marker. */
+.md-nav--primary .md-nav__title,
+.md-nav--secondary .md-nav__title {
+  background: var(--brewlet-bg);
+  box-shadow: none;
+}
+
+.md-nav--secondary .md-nav__title {
+  border-bottom: 1px solid var(--brewlet-line);
+  margin: 0 0 0.65rem;
+}
+
+.md-nav--secondary .md-nav__link {
+  font-size: 0.71rem;
+  min-height: 1.8rem;
+  padding-bottom: 0.32rem;
+  padding-top: 0.32rem;
+}
+
+.md-nav--secondary .md-nav__link--active,
+.md-nav--secondary .md-nav__link[aria-current="location"] {
+  background: transparent;
+  color: var(--brewlet-k8s);
+  font-weight: 700;
+}
+
+.md-nav--secondary .md-nav__link--active::before,
+.md-nav--secondary .md-nav__link[aria-current="location"]::before {
+  background: currentcolor;
+  border-radius: 50%;
+  content: "";
+  flex: 0 0 auto;
+  height: 0.35rem;
+  margin-right: 0.1rem;
+  width: 0.35rem;
+}
+
+.md-nav--secondary .md-nav .md-nav__link {
+  padding-left: 1.15rem;
+}
+
+@media screen and (max-width: 76.234375em) {
+  .md-nav__title {
+    padding: 1rem 0.8rem;
+  }
+
+  .md-nav__link {
+    border-radius: 0;
+    font-size: 0.78rem;
+    min-height: 2.4rem;
+    padding-left: 0.8rem;
+    padding-right: 0.8rem;
+  }
+
+  .md-nav--primary > .md-nav__list > .md-nav__item {
+    margin-top: 0;
+  }
+
+  .md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link {
+    min-height: 2.4rem;
+    padding-bottom: 0.55rem;
+    padding-top: 0.55rem;
+  }
 }
 
 .md-typeset code {
