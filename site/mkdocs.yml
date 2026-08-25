@@ -63,6 +63,10 @@ nav:
   - Try it:
       - Getting started: getting-started.md
       - Spring PetClinic: spring-petclinic.md
+  - Workshops:
+      - Overview: workshops/index.md
+      - Part 1 - Enable a cluster: workshops/operations.md
+      - Part 2 - Build and deploy a workload: workshops/developers.md
   - Run on a cluster:
       - Installation: installation.md
       - Configuration: configuration.md

@@ -144,5 +144,5 @@ and Linux; executing the bundle with `runc` is a Linux node operation.
 
 - [Install Brewlet on a Kubernetes cluster](installation.md).
 - [Build and publish your own application](building-and-publishing.md).
-- [Complete the role-based workshop](https://github.com/brewlet/site/blob/main/workshops/WORKSHOP.md).
+- [Complete the role-based workshop](workshops/index.md).
 - [Understand the architecture](concepts.md).

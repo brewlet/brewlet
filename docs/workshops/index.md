@@ -5,8 +5,8 @@ complete both to exercise the platform handoff end to end.
 
 | Workshop | Audience | Outcome |
 |---|---|---|
-| [Part 1: Enable a cluster](./WORKSHOP-OPS.md) | Kubernetes platform and operations teams | A cluster with ready Brewlet nodes, the `brewlet` RuntimeClass, an approved JDK inventory, and a documented developer handoff |
-| [Part 2: Build and deploy a workload](./WORKSHOP-DEV.md) | Java application developers | A JAR published as a runnable OCI image and running on the Brewlet-enabled cluster |
+| [Part 1: Enable a cluster](operations.md) | Kubernetes platform and operations teams | A cluster with ready Brewlet nodes, the `brewlet` RuntimeClass, an approved JDK inventory, and a documented developer handoff |
+| [Part 2: Build and deploy a workload](developers.md) | Java application developers | A JAR published as a runnable OCI image and running on the Brewlet-enabled cluster |
 
 ## Recommended format
 
@@ -45,6 +45,6 @@ Cluster-backed capabilities remain available through
 `integration-tests/e2e/run.sh`; see the
 [integration-test runbook](https://github.com/brewlet/brewlet/blob/main/integration-tests/AGENTS.md).
 The website deployment also runs
-[`scripts/verify-release-artifacts.sh`](scripts/verify-release-artifacts.sh) to
+[`scripts/verify-release-artifacts.sh`](https://github.com/brewlet/site/blob/main/scripts/verify-release-artifacts.sh) to
 confirm that the documented CLI, Maven plugin, chart, and component images are
 publicly downloadable.
