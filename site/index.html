@@ -165,52 +165,44 @@ $ mvn package sh.brewlet:brewlet-maven-plugin:0.1.0:push \
 
     <!-- STOP OWNING -->
     <section class="section alt" id="value">
-      <div class="container">
-        <h2 data-reveal>You stop owning the packaging you never wanted</h2>
-        <div class="cards">
-          <div class="card" data-reveal data-reveal-delay="0">
-            <div class="card-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
-            </div>
-            <h3>No Dockerfiles</h3>
-            <p>There is no image build. You push the JAR itself as an OCI artifact.</p>
+      <div class="container value-section">
+        <div class="value-layout">
+          <div class="value-intro" data-reveal>
+            <h2>You stop owning the packaging you never wanted</h2>
+            <p>
+              Ship the application artifact. Brewlet moves image construction, base OS
+              patching, and JDK distribution out of every application release.
+            </p>
           </div>
-          <div class="card" data-reveal data-reveal-delay="1">
-            <div class="card-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
-            </div>
-            <h3>No OS base CVEs</h3>
-            <p>There is no OS layer in the artifact, so there is nothing to patch.</p>
-          </div>
-          <div class="card" data-reveal data-reveal-delay="2">
-            <div class="card-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4Z"/><path d="M6 2v2M10 2v2M14 2v2"/></svg>
-            </div>
-            <h3>One JDK install, shared</h3>
-            <p>The JDK installation lives on the node, patched centrally. One upgrade patches every workload.</p>
-          </div>
-          <div class="card" data-reveal data-reveal-delay="3">
-            <div class="card-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91 0z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
-            </div>
-            <h3>Tiny pushes</h3>
-            <p>Only the JAR moves over the wire, not hundreds of megabytes of image.</p>
-          </div>
-          <div class="card" data-reveal data-reveal-delay="4">
-            <div class="card-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            </div>
-            <h3>Faster cold starts</h3>
-            <p>AppCDS ships as an artifact layer: the JVM memory-maps a class-data archive on launch, cutting startup with zero code changes.</p>
-          </div>
-          <div class="card" data-reveal data-reveal-delay="5">
-            <div class="card-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg>
-            </div>
-            <h3>Mixed-arch pools</h3>
-            <p>Per-node-arch JDKs are provisioned automatically; non-portable JNI JARs pin to <code>amd64</code>/<code>arm64</code> nodes via an optional <code>arch</code> constraint.</p>
+          <div class="value-priorities">
+            <article class="value-priority" data-reveal>
+              <h3>No Dockerfiles</h3>
+              <p>There is no image build. You push the JAR itself as an OCI artifact.</p>
+            </article>
+            <article class="value-priority" data-reveal data-reveal-delay="1">
+              <h3>No OS base CVEs</h3>
+              <p>There is no OS layer in the artifact, so application teams have nothing to patch there.</p>
+            </article>
+            <article class="value-priority" data-reveal data-reveal-delay="2">
+              <h3>One shared JDK installation</h3>
+              <p>The JDK lives on the node and is patched centrally. One upgrade reaches every workload.</p>
+            </article>
           </div>
         </div>
+        <ul class="value-secondary" aria-label="Additional benefits">
+          <li data-reveal>
+            <strong>Tiny pushes</strong>
+            <span>Only the JAR moves over the wire, not hundreds of megabytes of image.</span>
+          </li>
+          <li data-reveal data-reveal-delay="1">
+            <strong>Faster cold starts</strong>
+            <span>AppCDS ships as an artifact layer and is memory-mapped at launch.</span>
+          </li>
+          <li data-reveal data-reveal-delay="2">
+            <strong>Mixed-architecture pools</strong>
+            <span>Portable JARs run across architectures; JNI workloads can declare an <code>arch</code> constraint.</span>
+          </li>
+        </ul>
       </div>
     </section>
 

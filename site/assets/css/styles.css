@@ -369,7 +369,70 @@ code {
 .c-key { color: #78b6ff; }
 .c-val { color: #ffd580; }
 
-/* ---------- Value tiles (borderless, icon-chip led) ---------- */
+/* ---------- Value proposition ---------- */
+.value-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: clamp(48px, 8vw, 104px);
+  align-items: start;
+}
+.value-intro {
+  position: sticky;
+  top: 108px;
+}
+.value-intro h2 {
+  max-width: 12ch;
+  text-align: left;
+}
+.value-intro p {
+  max-width: 48ch;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+.value-priorities {
+  border-top: 1px solid var(--line);
+}
+.value-priority {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.75fr) minmax(0, 1fr);
+  gap: 24px;
+  padding: 26px 0;
+  border-bottom: 1px solid var(--line);
+}
+.value-priority h3 {
+  margin: 0;
+  color: var(--coffee-dark);
+  font-size: clamp(1.25rem, 2vw, 1.6rem);
+}
+.value-priority p {
+  margin: 0;
+  color: var(--muted);
+}
+.value-secondary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin: 54px 0 0;
+  padding: 26px 0 0;
+  border-top: 1px solid var(--line);
+  list-style: none;
+}
+.value-secondary li {
+  display: grid;
+  gap: 6px;
+}
+.value-secondary strong {
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: 1rem;
+}
+.value-secondary span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+/* ---------- Component links ---------- */
 .cards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -386,18 +449,6 @@ code {
   color: var(--coffee);
   text-decoration: none;
 }
-.card-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 46px;
-  height: 46px;
-  margin-bottom: 16px;
-  border-radius: 13px;
-  background: rgba(111, 78, 55, 0.10);
-  color: var(--coffee);
-}
-.card-icon svg { width: 24px; height: 24px; }
 .card h3 { font-size: 1.08rem; margin-bottom: 0.3em; }
 .card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
 
@@ -565,6 +616,9 @@ details p { padding-bottom: 16px; margin: 0; color: var(--muted); }
   .hero-grid { grid-template-columns: 1fr; gap: 44px; }
   .lede { max-width: none; }
   .code-compare { grid-template-columns: 1fr; }
+  .value-layout { grid-template-columns: 1fr; gap: 34px; }
+  .value-intro { position: static; }
+  .value-intro h2 { max-width: 18ch; }
   .cards { grid-template-columns: 1fr 1fr; }
   /* Steps become a vertical connected flow */
   .steps {
@@ -624,6 +678,8 @@ details p { padding-bottom: 16px; margin: 0; color: var(--muted); }
 }
 @media (max-width: 620px) {
   .cards, .steps { grid-template-columns: 1fr; }
+  .value-priority { grid-template-columns: 1fr; gap: 8px; }
+  .value-secondary { grid-template-columns: 1fr; gap: 20px; }
   .stack-compare { flex-direction: column; }
   .stack-arrow { transform: rotate(90deg); }
   .hero { padding: 48px 0 60px; }
