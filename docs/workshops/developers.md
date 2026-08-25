@@ -197,5 +197,5 @@ kubectl delete javaapplication hello -n "$BREWLET_NAMESPACE"
 ```
 
 This removes the generated Deployment and Service but leaves the shared Brewlet
-platform intact. See [Building and publishing](docs/building-and-publishing.md)
-and [Deploying workloads](docs/deploying-workloads.md) for production options.
+platform intact. See [Building and publishing](../building-and-publishing.md)
+and [Deploying workloads](../deploying-workloads.md) for production options.

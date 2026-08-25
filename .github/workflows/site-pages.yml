@@ -10,7 +10,6 @@ on:
       - "install.sh"
       - "mkdocs.yml"
       - "docs/**"
-      - "workshops/**"
       - "scripts/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:

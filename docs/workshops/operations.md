@@ -150,7 +150,7 @@ printf '%s\n' \
   "export BREWLET_REGISTRY=\"$BREWLET_REGISTRY\""
 ```
 
-Continue with [Part 2: Build and deploy a workload](./WORKSHOP-DEV.md).
+Continue with [Part 2: Build and deploy a workload](developers.md).
 
 ## 7. Optional platform exercises
 
@@ -170,5 +170,5 @@ kubectl get nodeprofiles -w
 ```
 
 Wait for profile cleanup finalizers to restore node state before deleting the
-cluster. See [Installation](docs/installation.md) for production installation,
+cluster. See [Installation](../installation.md) for production installation,
 scoping, upgrades, and uninstall behavior.
