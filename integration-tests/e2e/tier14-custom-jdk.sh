@@ -107,10 +107,10 @@ tier14_custom_jdk() {
     'chmod -R u+w "$1" 2>/dev/null || true; rm -rf "$1"' \
     sh "/opt/brewlet/jdks/$T14_JDK" >/dev/null 2>&1 || true
 
-  # Build the real provisioner from the checked-out core and load it into the
+  # Build the real provisioner from the monorepo and load it into the
   # selected node's k8s.io containerd namespace.
   if docker build --platform "linux/$arch" -t "$T14_PROVISIONER_IMAGE" \
-      -f "$BREWLET_CORE_DIR/provisioner/Dockerfile" "$BREWLET_CORE_DIR" \
+      -f "$MONOREPO_DIR/provisioner/Dockerfile" "$MONOREPO_DIR" \
       >"$WORK/t14-provisioner-build.log" 2>&1 &&
     docker save "$T14_PROVISIONER_IMAGE" |
       docker exec -i "$T14_NODE" ctr -n k8s.io images import - \

@@ -54,7 +54,7 @@ resolve_component_dir() {
   (cd "$candidate" && pwd)
 }
 
-BREWLET_CORE_DIR="$(resolve_component_dir BREWLET_CORE_DIR "$MONOREPO_DIR" brewlet go.mod)" || exit 2
+BREWLET_CORE_DIR="$(resolve_component_dir BREWLET_CORE_DIR "$MONOREPO_DIR/core" brewlet go.mod)" || exit 2
 BREWLET_KUBERNETES_DIR="$(resolve_component_dir BREWLET_KUBERNETES_DIR "$MONOREPO_DIR/kubernetes" kubernetes charts/brewlet/Chart.yaml)" || exit 2
 
 for required in cmd/brewlet shim/cmd/containerd-shim-brewlet-v2; do

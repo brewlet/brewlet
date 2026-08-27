@@ -80,9 +80,9 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          go-version-file: core/go.mod
           cache-dependency-path: |
-            go.sum
+            core/go.sum
             kubernetes/go.sum
 
       - name: Set up JDK

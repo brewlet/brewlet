@@ -11,15 +11,15 @@
 # Build (single arch, native):   docker build -t ghcr.io/brewlet/node-provisioner:dev -f provisioner/Dockerfile .
 # Build (multi-arch, buildx):    docker buildx build --platform linux/amd64,linux/arm64 ...
 #
-# The build context is the repository root, where the Go module lives.
+# The build context is the repository root; the Go module lives in core/.
 
 # ---- stage 1: build the shim for $TARGETARCH -------------------------------
 FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS shim
 ARG TARGETARCH
 WORKDIR /src
-COPY go.mod go.sum ./
+COPY core/go.mod core/go.sum ./
 RUN go mod download
-COPY . .
+COPY core/. .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
     go build -trimpath -ldflags='-s -w' \
     -o /out/containerd-shim-brewlet-v2 ./shim/cmd/containerd-shim-brewlet-v2

@@ -19,7 +19,7 @@ From the repository root, run:
 integration-tests/e2e/run.sh --tier 1 --tier 2
 ```
 
-The harness defaults to the monorepo root and `kubernetes/`. The
+The harness defaults to `core/` and `kubernetes/` in the monorepo. The
 `BREWLET_CORE_DIR` and `BREWLET_KUBERNETES_DIR` overrides remain available for
 testing external checkouts.
 

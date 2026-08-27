@@ -3,7 +3,7 @@
 [![CI](https://github.com/brewlet/brewlet/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/brewlet/brewlet/actions/workflows/ci.yml)
 [![E2E](https://github.com/brewlet/brewlet/actions/workflows/e2e.yml/badge.svg?branch=main)](https://github.com/brewlet/brewlet/actions/workflows/e2e.yml)
 [![Release](https://img.shields.io/github/v/release/brewlet/brewlet?sort=semver)](https://github.com/brewlet/brewlet/releases/latest)
-[![Go version](https://img.shields.io/github/go-mod/go-version/brewlet/brewlet)](go.mod)
+[![Go version](https://img.shields.io/github/go-mod/go-version/brewlet/brewlet?filename=core%2Fgo.mod)](core/go.mod)
 [![License](https://img.shields.io/github/license/brewlet/brewlet)](LICENSE)
 
 **Run Java applications from OCI artifacts using JDKs managed once on each
@@ -60,8 +60,7 @@ Maven plugin or Brewlet CLI  --->  OCI registry  --->  provisioned node
 
 | Subproject | Path | Responsibility |
 | --- | --- | --- |
-| CLI and artifact tooling | [`cmd/brewlet/`](cmd/brewlet/) and [`internal/`](internal/) | Packages, inspects, runs, and bundles Java OCI artifacts; also provides version, inventory, and Kubernetes diagnostics. |
-| containerd runtime shim | [`shim/`](shim/) | Implements the containerd Runtime v2 boundary, resolves application layers, selects a node JDK, and launches the JVM through an OCI runtime. |
+| Core runtime | [`core/`](core/) | Contains the Brewlet CLI, artifact tooling, shared runtime packages, and containerd Runtime v2 shim. |
 | Node provisioner | [`provisioner/`](provisioner/) | Installs and removes the shim, JDK roots, launchers, and containerd configuration on Linux nodes. |
 | Kubernetes platform | [`kubernetes/`](kubernetes/) | Provides the operator, admission webhook, `NodeProfile` and `JavaApplication` APIs, RBAC, manifests, and Helm chart. |
 | Maven plugin | [`maven-plugin/`](maven-plugin/) | Builds and publishes Brewlet OCI artifacts and generates Kubernetes workload manifests directly from Maven projects. |
