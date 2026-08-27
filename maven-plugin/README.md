@@ -1,5 +1,8 @@
 # Brewlet Maven Plugin
 
+[![Maven plugin CI](https://github.com/brewlet/brewlet/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/brewlet/brewlet/actions/workflows/ci.yml)
+[![Maven plugin release](https://github.com/brewlet/brewlet/actions/workflows/release.yml/badge.svg)](https://github.com/brewlet/brewlet/actions/workflows/release.yml)
+
 Build and publish a [Brewlet](https://github.com/brewlet/brewlet) OCI app straight from your Maven build —
 no Dockerfile, no base image, no container build. A single `mvn brewlet:push`
 serializes a launch config, packages your fat JAR, and publishes it to any OCI 1.1+
