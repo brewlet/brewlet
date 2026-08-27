@@ -163,7 +163,7 @@ tier8_appcds_incluster() {
   : >"$WORK/t8-build.log"
   local build_try build_ok=0
   for build_try in 1 2; do
-    if ( cd "$BREWLET_CORE_DIR" && GOMAXPROCS="${GOMAXPROCS:-2}" GOOS=linux GOARCH="$arch" go build -o "$shimbin" ./shim/cmd/containerd-shim-brewlet-v2 ) >>"$WORK/t8-build.log" 2>&1; then
+    if ( cd "$BREWLET_CORE_DIR" && GOOS=linux GOARCH="$arch" go build -p "${GO_BUILD_PARALLELISM:-2}" -o "$shimbin" ./shim/cmd/containerd-shim-brewlet-v2 ) >>"$WORK/t8-build.log" 2>&1; then
       build_ok=1
       break
     fi
