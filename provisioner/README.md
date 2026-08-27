@@ -1,5 +1,10 @@
 # Brewlet node provisioner
 
+[![CI](https://github.com/brewlet/brewlet/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/brewlet/brewlet/actions/workflows/ci.yml)
+[![Release](https://github.com/brewlet/brewlet/actions/workflows/release.yml/badge.svg)](https://github.com/brewlet/brewlet/actions/workflows/release.yml)
+[![node-provisioner image](https://img.shields.io/badge/ghcr.io-brewlet%2Fnode--provisioner-blue?logo=docker)](https://github.com/brewlet/brewlet/pkgs/container/node-provisioner)
+[![License](https://img.shields.io/github/license/brewlet/brewlet)](../LICENSE)
+
 The node provisioner prepares a Linux Kubernetes node to run Brewlet workloads.
 Its privileged entrypoint installs the containerd shim, materializes configured
 JDK runtime roots and optional launcher layers, registers the `brewlet`
