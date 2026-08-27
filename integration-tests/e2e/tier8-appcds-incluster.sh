@@ -160,7 +160,17 @@ tier8_appcds_incluster() {
   # --- build shim (for the node arch), brewlet CLI, and the demo JAR ---------
   info "tier8: building shim ($arch), brewlet CLI, demo JAR"
   local shimbin="$WORK/t8-shim-$arch"
-  if ! ( cd "$BREWLET_CORE_DIR" && GOOS=linux GOARCH="$arch" go build -o "$shimbin" ./shim/cmd/containerd-shim-brewlet-v2 ) >"$WORK/t8-build.log" 2>&1; then
+  : >"$WORK/t8-build.log"
+  local build_try build_ok=0
+  for build_try in 1 2; do
+    if ( cd "$BREWLET_CORE_DIR" && GOMAXPROCS="${GOMAXPROCS:-2}" GOOS=linux GOARCH="$arch" go build -o "$shimbin" ./shim/cmd/containerd-shim-brewlet-v2 ) >>"$WORK/t8-build.log" 2>&1; then
+      build_ok=1
+      break
+    fi
+    [[ "$build_try" -lt 2 ]] && warn "tier8: build shim failed (attempt $build_try/2); retrying"
+  done
+  if [[ "$build_ok" -ne 1 ]]; then
+    tail -n 80 "$WORK/t8-build.log" >&2 || true
     fail "tier8: build shim" "see $WORK/t8-build.log"; return 0
   fi
   if ! ( cd "$BREWLET_CORE_DIR" && go build -o "$WORK/t8-brewlet" ./cmd/brewlet ) >>"$WORK/t8-build.log" 2>&1; then
