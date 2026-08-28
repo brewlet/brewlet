@@ -1,7 +1,9 @@
 # Brewlet — The JVM analogue to SpinKube
 
 **Version:** 0.1
+
 **Audience:** Platform engineers, Kubernetes operators, JVM platform owners
+
 **Comparison point:** [SpinKube](https://www.spinkube.dev/), including
 [Spin Operator](https://github.com/spinframework/spin-operator),
 [Runtime Class Manager](https://github.com/spinframework/runtime-class-manager),
