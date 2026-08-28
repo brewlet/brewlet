@@ -66,8 +66,9 @@ examples in
   fat JAR (or a layered classpath app), author the launch config, and push it with the `brewlet` CLI or ORAS.
 - **[Deploying workloads](deploying-workloads.md)** — the raw `Deployment` path,
   the `JavaApplication` CRD, and requesting a specific JDK/launcher via annotations.
-- **[Resource limits & JVM tuning](resource-tuning.md)** — how CPU/memory limits
-  become cgroup constraints and how the container-aware JVM (and `jaz`) react.
+- **[Resource requests, limits & JVM tuning](resource-tuning.md)** — how requests
+  affect scheduling/HPA, limits become cgroup constraints, and the container-aware
+  JVM (and `jaz`) react.
 
 ### Operate it
 - **[Security](security.md)** — isolation model, non-root defaults, artifact

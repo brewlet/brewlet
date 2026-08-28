@@ -200,7 +200,7 @@ footprint.
   flags; deployment-descriptor `jvm.args` carries heap/GC/agent tuning and comes
   after those knobs. The descriptor's `jvm.launcher` / `brewlet.sh/launcher`
   selects `java` or a node-installed launcher. Brewlet injects **no** `-XX` flags
-  itself. See [Resource tuning](resource-tuning.md).
+  itself. See [Resource requests, limits & JVM tuning](resource-tuning.md).
 - **JDK selection:** the deployment descriptor is authoritative:
   `spec.jvm.version` (plus optional `spec.jvm.distribution`) on `JavaApplication`,
   or `brewlet.sh/jdk` on raw pods, drives validation, scheduling, and shim launch

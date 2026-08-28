@@ -79,7 +79,7 @@ nav:
   - Ship workloads:
       - Building & publishing: building-and-publishing.md
       - Deploying workloads: deploying-workloads.md
-      - Resource tuning: resource-tuning.md
+      - Resource requests, limits & JVM tuning: resource-tuning.md
   - Operate:
       - Security: security.md
       - Observability: observability.md
