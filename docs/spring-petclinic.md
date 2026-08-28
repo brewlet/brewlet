@@ -9,7 +9,7 @@ The example spans monorepo components:
 |---|---|
 | Pinned upstream build and layering scripts | [`integration-tests/fixtures/spring-petclinic`](https://github.com/brewlet/brewlet/tree/main/integration-tests/fixtures/spring-petclinic) |
 | End-to-end orchestration | [`integration-tests/e2e/tier7-petclinic.sh`](https://github.com/brewlet/brewlet/blob/main/integration-tests/e2e/tier7-petclinic.sh) |
-| CLI and shim | [monorepo root](https://github.com/brewlet/brewlet) |
+| CLI and shim | [`core/`](https://github.com/brewlet/brewlet/tree/main/core) |
 | `JavaApplication` descriptor and operator | [`kubernetes/`](https://github.com/brewlet/brewlet/tree/main/kubernetes) |
 | Architecture contract | [`specs/`](https://github.com/brewlet/brewlet/tree/main/specs) |
 
@@ -34,7 +34,7 @@ branches.
 
 Tier 7:
 
-1. Builds the CLI from the monorepo root.
+1. Builds the CLI from `core/`.
 2. Uses the integration-test fixture to clone a pinned Spring PetClinic revision
    and build its fat JAR.
 3. Pushes and inspects only that JAR as an OCI artifact.
@@ -53,7 +53,7 @@ failures in an exercised path fail the tier.
 From the repository root:
 
 ```bash
-export BREWLET_CORE_DIR="$PWD"
+export BREWLET_CORE_DIR="$PWD/core"
 export FIXTURE_DIR="$PWD/integration-tests/fixtures/spring-petclinic"
 export WORK_DIR="$PWD/.brewlet-petclinic"
 mkdir -p "$WORK_DIR"

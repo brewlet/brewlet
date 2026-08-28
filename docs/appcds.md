@@ -215,7 +215,7 @@ Opt in per-**deployment** with the `spec.jvm.cds.regenerate` field on the
 > `--appcds-regenerate` flag (with or without a seed archive). Regeneration is a
 > fleet/operational choice (it depends on your JDK patch cadence), so it lives in the
 > deployment descriptor, not baked into the artifact digest. The decision engine
-> lives in `internal/runtime/cds_regen.go`
+> lives in `core/internal/runtime/cds_regen.go`
 > (`DecideCDSRegen`) and is wired into local `run`, `bundle`/e2e harness, and the
 > production shim (`applyBrewletLaunch`). It is entirely best-effort: any failure
 > degrades to base CDS and never fails a launch.
@@ -296,7 +296,7 @@ shim actually receives the artifact digest and the `cds-regenerate` toggle.
 
 **This is the subtle piece that makes §4.1/§4.2 actually work** (guarded by an
 automated JDK integration test — `TestAppCDSTrainThenMapIntegration` in
-`internal/runtime/cds_train_integration_test.go`, runnable via
+`core/internal/runtime/cds_train_integration_test.go`, runnable via
 `make appcds-verify`; it trains a real archive through the `push --appcds` code
 path, then asserts it maps under `-Xshare:on` from a *different* directory with the
 canonical mtime and is *refused* when the mtime drifts):
@@ -321,7 +321,7 @@ training run and the node stamp the JAR (and any staged `lib/`/`mods/` entries) 
 invariant that must stay in lockstep:
 
 - Go: `runtime.CDSModTime = time.Unix(946684800, 0).UTC()`
-  (`internal/runtime/cds_mtime.go`).
+  (`core/internal/runtime/cds_mtime.go`).
 - Java: `FileTime.from(Instant.ofEpochSecond(946684800L))`
   (`AppCdsMojo.CANONICAL_APP_MTIME`).
 
@@ -382,5 +382,5 @@ per-image-JVM coupling Brewlet exists to remove.
   [§4 (artifact)](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#4-the-oci-application-artifact),
   [layered-classpath-deployment](layered-classpath-deployment.md),
   [multi-arch.md](multi-arch.md);
-  `internal/runtime/launch.go`, `internal/artifact/artifact.go`,
-  `shim/cmd/containerd-shim-brewlet-v2/service_linux.go`.
+  `core/internal/runtime/launch.go`, `core/internal/artifact/artifact.go`,
+  `core/shim/cmd/containerd-shim-brewlet-v2/service_linux.go`.

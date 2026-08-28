@@ -60,7 +60,7 @@ jvm:
 ## How launcher selection is resolved
 
 At launch, Brewlet resolves the launcher binary like this
-([`internal/runtime/launch.go`](https://github.com/brewlet/brewlet/blob/main/internal/runtime/launch.go)):
+([`core/internal/runtime/launch.go`](https://github.com/brewlet/brewlet/blob/main/core/internal/runtime/launch.go)):
 
 - **Vanilla** (`launcher` omitted or `"java"`): use the selected JDK's own
   `<jdk-home>/bin/java`.
