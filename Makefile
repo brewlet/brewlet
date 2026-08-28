@@ -14,22 +14,22 @@ PROVISIONER_IMAGE ?= $(REGISTRY)/node-provisioner:$(TAG)
 .PHONY: build binaries test vet fmt-check check check-all kubernetes-check maven-plugin-check e2e-host appcds-verify provisioner-image provisioner-image-push clean
 
 build: ## Build every package for the current platform
-	go build ./...
+	go -C core build ./...
 
 binaries: ## Build the CLI and containerd shim into bin/
 	mkdir -p bin
-	go build -o ./bin/brewlet ./cmd/brewlet
-	go build -o ./bin/containerd-shim-brewlet-v2 ./shim/cmd/containerd-shim-brewlet-v2
+	go -C core build -o ../bin/brewlet ./cmd/brewlet
+	go -C core build -o ../bin/containerd-shim-brewlet-v2 ./shim/cmd/containerd-shim-brewlet-v2
 
 test: ## Run all tests with the race detector
-	go test -race ./...
+	go -C core test -race ./...
 	bash provisioner/entrypoint_test.sh
 
 vet: ## Run Go static analysis
-	go vet ./...
+	go -C core vet ./...
 
 fmt-check: ## Fail when tracked Go source is not gofmt-formatted
-	@unformatted="$$(gofmt -l $$(go list -f '{{.Dir}}' ./...))"; \
+	@unformatted="$$(gofmt -l $$(go -C core list -f '{{.Dir}}' ./...))"; \
 	if [[ -n "$$unformatted" ]]; then \
 		echo "The following files are not gofmt-formatted:"; \
 		echo "$$unformatted"; \
@@ -50,7 +50,7 @@ e2e-host: ## Run host-only end-to-end tiers
 check-all: check kubernetes-check maven-plugin-check e2e-host ## Validate all components that do not require a cluster
 
 appcds-verify: ## Run the AppCDS JDK integration test (requires a full JDK 17+)
-	go test -v -run TestAppCDSTrainThenMapIntegration ./internal/runtime/
+	go -C core test -v -run TestAppCDSTrainThenMapIntegration ./internal/runtime/
 
 provisioner-image: ## Build the node-provisioner image for the host architecture
 	docker build --platform linux/$(ARCH) -t $(PROVISIONER_IMAGE) -f provisioner/Dockerfile .

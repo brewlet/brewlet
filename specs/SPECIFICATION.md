@@ -584,7 +584,7 @@ bundle and delegates isolation to runc*. This maximizes correctness and reuse.
 ### 6.4 Runtime shim
 
 The shim lives in the
-[`shim/cmd/containerd-shim-brewlet-v2`](https://github.com/brewlet/brewlet/tree/main/shim/cmd/containerd-shim-brewlet-v2)
+[`core/shim/cmd/containerd-shim-brewlet-v2`](https://github.com/brewlet/brewlet/tree/main/core/shim/cmd/containerd-shim-brewlet-v2)
 package
 and builds/runs on Linux:
 

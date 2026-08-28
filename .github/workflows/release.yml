@@ -139,7 +139,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          go-version-file: core/go.mod
 
       - name: Build archive
         env:
@@ -148,10 +148,10 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           mkdir -p dist
-          CGO_ENABLED=0 go build \
+          CGO_ENABLED=0 go -C core build \
             -trimpath \
             -ldflags="-s -w -X main.version=$VERSION" \
-            -o dist/brewlet \
+            -o ../dist/brewlet \
             ./cmd/brewlet
           tar -C dist -czf "brewlet_${VERSION}_${GOOS}_${GOARCH}.tar.gz" brewlet
 

@@ -12,8 +12,8 @@ tier1_unit() {
   fi
 
   ( cd "$BREWLET_CORE_DIR" && go test ./... ) >"$WORK/t1-core.log" 2>&1 \
-    && pass "root module: go test ./... (artifact, runtime, shim)" \
-    || fail "root module: go test ./..." "see $WORK/t1-core.log"
+    && pass "core module: go test ./... (artifact, runtime, shim)" \
+    || fail "core module: go test ./..." "see $WORK/t1-core.log"
 
   ( cd "$BREWLET_KUBERNETES_DIR" && go test ./... ) >"$WORK/t1-kubernetes.log" 2>&1 \
     && pass "kubernetes module: go test ./... (admission, controllers)" \

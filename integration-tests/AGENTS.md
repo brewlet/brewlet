@@ -9,9 +9,9 @@ integration-tests/e2e/run.sh --reset
 integration-tests/e2e/run.sh
 ```
 
-The harness does not switch branches or modify component sources. Override
-`BREWLET_CORE_DIR` or `BREWLET_KUBERNETES_DIR` only when testing an external
-checkout.
+The harness does not switch branches or modify component sources. It uses
+`core/` and `kubernetes/` by default. Override `BREWLET_CORE_DIR` or
+`BREWLET_KUBERNETES_DIR` only when testing an external checkout.
 
 ## Prerequisites
 

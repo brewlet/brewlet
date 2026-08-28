@@ -20,14 +20,17 @@ jobs:
   core:
     name: Go core runtime
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: core
     steps:
       - uses: actions/checkout@v7
 
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
-          cache-dependency-path: go.sum
+          go-version-file: core/go.mod
+          cache-dependency-path: core/go.sum
 
       - name: Verify formatting
         run: |
