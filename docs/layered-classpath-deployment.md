@@ -43,7 +43,7 @@ the same layering idea for the **module path** (`-p`).
 
 Today a Brewlet artifact carries exactly **one** payload layer — the raw
 self-executable JAR (`application/vnd.brewlet.jar.layer.v1+jar`,
-`internal/artifact/artifact.go`). `Store.Push` writes a single `jarDesc` into
+`core/internal/artifact/artifact.go`). `Store.Push` writes a single `jarDesc` into
 `Manifest.Layers`:
 
 ```go
@@ -161,7 +161,7 @@ Resolution rules:
   behavior.
 
 The launch core change is confined to the `classpath` case of the existing
-`switch cfg.Entry.Mode` in `BuildJVMArgs` (`internal/runtime/launch.go`):
+`switch cfg.Entry.Mode` in `BuildJVMArgs` (`core/internal/runtime/launch.go`):
 
 ```go
 case "classpath":
@@ -191,7 +191,7 @@ the shim unpacks under `/app/lib`. An artifact may carry **zero or more** such l
 in manifest order.
 
 ```go
-// /internal/artifact/artifact.go
+// /core/internal/artifact/artifact.go
 const ClasspathLayerMediaType = "application/vnd.brewlet.classpath.layer.v1+tar"
 ```
 

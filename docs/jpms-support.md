@@ -41,7 +41,7 @@ java -cp app.jar com.acme.Main   # entry.mode = classpath
 
 Everything lands in the *unnamed module*. There is no reliable dependency graph,
 no strong encapsulation, and split packages are silently tolerated. This is what
-Brewlet supports both forms (`internal/runtime/launch.go`, entry modes `jar` and
+Brewlet supports both forms (`core/internal/runtime/launch.go`, entry modes `jar` and
 `classpath`).
 
 ### 2.2 What JPMS is
@@ -157,7 +157,7 @@ Resolved argv:
 | `mode: module` + `mainClass` | `java -p /app/orders.jar -m com.acme.orders/com.acme.orders.Main` |
 | `mode: module` + `modulePath: mods` | `java -p /app/mods -m com.acme.orders[/…]` |
 
-The change to the launch core (`BuildJVMArgs` in `internal/runtime/launch.go`)
+The change to the launch core (`BuildJVMArgs` in `core/internal/runtime/launch.go`)
 is a single new `case "module"` in the existing `switch cfg.Entry.Mode`, mirroring
 the existing `jar`/`classpath` cases:
 
@@ -252,7 +252,7 @@ The tooling implements module detection and layout end to end:
   `module-info.class` at the JAR root (equivalently `jar --describe-module`
   succeeds with a named module); when present it defaults `entry.mode` to `module`
   and reads the module name and its `Main-Class`, falling back to `jar`/`classpath`
-  otherwise (`cmd/brewlet/main.go`). This mirrors the manifest-based inference
+  otherwise (`core/cmd/brewlet/main.go`). This mirrors the manifest-based inference
   in the Maven plugin's `JarInspector` (`entryMode()`).
 - **Maven plugin.** `JarInspector` detects a module descriptor (the JDK's
   `java.lang.module.ModuleDescriptor.read(...)` over the JAR's `module-info.class`)

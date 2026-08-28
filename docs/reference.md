@@ -2,7 +2,7 @@
 
 Quick-lookup tables for the identifiers, formats, and paths Brewlet uses. Sources:
 [`internal/brewlet/labels.go`](https://github.com/brewlet/brewlet/blob/main/kubernetes/internal/brewlet/labels.go),
-[`internal/artifact/`](https://github.com/brewlet/brewlet/tree/main/internal/artifact/), and
+[`core/internal/artifact/`](https://github.com/brewlet/brewlet/tree/main/core/internal/artifact/), and
 [SPECIFICATION](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md).
 
 ---
