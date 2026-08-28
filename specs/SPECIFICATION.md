@@ -271,6 +271,52 @@ framing (and its self-describing media types). See
 for the full contract. The kubelet-pull → unpack → shim-run path is covered on a
 live node by the end-to-end test suite.
 
+### 4.5 Managed dependency bundles
+
+Managed dependency bundles let a platform team publish an approved classpath
+independently from application code while retaining a self-contained,
+kubelet-pullable final application image. The Maven BOM remains a development
+and publication input; Kubernetes never resolves or references it.
+
+An Ops-owned bundle project imports the approved BOM, explicitly declares bundle
+membership, and publishes:
+
+| Component | Media type | Purpose |
+|---|---|---|
+| Artifact | `application/vnd.brewlet.dependencies.v1+json` | Identifies the managed dependency-bundle contract. |
+| Config | `application/vnd.brewlet.dependencies.config.v1+json` | Binds name/version/source BOM, lock digest, compressed layer digest, uncompressed diff ID, and compatible JDKs. |
+| Layer | `application/vnd.oci.image.layer.v1.tar+gzip` with `brewlet.sh/layer=classpath` | Deterministic flat dependency-JAR tar, directly reusable by a runnable image. |
+| Lock | `application/vnd.brewlet.dependencies.lock.v1+json` | Canonical ordered GAV, filename, scope, classifier, and SHA-256 inventory. |
+
+The managed layer deliberately uses the standard gzip OCI layer type rather than
+the native artifact's uncompressed
+`application/vnd.brewlet.classpath.layer.v1+tar`. Runnable images require
+standard compressed layers; using that representation in the bundle lets the
+publisher cross-repository-mount or upload the exact blob and lets containerd
+deduplicate it by digest.
+
+At application publication, Brewlet:
+
+1. resolves and validates the bundle;
+2. verifies the classpath tar against its dependency lock;
+3. compares the application's resolved runtime dependency lock exactly with the
+   bundle lock;
+4. rejects an application JAR containing nested dependency JARs;
+5. composes the thin application layer and existing managed classpath descriptor
+   into a runnable image; and
+6. records canonical managed-dependency evidence binding the final image to the
+   application JAR, source BOM, bundle, classpath layer, and lock digests.
+
+The launch config uses `entry.mode=classpath` and
+`classPath=[mainJar, "lib/*"]`; the existing shim path extracts the managed layer
+under `/app/lib`. `JavaApplication` remains unchanged and references only the
+complete application image digest.
+
+The evidence is a versioned predicate for a trusted builder to sign using
+in-toto/Sigstore. Informational OCI annotations are not a signature and must not
+be trusted directly by admission policy. Cluster-side verification is tracked
+separately by the supply-chain admission work.
+
 ---
 
 ## 5. Node Provisioning (`brewlet-node-provisioner`)

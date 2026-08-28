@@ -137,6 +137,80 @@ tier2_cli() {
     fail "classpath: push with --classpath-layer" "$(printf '%s' "$out" | tail -1)"
   fi
 
+  # --- managed dependencies: two apps reuse one approved OCI layer ----------
+  local managed_dir="$WORK/managed-dependencies"
+  local managed_tar="$managed_dir/dependencies.tar"
+  local managed_lock="$managed_dir/dependency-lock.json"
+  local managed_ref="platform/approved:2026.08"
+  local managed_app1="demo/managed-one:1.0.0"
+  local managed_app2="demo/managed-two:1.0.0"
+  if "$FIXTURES_DIR/managed-dependency-app/build.sh" \
+      >"$WORK/t2-managed-build.log" 2>&1; then
+    pass "managed: build thin app and real dependency JAR"
+  else
+    fail "managed: build thin app and real dependency JAR" \
+      "see $WORK/t2-managed-build.log"
+    return 0
+  fi
+  mkdir -p "$managed_dir/lib"
+  cp "$FIXTURES_DIR/managed-dependency-app/target/approved.jar" \
+    "$managed_dir/lib/approved.jar"
+  COPYFILE_DISABLE=1 tar -cf "$managed_tar" -C "$managed_dir/lib" approved.jar
+  local dependency_sha
+  if have sha256sum; then
+    dependency_sha="$(sha256sum "$managed_dir/lib/approved.jar" | awk '{print $1}')"
+  else
+    dependency_sha="$(shasum -a 256 "$managed_dir/lib/approved.jar" | awk '{print $1}')"
+  fi
+  printf '{"schemaVersion":1,"artifacts":[{"groupId":"com.example.platform","artifactId":"approved","version":"2026.08","type":"jar","scope":"runtime","fileName":"approved.jar","sha256":"%s"}]}\n' \
+    "$dependency_sha" >"$managed_lock"
+
+  if out="$("$bin" dependency-bundle "$managed_tar" "$managed_ref" \
+      --store "$store" \
+      --name approved \
+      --version 2026.08 \
+      --source-bom com.example.platform:approved-spring-boot-bom:2026.08 \
+      --lock "$managed_lock" \
+      --compatible-jdks 21,25 2>&1)"; then
+    assert_contains "managed: publish approved dependency bundle" "$out" "pushed managed dependency bundle"
+  else
+    fail "managed: publish approved dependency bundle" "$(printf '%s' "$out" | tail -1)"
+  fi
+
+  local managed_jar="$FIXTURES_DIR/managed-dependency-app/target/app.jar"
+  if "$bin" push "$managed_jar" "$managed_app1" --store "$store" \
+      --dependency-bundle "$managed_ref" --dependency-lock "$managed_lock" \
+      --main-class com.example.ManagedApp \
+      >"$WORK/t2-managed-one.log" 2>&1 \
+      && "$bin" push "$managed_jar" "$managed_app2" --store "$store" \
+      --dependency-bundle "$managed_ref" --dependency-lock "$managed_lock" \
+      --main-class com.example.ManagedApp \
+      >"$WORK/t2-managed-two.log" 2>&1; then
+    pass "managed: compose two applications from one bundle"
+  else
+    fail "managed: compose two applications from one bundle" "see $WORK/t2-managed-*.log"
+  fi
+
+  local managed_out1 managed_out2 layer1 layer2
+  managed_out1="$("$bin" inspect "$managed_app1" --store "$store" 2>&1)"
+  managed_out2="$("$bin" inspect "$managed_app2" --store "$store" 2>&1)"
+  assert_contains "managed: inspect records approved source BOM" "$managed_out1" \
+    '"sourceBom": "com.example.platform:approved-spring-boot-bom:2026.08"'
+  layer1="$(printf '%s' "$managed_out1" | sed -n 's/.*"dependencyLayerDigest": "\(sha256:[0-9a-f]*\)".*/\1/p' | head -1)"
+  layer2="$(printf '%s' "$managed_out2" | sed -n 's/.*"dependencyLayerDigest": "\(sha256:[0-9a-f]*\)".*/\1/p' | head -1)"
+  if [[ -n "$layer1" ]]; then
+    assert_eq "managed: applications reuse exact dependency layer digest" "$layer2" "$layer1"
+  else
+    fail "managed: applications reuse exact dependency layer digest" "evidence did not expose a layer digest"
+  fi
+  if out="$("$bin" run "$managed_app1" --store "$store" 2>&1)"; then
+    assert_contains "managed: JVM loads class from approved dependency layer" \
+      "$out" "MANAGED DEPENDENCY OK"
+  else
+    fail "managed: JVM loads class from approved dependency layer" \
+      "$(printf '%s' "$out" | tail -1)"
+  fi
+
   # --- modular (JPMS) app: entry.mode=module + module layer -----------------
   # Build a two-module app (main module com.example.orders requires the library
   # module com.example.greeter, shipped in a module layer) and drive it through

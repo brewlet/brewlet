@@ -206,4 +206,25 @@ public class JarInspector {
         }
         return new NativeArchScan(new ArrayList<>(set), nativeLibs, unrecognized);
     }
+
+    /**
+     * Returns nested JAR entries that make an application JAR unsuitable for
+     * managed dependency mode. Any embedded JAR is rejected, including the
+     * well-known Spring Boot and WAR library layouts.
+     */
+    public static List<String> embeddedJars(File jarFile) throws IOException {
+        List<String> nested = new ArrayList<>();
+        try (JarFile jar = new JarFile(jarFile)) {
+            var entries = jar.entries();
+            while (entries.hasMoreElements()) {
+                JarEntry entry = entries.nextElement();
+                if (!entry.isDirectory()
+                        && entry.getName().toLowerCase(Locale.ROOT).endsWith(".jar")) {
+                    nested.add(entry.getName());
+                }
+            }
+        }
+        nested.sort(String::compareTo);
+        return nested;
+    }
 }

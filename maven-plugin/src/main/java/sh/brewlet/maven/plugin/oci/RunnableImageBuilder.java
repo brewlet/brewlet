@@ -83,6 +83,10 @@ public final class RunnableImageBuilder {
 
     private record Layer(OciDescriptor desc, String diffId) {}
 
+    /** A precompressed, verified dependency layer that can be reused byte-for-byte. */
+    public record ManagedDependencyLayer(byte[] compressed, String digest, String diffId,
+                                         String name) {}
+
     /**
      * Assembles the runnable image.
      *
@@ -97,6 +101,23 @@ public final class RunnableImageBuilder {
      */
     public static Result build(JvmConfig cfg, Path jarPath, List<ArtifactLayer> depLayers,
                                Path cdsArchive, Map<String, String> indexAnnotations)
+            throws IOException {
+        return build(cfg, jarPath, depLayers, null, cdsArchive, indexAnnotations);
+    }
+
+    /**
+     * Assembles an image while reusing a bundle's standard gzip layer unchanged.
+     * Its descriptor digest remains identical to the bundle descriptor.
+     */
+    public static Result buildWithManagedDependencyLayer(
+            JvmConfig cfg, Path jarPath, ManagedDependencyLayer managedLayer,
+            Path cdsArchive, Map<String, String> indexAnnotations) throws IOException {
+        return build(cfg, jarPath, null, managedLayer, cdsArchive, indexAnnotations);
+    }
+
+    private static Result build(JvmConfig cfg, Path jarPath, List<ArtifactLayer> depLayers,
+                                ManagedDependencyLayer managedLayer, Path cdsArchive,
+                                Map<String, String> indexAnnotations)
             throws IOException {
         ObjectMapper pretty = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
         ObjectMapper compact = new ObjectMapper();
@@ -130,6 +151,26 @@ public final class RunnableImageBuilder {
                 layers.add(buildLayer(l.tar(), role, l.name(), result.blobs));
             }
         }
+        if (managedLayer != null) {
+            if (!sha256(managedLayer.compressed()).equals(managedLayer.digest())
+                    || managedLayer.diffId() == null
+                    || !managedLayer.diffId().matches("sha256:[0-9a-f]{64}")) {
+                throw new IOException("Managed dependency layer digest/diffID is invalid");
+            }
+            OciDescriptor descriptor = new OciDescriptor(
+                    MediaTypes.OCI_LAYER_GZIP_MEDIA_TYPE, managedLayer.digest(),
+                    managedLayer.compressed().length);
+            Map<String, String> layerAnnotations = new LinkedHashMap<>();
+            layerAnnotations.put(MediaTypes.LAYER_ROLE_ANNOTATION,
+                    MediaTypes.LAYER_ROLE_CLASSPATH);
+            if (managedLayer.name() != null && !managedLayer.name().isBlank()) {
+                layerAnnotations.put(MediaTypes.ANNOTATION_TITLE, managedLayer.name());
+            }
+            descriptor.setAnnotations(layerAnnotations);
+            result.blobs.add(new Blob(managedLayer.digest(), managedLayer.compressed(),
+                    MediaTypes.OCI_LAYER_GZIP_MEDIA_TYPE));
+            layers.add(new Layer(descriptor, managedLayer.diffId()));
+        }
 
         String jvmConfigJson = compact.writeValueAsString(cfg);
 
@@ -157,7 +198,17 @@ public final class RunnableImageBuilder {
             OciManifest man = new OciManifest();
             man.setConfig(cfgDesc);
             man.setLayers(layerDescs);
-            man.setAnnotations(Map.of(MediaTypes.JVM_CONFIG_ANNOTATION, jvmConfigJson));
+            Map<String, String> manifestAnnotations = new LinkedHashMap<>();
+            manifestAnnotations.put(MediaTypes.JVM_CONFIG_ANNOTATION, jvmConfigJson);
+            if (indexAnnotations != null) {
+                String evidence = indexAnnotations.get(
+                        MediaTypes.MANAGED_DEPENDENCY_EVIDENCE_ANNOTATION);
+                if (evidence != null) {
+                    manifestAnnotations.put(
+                            MediaTypes.MANAGED_DEPENDENCY_EVIDENCE_ANNOTATION, evidence);
+                }
+            }
+            man.setAnnotations(manifestAnnotations);
             byte[] manBytes = pretty.writeValueAsBytes(man);
             String manDigest = sha256(manBytes);
             result.manifests.add(new Blob(manDigest, manBytes, MediaTypes.OCI_MANIFEST_MEDIA_TYPE));

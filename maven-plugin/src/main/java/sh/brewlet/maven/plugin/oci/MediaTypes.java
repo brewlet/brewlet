@@ -37,6 +37,22 @@ public final class MediaTypes {
     public static final String CLASSPATH_LAYER_MEDIA_TYPE =
             "application/vnd.brewlet.classpath.layer.v1+tar";
 
+    /** OCI artifact type for a managed dependency bundle. */
+    public static final String DEPENDENCY_BUNDLE_ARTIFACT_TYPE =
+            "application/vnd.brewlet.dependencies.v1+json";
+
+    /** Config media type for a managed dependency bundle. */
+    public static final String DEPENDENCY_BUNDLE_CONFIG_MEDIA_TYPE =
+            "application/vnd.brewlet.dependencies.config.v1+json";
+
+    /** Canonical dependency-lock blob media type. */
+    public static final String DEPENDENCY_LOCK_MEDIA_TYPE =
+            "application/vnd.brewlet.dependencies.lock.v1+json";
+
+    /** Annotation carrying canonical, unsigned managed-dependency evidence. */
+    public static final String MANAGED_DEPENDENCY_EVIDENCE_ANNOTATION =
+            "brewlet.sh/managed-dependency-evidence";
+
     /**
      * Media type for an optional modulepath (library-module) layer: a tar of
      * library module JARs the shim unpacks under {@code /app/mods} for modular

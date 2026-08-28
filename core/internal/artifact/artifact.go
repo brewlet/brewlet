@@ -375,9 +375,10 @@ type Manifest struct {
 }
 
 type Index struct {
-	SchemaVersion int          `json:"schemaVersion"`
-	MediaType     string       `json:"mediaType"`
-	Manifests     []Descriptor `json:"manifests"`
+	SchemaVersion int               `json:"schemaVersion"`
+	MediaType     string            `json:"mediaType"`
+	Manifests     []Descriptor      `json:"manifests"`
+	Annotations   map[string]string `json:"annotations,omitempty"`
 }
 
 // Store is an on-disk OCI image layout acting as our "registry" for the PoC.

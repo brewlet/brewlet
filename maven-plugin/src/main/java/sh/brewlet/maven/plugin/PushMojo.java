@@ -6,12 +6,20 @@ import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import sh.brewlet.maven.plugin.model.JvmConfig;
+import sh.brewlet.maven.plugin.model.ManagedDependencyEvidence;
 import sh.brewlet.maven.plugin.oci.ArtifactLayer;
 import sh.brewlet.maven.plugin.oci.Credential;
+import sh.brewlet.maven.plugin.oci.DependencyBundle;
+import sh.brewlet.maven.plugin.oci.LocalStore;
+import sh.brewlet.maven.plugin.oci.MediaTypes;
 import sh.brewlet.maven.plugin.oci.RegistryClient;
 import sh.brewlet.maven.plugin.util.CredentialResolver;
+import sh.brewlet.maven.plugin.util.JarInspector;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -58,8 +66,48 @@ public class PushMojo extends AbstractBrewletMojo {
                     + "<image>registry.example.com/team/app:${project.version}</image>");
         }
 
-        JvmConfig cfg = buildConfig();
         java.io.File jar = resolveJarFile();
+        DependencyBundle.Content managedBundle = null;
+        if (dependencyBundle != null && !dependencyBundle.isBlank()) {
+            if (!"image".equals(format)) {
+                throw new MojoExecutionException("Managed dependency bundles require "
+                        + "<format>image</format> so the approved OCI layer is reused unchanged.");
+            }
+            layered = true;
+            entryMode = "classpath";
+            try {
+                List<String> embedded = JarInspector.embeddedJars(jar);
+                if (!embedded.isEmpty()) {
+                    throw new MojoExecutionException("Managed dependency bundle mode requires a "
+                            + "thin application JAR, but found embedded JAR "
+                            + embedded.get(0) + ". Disable fat-JAR repackaging.");
+                }
+                managedBundle = resolveDependencyBundle(dependencyBundle);
+                DependencyBundle.verifyGraph(managedBundle.lock(),
+                        collectRuntimeDependencyLock());
+                List<Integer> compatibleJdks = managedBundle.config().getCompatibleJdks();
+                if (compatibleJdks != null && !compatibleJdks.isEmpty()
+                        && !compatibleJdks.contains(resolveJdkFeature())) {
+                    throw new MojoExecutionException("Dependency bundle supports JDKs "
+                            + compatibleJdks + " but this project requests JDK "
+                            + resolveJdkFeature());
+                }
+            } catch (IOException e) {
+                throw new MojoExecutionException("Invalid dependency bundle "
+                        + dependencyBundle + ": " + e.getMessage(), e);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new MojoExecutionException("Interrupted while pulling dependency bundle "
+                        + dependencyBundle, e);
+            }
+        }
+        JvmConfig cfg = buildConfig();
+        if (managedBundle != null
+                && (cfg.getEntry().getMainClass() == null
+                || cfg.getEntry().getMainClass().isBlank())) {
+            throw new MojoExecutionException("Managed dependency bundle mode requires mainClass "
+                    + "for thin classpath launch. Configure <mainClass>.");
+        }
         java.io.File resolvedCdsArchive = applyCdsArchive(cfg);
         validateFinalConfig(cfg);
         validateCdsPairing(cfg, resolvedCdsArchive);
@@ -106,16 +154,44 @@ public class PushMojo extends AbstractBrewletMojo {
         RegistryClient client = new RegistryClient(registry, repository, credential);
         Map<String, String> annotations = buildAnnotations();
         annotations.put("org.opencontainers.image.ref.name", image);
+        List<ArtifactLayer> managedLayers = managedBundle == null
+                ? null : List.of(new ArtifactLayer(
+                        "dependencies", managedBundle.uncompressedLayer()));
+        if (managedBundle != null) {
+            try {
+                ManagedDependencyEvidence evidence = new ManagedDependencyEvidence(
+                        true,
+                        LocalStore.sha256Hex(Files.readAllBytes(jar.toPath())),
+                        managedBundle.manifestDigest(),
+                        managedBundle.config().getLayerDigest(),
+                        managedBundle.config().getLockDigest(),
+                        managedBundle.config().getSourceBom());
+                annotations.put(MediaTypes.MANAGED_DEPENDENCY_EVIDENCE_ANNOTATION,
+                        DependencyBundle.canonicalJson(evidence));
+            } catch (IOException e) {
+                throw new MojoExecutionException("Failed to serialize managed dependency evidence", e);
+            }
+        }
 
         if (runnable) {
             // Runnable image: the CDS archive is folded INTO the app layer (not a
             // separate layer), so pass only the class-path / module-path layers.
-            List<ArtifactLayer> depLayers = buildArtifactLayers(cfg.getEntry().getMode());
             try {
-                String indexDigest = client.pushRunnableImage(
-                        tag, cfg, jar.toPath(), depLayers,
-                        resolvedCdsArchive != null ? resolvedCdsArchive.toPath() : null,
-                        annotations);
+                String indexDigest;
+                if (managedBundle != null) {
+                    String sourceRepository = managedBundleSourceRepository(
+                            dependencyBundle, registry);
+                    indexDigest = client.pushRunnableImage(
+                            tag, cfg, jar.toPath(), managedBundle,
+                            resolvedCdsArchive != null ? resolvedCdsArchive.toPath() : null,
+                            annotations, sourceRepository);
+                } else {
+                    indexDigest = client.pushRunnableImage(
+                            tag, cfg, jar.toPath(),
+                            buildArtifactLayers(cfg.getEntry().getMode()),
+                            resolvedCdsArchive != null ? resolvedCdsArchive.toPath() : null,
+                            annotations);
+                }
                 getLog().info("Brewlet: pushed " + image + " (runnable OCI image — kubelet-pullable)");
                 getLog().info("  index: " + indexDigest);
                 getLog().info("  platforms: "
@@ -129,8 +205,8 @@ public class PushMojo extends AbstractBrewletMojo {
             return;
         }
 
-        List<ArtifactLayer> classpathLayers = new ArrayList<>(
-                buildArtifactLayers(cfg.getEntry().getMode()));
+        List<ArtifactLayer> classpathLayers = new ArrayList<>(managedLayers != null
+                ? managedLayers : buildArtifactLayers(cfg.getEntry().getMode()));
         ArtifactLayer cdsLayer = cdsLayer(resolvedCdsArchive);
         if (cdsLayer != null) {
             classpathLayers.add(cdsLayer);
@@ -146,5 +222,34 @@ public class PushMojo extends AbstractBrewletMojo {
             if (e instanceof InterruptedException) Thread.currentThread().interrupt();
             throw new MojoExecutionException("Failed to push artifact to " + image, e);
         }
+    }
+
+    private DependencyBundle.Content resolveDependencyBundle(String reference)
+            throws IOException, InterruptedException {
+        try {
+            Path path = Path.of(reference);
+            if (Files.isDirectory(path)) {
+                return DependencyBundle.loadLayout(path);
+            }
+        } catch (InvalidPathException ignored) {
+            // A registry reference is not required to be a valid local path.
+        }
+        String[] parts = RegistryClient.splitRef(reference);
+        Credential bundleCredential = CredentialResolver.resolve(parts[0], settings);
+        return new RegistryClient(parts[0], parts[1], bundleCredential)
+                .pullDependencyBundle(RegistryClient.extractTag(reference));
+    }
+
+    private static String managedBundleSourceRepository(String reference,
+                                                        String targetRegistry) {
+        try {
+            if (Files.isDirectory(Path.of(reference))) {
+                return null;
+            }
+        } catch (InvalidPathException ignored) {
+            // Continue parsing the registry reference.
+        }
+        String[] parts = RegistryClient.splitRef(reference);
+        return targetRegistry.equals(parts[0]) ? parts[1] : null;
     }
 }

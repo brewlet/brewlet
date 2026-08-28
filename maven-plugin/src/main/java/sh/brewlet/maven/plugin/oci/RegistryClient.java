@@ -15,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -57,6 +58,7 @@ public class RegistryClient {
         this.credential = credential;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(30))
+                .followRedirects(HttpClient.Redirect.NORMAL)
                 .build();
     }
 
@@ -209,6 +211,126 @@ public class RegistryClient {
         return image.indexDigest;
     }
 
+    /**
+     * Pushes a runnable image while preserving a managed bundle layer's compressed
+     * bytes, descriptor digest, and uncompressed diffID.
+     */
+    public String pushRunnableImage(String reference, JvmConfig cfg, Path jarPath,
+                                    DependencyBundle.Content bundle, Path cdsArchive,
+                                    Map<String, String> extraAnnotations,
+                                    String bundleSourceRepository)
+            throws IOException, InterruptedException {
+        RunnableImageBuilder.ManagedDependencyLayer layer =
+                new RunnableImageBuilder.ManagedDependencyLayer(
+                        bundle.compressedLayer(), bundle.config().getLayerDigest(),
+                        bundle.config().getLayerDiffId(), "dependencies");
+        RunnableImageBuilder.Result image = RunnableImageBuilder.buildWithManagedDependencyLayer(
+                cfg, jarPath, layer, cdsArchive, extraAnnotations);
+        return pushRunnableImage(reference, image, bundle.config().getLayerDigest(),
+                bundleSourceRepository);
+    }
+
+    private String pushRunnableImage(String reference, RunnableImageBuilder.Result image)
+            throws IOException, InterruptedException {
+        return pushRunnableImage(reference, image, null, null);
+    }
+
+    private String pushRunnableImage(String reference, RunnableImageBuilder.Result image,
+                                     String managedLayerDigest, String sourceRepository)
+            throws IOException, InterruptedException {
+        for (RunnableImageBuilder.Blob blob : image.blobs) {
+            if (!blobExists(blob.digest())) {
+                boolean mounted = blob.digest().equals(managedLayerDigest)
+                        && sourceRepository != null
+                        && mountBlob(blob.digest(), sourceRepository);
+                if (!mounted) {
+                    pushBlob(blob.digest(), blob.data());
+                }
+            }
+        }
+        for (RunnableImageBuilder.Blob manifest : image.manifests) {
+            pushManifest(manifest.digest(), manifest.data(), manifest.mediaType());
+        }
+        pushManifest(reference, image.indexBytes, MediaTypes.OCI_INDEX_MEDIA_TYPE);
+        return image.indexDigest;
+    }
+
+    /**
+     * Attempts an OCI cross-repository blob mount. A 202 response means the
+     * registry declined the mount and opened an upload, so the caller falls back
+     * to the normal monolithic upload.
+     */
+    boolean mountBlob(String digest, String sourceRepository)
+            throws IOException, InterruptedException {
+        String query = "?mount=" + URLEncoder.encode(digest, StandardCharsets.UTF_8)
+                + "&from=" + URLEncoder.encode(sourceRepository, StandardCharsets.UTF_8);
+        URI uri = registryUri("/v2/" + repository + "/blobs/uploads/" + query);
+        HttpRequest request = authedRequest(HttpRequest.newBuilder(uri)
+                .POST(HttpRequest.BodyPublishers.noBody()));
+        HttpResponse<Void> response =
+                httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+        if (response.statusCode() == 401) {
+            negotiate(response);
+            request = authedRequest(HttpRequest.newBuilder(uri)
+                    .POST(HttpRequest.BodyPublishers.noBody()));
+            response = httpClient.send(request, HttpResponse.BodyHandlers.discarding());
+        }
+        if (response.statusCode() == 201) {
+            LOG.info("Mounted managed dependency blob " + digest + " from "
+                    + sourceRepository);
+            return true;
+        }
+        if (response.statusCode() == 202 || response.statusCode() == 400
+                || response.statusCode() == 404 || response.statusCode() == 405) {
+            return false;
+        }
+        throw new IOException("Registry cross-repository mount failed: HTTP "
+                + response.statusCode());
+    }
+
+    /** Pushes a managed dependency bundle and returns its manifest digest. */
+    public String pushDependencyBundle(String reference, DependencyBundle.Content bundle)
+            throws IOException, InterruptedException {
+        for (byte[] blob : List.of(
+                bundle.configBytes(), bundle.lockBytes(), bundle.compressedLayer())) {
+            String digest = LocalStore.sha256Hex(blob);
+            if (!blobExists(digest)) {
+                pushBlob(digest, blob);
+            }
+        }
+        pushManifest(reference, bundle.manifestBytes());
+        return bundle.manifestDigest();
+    }
+
+    /** Pulls and cryptographically verifies a managed dependency bundle. */
+    public DependencyBundle.Content pullDependencyBundle(String reference)
+            throws IOException, InterruptedException {
+        byte[] manifest = get("/v2/" + repository + "/manifests/" + reference,
+                MediaTypes.OCI_MANIFEST_MEDIA_TYPE + ", "
+                        + MediaTypes.DEPENDENCY_BUNDLE_ARTIFACT_TYPE);
+        JsonNode root = MAPPER.readTree(manifest);
+        Map<String, byte[]> blobs = new HashMap<>();
+        JsonNode config = root.get("config");
+        if (config != null && config.hasNonNull("digest")) {
+            String digest = config.get("digest").asText();
+            blobs.put(digest, get("/v2/" + repository + "/blobs/" + digest, null));
+        }
+        JsonNode layers = root.get("layers");
+        if (layers != null) {
+            for (JsonNode layer : layers) {
+                String digest = layer.path("digest").asText();
+                blobs.put(digest, get("/v2/" + repository + "/blobs/" + digest, null));
+            }
+        }
+        return DependencyBundle.parse(manifest, digest -> {
+            byte[] bytes = blobs.get(digest);
+            if (bytes == null) {
+                throw new IOException("Bundle references unavailable blob " + digest);
+            }
+            return bytes;
+        });
+    }
+
     // -----------------------------------------------------------------------
     // OCI Distribution Spec API helpers
     // -----------------------------------------------------------------------
@@ -246,6 +368,7 @@ public class RegistryClient {
                             .header("Content-Length", "0")),
                     HttpResponse.BodyHandlers.ofString());
         }
+
         if (initResp.statusCode() != 202) {
             throw new IOException("Failed to initiate blob upload: HTTP " + initResp.statusCode()
                     + "\n" + initResp.body());
@@ -267,6 +390,30 @@ public class RegistryClient {
             throw new IOException("Failed to push blob " + digest + ": HTTP " + putResp.statusCode()
                     + "\n" + putResp.body());
         }
+    }
+
+    private byte[] get(String path, String accept) throws IOException, InterruptedException {
+        URI uri = registryUri(path);
+        HttpRequest.Builder builder = HttpRequest.newBuilder(uri).GET();
+        if (accept != null) {
+            builder.header("Accept", accept);
+        }
+        HttpResponse<byte[]> response = httpClient.send(
+                authedRequest(builder), HttpResponse.BodyHandlers.ofByteArray());
+        if (response.statusCode() == 401) {
+            negotiate(response);
+            builder = HttpRequest.newBuilder(uri).GET();
+            if (accept != null) {
+                builder.header("Accept", accept);
+            }
+            response = httpClient.send(
+                    authedRequest(builder), HttpResponse.BodyHandlers.ofByteArray());
+        }
+        if (response.statusCode() != 200) {
+            throw new IOException("Failed to pull OCI content " + path + ": HTTP "
+                    + response.statusCode());
+        }
+        return response.body();
     }
 
     /** Pushes the OCI manifest for the given reference (tag or digest). */

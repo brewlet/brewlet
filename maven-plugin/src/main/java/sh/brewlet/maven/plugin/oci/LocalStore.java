@@ -166,6 +166,23 @@ public class LocalStore {
         return indexDesc;
     }
 
+    /** Writes a managed dependency bundle as an OCI image-layout entry. */
+    public OciDescriptor pushDependencyBundle(String ref, DependencyBundle.Content bundle)
+            throws IOException {
+        writeBlob(bundle.configBytes());
+        writeBlob(bundle.lockBytes());
+        writeBlob(bundle.compressedLayer());
+        OciDescriptor manifestDesc = writeBlob(bundle.manifestBytes());
+        manifestDesc.setMediaType(MediaTypes.OCI_MANIFEST_MEDIA_TYPE);
+        manifestDesc.setArtifactType(MediaTypes.DEPENDENCY_BUNDLE_ARTIFACT_TYPE);
+        manifestDesc.setAnnotations(Map.of(MediaTypes.ANNOTATION_REF_NAME, ref));
+        upsertIndex(manifestDesc);
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("oci-layout"),
+                "{\"imageLayoutVersion\":\"1.0.0\"}\n");
+        return manifestDesc;
+    }
+
     private void upsertIndex(OciDescriptor newEntry) throws IOException {
         OciIndex idx = readIndex();
         List<OciDescriptor> manifests = idx.getManifests() == null
