@@ -3,33 +3,33 @@ package artifact
 import (
 	"bytes"
 	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
 	"crypto/sha256"
-	"crypto/x509"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
-	"encoding/pem"
 	"fmt"
 	"net/url"
-	"os"
-	"strconv"
 	"strings"
+
+	"github.com/brewlet/brewlet/pkg/attest"
 )
 
 const (
 	OCIEmptyConfigMediaType = "application/vnd.oci.empty.v1+json"
 	CycloneDXMediaType      = "application/vnd.cyclonedx+json"
-	AttestationArtifactType = "application/vnd.brewlet.attestation.v1+json"
-	DSSEEnvelopeMediaType   = "application/vnd.dsse.envelope.v1+json"
-	InTotoPayloadType       = "application/vnd.in-toto+json"
 
-	BundlePredicateType  = "https://brewlet.sh/attestations/dependency-bundle/v1"
-	ManagedPredicateType = "https://brewlet.sh/attestations/managed-dependencies/v1"
+	// The attestation media types, predicate types, and the predicate-type
+	// discovery annotation are defined once in pkg/attest, the single source of
+	// truth for Brewlet's signing profile. They are re-exported here so the OCI
+	// store keeps a stable local API.
+	AttestationArtifactType = attest.AttestationArtifactType
+	DSSEEnvelopeMediaType   = attest.DSSEEnvelopeMediaType
+	InTotoPayloadType       = attest.InTotoPayloadType
+
+	BundlePredicateType  = attest.BundlePredicateType
+	ManagedPredicateType = attest.ManagedPredicateType
 
 	ReferrerSubjectAnnotation = "brewlet.sh/referrer-subject"
-	PredicateTypeAnnotation   = "brewlet.sh/predicate-type"
+	PredicateTypeAnnotation   = attest.PredicateTypeAnnotation
 )
 
 type CycloneDXBOM struct {
@@ -64,51 +64,17 @@ type CycloneDXHash struct {
 	Content   string `json:"content"`
 }
 
-type InTotoStatement struct {
-	Type          string          `json:"_type"`
-	Subject       []InTotoSubject `json:"subject"`
-	PredicateType string          `json:"predicateType"`
-	Predicate     any             `json:"predicate"`
-}
-
-type InTotoSubject struct {
-	Name   string            `json:"name"`
-	Digest map[string]string `json:"digest"`
-}
-
-type DSSEEnvelope struct {
-	PayloadType string          `json:"payloadType"`
-	Payload     string          `json:"payload"`
-	Signatures  []DSSESignature `json:"signatures"`
-}
-
-type DSSESignature struct {
-	KeyID string `json:"keyid"`
-	Sig   string `json:"sig"`
-}
-
-type BundleProvenance struct {
-	SchemaVersion          int    `json:"schemaVersion"`
-	DependencyBundleDigest string `json:"dependencyBundleDigest"`
-	DependencyLayerDigest  string `json:"dependencyLayerDigest"`
-	DependencyLockDigest   string `json:"dependencyLockDigest"`
-	SBOMDigest             string `json:"sbomDigest"`
-	SourceBOM              string `json:"sourceBom"`
-	BuilderIdentity        string `json:"builderIdentity"`
-}
-
-type ManagedDependencyPredicate struct {
-	SchemaVersion          int    `json:"schemaVersion"`
-	FinalImageDigest       string `json:"finalImageDigest"`
-	ThinJar                bool   `json:"thinJar"`
-	ApplicationJarDigest   string `json:"applicationJarDigest"`
-	DependencyBundleDigest string `json:"dependencyBundleDigest"`
-	DependencyLayerDigest  string `json:"dependencyLayerDigest"`
-	DependencyLockDigest   string `json:"dependencyLockDigest"`
-	SBOMDigest             string `json:"sbomDigest"`
-	SourceBOM              string `json:"sourceBom"`
-	BuilderIdentity        string `json:"builderIdentity"`
-}
+// The DSSE/in-toto wire types and Brewlet predicates are defined once in
+// pkg/attest. They are aliased here so existing store code and tests keep using
+// the artifact.* names while sharing a single implementation.
+type (
+	InTotoStatement            = attest.InTotoStatement
+	InTotoSubject              = attest.InTotoSubject
+	DSSEEnvelope               = attest.DSSEEnvelope
+	DSSESignature              = attest.DSSESignature
+	BundleProvenance           = attest.BundleProvenance
+	ManagedDependencyPredicate = attest.ManagedDependencyPredicate
+)
 
 type VerifiedBundleSupplyChain struct {
 	SBOMDigest      string
@@ -162,132 +128,34 @@ func mavenPURL(entry DependencyLockEntry) string {
 	return purl
 }
 
+// LoadECDSAPrivateKey reads a PKCS#8 PEM ECDSA P-256 private key. See
+// attest.LoadECDSAPrivateKey.
 func LoadECDSAPrivateKey(path string) (*ecdsa.PrivateKey, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read signing key: %w", err)
-	}
-	block, _ := pem.Decode(raw)
-	if block == nil {
-		return nil, fmt.Errorf("signing key is not PEM")
-	}
-	key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("parse PKCS#8 signing key: %w", err)
-	}
-	ecdsaKey, ok := key.(*ecdsa.PrivateKey)
-	if !ok || ecdsaKey.Curve != elliptic.P256() {
-		return nil, fmt.Errorf("signing key must be ECDSA P-256")
-	}
-	return ecdsaKey, nil
+	return attest.LoadECDSAPrivateKey(path)
 }
 
+// GenerateECDSAKeyPair writes a fresh ECDSA P-256 key pair. See
+// attest.GenerateECDSAKeyPair.
 func GenerateECDSAKeyPair(privatePath, publicPath string) error {
-	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		return err
-	}
-	privateDER, err := x509.MarshalPKCS8PrivateKey(key)
-	if err != nil {
-		return err
-	}
-	publicDER, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(privatePath, pem.EncodeToMemory(&pem.Block{
-		Type: "PRIVATE KEY", Bytes: privateDER,
-	}), 0o600); err != nil {
-		return fmt.Errorf("write private key: %w", err)
-	}
-	if err := os.WriteFile(publicPath, pem.EncodeToMemory(&pem.Block{
-		Type: "PUBLIC KEY", Bytes: publicDER,
-	}), 0o644); err != nil {
-		return fmt.Errorf("write public key: %w", err)
-	}
-	return nil
+	return attest.GenerateECDSAKeyPair(privatePath, publicPath)
 }
 
+// LoadECDSAPublicKey reads a SubjectPublicKeyInfo PEM ECDSA P-256 public key.
+// See attest.LoadECDSAPublicKey.
 func LoadECDSAPublicKey(path string) (*ecdsa.PublicKey, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("read trusted public key: %w", err)
-	}
-	block, _ := pem.Decode(raw)
-	if block == nil {
-		return nil, fmt.Errorf("trusted public key is not PEM")
-	}
-	key, err := x509.ParsePKIXPublicKey(block.Bytes)
-	if err != nil {
-		return nil, fmt.Errorf("parse trusted public key: %w", err)
-	}
-	ecdsaKey, ok := key.(*ecdsa.PublicKey)
-	if !ok || ecdsaKey.Curve != elliptic.P256() {
-		return nil, fmt.Errorf("trusted public key must be ECDSA P-256")
-	}
-	return ecdsaKey, nil
+	return attest.LoadECDSAPublicKey(path)
 }
 
+// SignStatement signs a statement into a single-signature DSSE envelope. See
+// attest.SignStatement.
 func SignStatement(statement InTotoStatement, key *ecdsa.PrivateKey) ([]byte, error) {
-	payload, err := json.Marshal(statement)
-	if err != nil {
-		return nil, err
-	}
-	pae := dssePAE(InTotoPayloadType, payload)
-	sum := sha256.Sum256(pae)
-	signature, err := ecdsa.SignASN1(rand.Reader, key, sum[:])
-	if err != nil {
-		return nil, err
-	}
-	keyID, err := publicKeyID(&key.PublicKey)
-	if err != nil {
-		return nil, err
-	}
-	return json.Marshal(DSSEEnvelope{
-		PayloadType: InTotoPayloadType,
-		Payload:     base64.StdEncoding.EncodeToString(payload),
-		Signatures:  []DSSESignature{{KeyID: keyID, Sig: base64.StdEncoding.EncodeToString(signature)}},
-	})
+	return attest.SignStatement(statement, key)
 }
 
+// VerifyStatement validates a single-signature DSSE envelope. See
+// attest.VerifyStatement.
 func VerifyStatement(raw []byte, key *ecdsa.PublicKey, predicateType, subjectDigest string) (InTotoStatement, error) {
-	var envelope DSSEEnvelope
-	if err := decodeStrict(raw, &envelope); err != nil {
-		return InTotoStatement{}, fmt.Errorf("decode DSSE envelope: %w", err)
-	}
-	if envelope.PayloadType != InTotoPayloadType || len(envelope.Signatures) != 1 {
-		return InTotoStatement{}, fmt.Errorf("unsupported DSSE payload type or signature count")
-	}
-	payload, err := base64.StdEncoding.DecodeString(envelope.Payload)
-	if err != nil {
-		return InTotoStatement{}, fmt.Errorf("decode DSSE payload: %w", err)
-	}
-	signature, err := base64.StdEncoding.DecodeString(envelope.Signatures[0].Sig)
-	if err != nil {
-		return InTotoStatement{}, fmt.Errorf("decode DSSE signature: %w", err)
-	}
-	keyID, err := publicKeyID(key)
-	if err != nil {
-		return InTotoStatement{}, err
-	}
-	if envelope.Signatures[0].KeyID != keyID {
-		return InTotoStatement{}, fmt.Errorf("DSSE key ID is not trusted")
-	}
-	sum := sha256.Sum256(dssePAE(envelope.PayloadType, payload))
-	if !ecdsa.VerifyASN1(key, sum[:], signature) {
-		return InTotoStatement{}, fmt.Errorf("DSSE signature verification failed")
-	}
-	var statement InTotoStatement
-	if err := json.Unmarshal(payload, &statement); err != nil {
-		return InTotoStatement{}, fmt.Errorf("decode in-toto statement: %w", err)
-	}
-	if statement.Type != "https://in-toto.io/Statement/v1" || statement.PredicateType != predicateType {
-		return InTotoStatement{}, fmt.Errorf("unexpected in-toto statement or predicate type")
-	}
-	if len(statement.Subject) != 1 || "sha256:"+statement.Subject[0].Digest["sha256"] != subjectDigest {
-		return InTotoStatement{}, fmt.Errorf("in-toto subject digest mismatch")
-	}
-	return statement, nil
+	return attest.VerifyStatement(raw, key, predicateType, subjectDigest)
 }
 
 func (s Store) PublishReferrer(subject Descriptor, artifactType, layerMediaType string, document []byte, annotations map[string]string) (Descriptor, error) {
@@ -632,58 +500,8 @@ func (s Store) VerifyManagedAttestation(image Descriptor, key *ecdsa.PublicKey, 
 	return ManagedDependencyPredicate{}, fmt.Errorf("signed managed dependency attestation is missing")
 }
 
-func (p ManagedDependencyPredicate) Validate(subjectDigest string) error {
-	if p.SchemaVersion != 1 || !p.ThinJar {
-		return fmt.Errorf("managed dependency predicate requires schemaVersion=1 and thinJar=true")
-	}
-	if p.FinalImageDigest != subjectDigest {
-		return fmt.Errorf("managed predicate final image digest does not match subject")
-	}
-	for field, digest := range map[string]string{
-		"applicationJarDigest":   p.ApplicationJarDigest,
-		"dependencyBundleDigest": p.DependencyBundleDigest,
-		"dependencyLayerDigest":  p.DependencyLayerDigest,
-		"dependencyLockDigest":   p.DependencyLockDigest,
-		"sbomDigest":             p.SBOMDigest,
-	} {
-		if !isSHA256Digest(digest) {
-			return fmt.Errorf("managed predicate %s is not a sha256 digest", field)
-		}
-	}
-	if err := validateMavenCoordinate(p.SourceBOM); err != nil {
-		return fmt.Errorf("managed predicate sourceBom: %w", err)
-	}
-	if strings.TrimSpace(p.BuilderIdentity) == "" {
-		return fmt.Errorf("managed predicate builderIdentity must be non-empty")
-	}
-	return nil
-}
-
+// newStatement builds an in-toto Statement v1 for a single subject digest. See
+// attest.NewStatement.
 func newStatement(name, digest, predicateType string, predicate any) InTotoStatement {
-	return InTotoStatement{
-		Type: "https://in-toto.io/Statement/v1",
-		Subject: []InTotoSubject{{Name: name, Digest: map[string]string{
-			"sha256": strings.TrimPrefix(digest, "sha256:"),
-		}}},
-		PredicateType: predicateType, Predicate: predicate,
-	}
-}
-
-func dssePAE(payloadType string, payload []byte) []byte {
-	return bytes.Join([][]byte{
-		[]byte("DSSEv1"),
-		[]byte(strconv.Itoa(len(payloadType))),
-		[]byte(payloadType),
-		[]byte(strconv.Itoa(len(payload))),
-		payload,
-	}, []byte(" "))
-}
-
-func publicKeyID(key *ecdsa.PublicKey) (string, error) {
-	der, err := x509.MarshalPKIXPublicKey(key)
-	if err != nil {
-		return "", err
-	}
-	sum := sha256.Sum256(der)
-	return "sha256:" + hex.EncodeToString(sum[:]), nil
+	return attest.NewStatement(name, digest, predicateType, predicate)
 }

@@ -1,0 +1,30 @@
+####################################################################
+# Ratify referrer store: discover Brewlet attestation referrers via
+# the OCI 1.1 Referrers API.
+#
+# REQUIREMENT: the target registry MUST implement the OCI 1.1 Referrers
+# API. Brewlet's own deterministic per-referrer fallback tag scheme
+# (spec §4.5) is NOT the oras-go fallback scheme, so on a registry
+# without the Referrers API this store will NOT discover Brewlet
+# attestations and admission will fail closed (deny).
+#
+# cosignEnabled is intentionally false: Brewlet does not publish cosign
+# `.sig` tags. Verification is performed by the Brewlet verifier plugin
+# over Brewlet's native DSSE referrer.
+####################################################################
+apiVersion: config.ratify.deislabs.io/v1beta1
+kind: Store
+metadata:
+  name: store-oras
+spec:
+  name: oras
+  parameters:
+    cacheEnabled: true
+    cosignEnabled: false
+    ttl: 10
+    # For private images, provide registry credentials. Example: a docker
+    # config JSON Secret referenced through the k8Secrets auth provider.
+    # authProvider:
+    #   name: k8Secrets
+    #   secrets:
+    #     - secretName: ratify-dockerconfig

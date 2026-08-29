@@ -11,7 +11,7 @@ REGISTRY ?= ghcr.io/brewlet
 TAG ?= latest
 PROVISIONER_IMAGE ?= $(REGISTRY)/node-provisioner:$(TAG)
 
-.PHONY: build binaries test vet fmt-check check check-all kubernetes-check maven-plugin-check e2e-host appcds-verify provisioner-image provisioner-image-push clean
+.PHONY: build binaries test vet fmt-check check check-all kubernetes-check maven-plugin-check admission-check e2e-host appcds-verify provisioner-image provisioner-image-push clean
 
 build: ## Build every package for the current platform
 	go -C core build ./...
@@ -44,10 +44,14 @@ kubernetes-check: ## Run Kubernetes platform CI checks
 maven-plugin-check: ## Run Maven plugin tests
 	mvn -B --no-transfer-progress -f maven-plugin/pom.xml verify
 
+admission-check: ## Build and test the Ratify managed-dependency verifier plugin
+	go -C admission/ratify-verifier vet ./...
+	go -C admission/ratify-verifier test ./...
+
 e2e-host: ## Run host-only end-to-end tiers
 	integration-tests/e2e/run.sh --tier 1 --tier 2
 
-check-all: check kubernetes-check maven-plugin-check e2e-host ## Validate all components that do not require a cluster
+check-all: check kubernetes-check maven-plugin-check admission-check e2e-host ## Validate all components that do not require a cluster
 
 appcds-verify: ## Run the AppCDS JDK integration test (requires a full JDK 17+)
 	go -C core test -v -run TestAppCDSTrainThenMapIntegration ./internal/runtime/

@@ -420,8 +420,10 @@ when empty. Spaces are encoded as `%20`. Consumers compare these semantic fields
 rather than requiring byte-identical JSON.
 
 Ops admission policy determines whether unsigned bundles are acceptable in a
-deployment environment. Cluster-side enforcement is defined by the separate
-supply-chain admission work.
+deployment environment. A deployable example of cluster-side enforcement — a
+Ratify external verifier plugin plus Gatekeeper policy that admits Brewlet
+runtime pods only when their image carries a valid managed-dependency
+attestation — is provided in [`admission/`](../admission/).
 
 Each referrer MUST be an OCI image manifest with:
 
@@ -542,8 +544,11 @@ images may run.
 This is a key-based Sigstore/in-toto-compatible signing profile. Fulcio keyless
 identity issuance and Rekor transparency-log inclusion are not required by this
 version of the Brewlet contract and can be added without changing its predicates.
-Cluster-side enforcement remains tracked separately by the supply-chain
-admission work.
+A deployable cluster-side enforcement example that verifies this evidence at
+admission — reusing Brewlet's own DSSE/predicate verification through a Ratify
+external verifier plugin and Gatekeeper policy — is provided in
+[`admission/`](../admission/); it requires a registry that exposes the OCI 1.1
+Referrers API.
 
 ---
 

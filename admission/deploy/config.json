@@ -1,0 +1,38 @@
+{
+  "comment": [
+    "Ratify CLI (non-Kubernetes) config for verifying Brewlet managed-dependency",
+    "attestations, e.g. in CI: `ratify verify -s <image@sha256:...> -c config.json`.",
+    "The plugin binary must be installed at ~/.ratify/plugins/brewlet-managed-dependencies.",
+    "The registry must expose the OCI 1.1 Referrers API."
+  ],
+  "store": {
+    "version": "1.0.0",
+    "plugins": [
+      {
+        "name": "oras",
+        "cosignEnabled": false
+      }
+    ]
+  },
+  "policy": {
+    "version": "1.0.0",
+    "plugin": {
+      "name": "configPolicy",
+      "artifactVerificationPolicies": {
+        "application/vnd.brewlet.attestation.v1+json": "all",
+        "default": "all"
+      }
+    }
+  },
+  "verifier": {
+    "version": "1.0.0",
+    "plugins": [
+      {
+        "name": "brewlet-managed-dependencies",
+        "artifactTypes": "application/vnd.brewlet.attestation.v1+json",
+        "trustedPublicKeyPath": "/etc/brewlet/trusted-builder.pub",
+        "expectedBuilderIdentity": "https://ci.example.com/application-publisher"
+      }
+    ]
+  }
+}
