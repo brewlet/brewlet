@@ -36,6 +36,32 @@ func TestDSSEStatementVerification(t *testing.T) {
 	}
 }
 
+func TestReadReferrerRejectsInvalidManifestSchema(t *testing.T) {
+	store := Store{Root: t.TempDir()}
+	subject := Descriptor{
+		MediaType: ociManifestMediaType,
+		Digest:    "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		Size:      42,
+	}
+	for name, manifest := range map[string]string{
+		"wrong schema version": `{"schemaVersion":1,"mediaType":"application/vnd.oci.image.manifest.v1+json"}`,
+		"unknown field":        `{"schemaVersion":2,"mediaType":"application/vnd.oci.image.manifest.v1+json","unexpected":true}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			raw := []byte(manifest)
+			desc, err := store.writeBlob(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			desc.MediaType = ociManifestMediaType
+			desc.ArtifactType = CycloneDXMediaType
+			if _, err := store.readReferrer(desc, subject); err == nil {
+				t.Fatal("expected invalid referrer manifest rejection")
+			}
+		})
+	}
+}
+
 func TestBundleAndManagedAttestationRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 	privatePath := filepath.Join(dir, "key.pem")
@@ -43,6 +69,7 @@ func TestBundleAndManagedAttestationRoundTrip(t *testing.T) {
 	if err := GenerateECDSAKeyPair(privatePath, publicPath); err != nil {
 		t.Fatal(err)
 	}
+
 	privateKey, err := LoadECDSAPrivateKey(privatePath)
 	if err != nil {
 		t.Fatal(err)
@@ -110,6 +137,7 @@ func TestBundleAndManagedAttestationRoundTrip(t *testing.T) {
 			break
 		}
 	}
+
 	indexJSON, err := json.Marshal(index)
 	if err != nil {
 		t.Fatal(err)
@@ -154,5 +182,41 @@ func TestBundleAndManagedAttestationRoundTrip(t *testing.T) {
 	}
 	if _, err := store.VerifyManagedAttestation(image, publicKey, "other-builder"); err == nil {
 		t.Fatal("expected wrong identity rejection")
+	}
+}
+
+func TestOpsPolicyAllowsUnsignedBundleConsumption(t *testing.T) {
+	dir := t.TempDir()
+	content := []byte("dependency")
+	layerPath := filepath.Join(dir, "dependencies.tar")
+	writeOrderedTar(t, layerPath, []tarFile{{name: "dependency.jar", content: content}})
+	lock := DependencyLock{SchemaVersion: 1, Artifacts: []DependencyLockEntry{{
+		GroupID: "com.example", ArtifactID: "dependency", Version: "1",
+		Type: "jar", Scope: "runtime", FileName: "dependency.jar", SHA256: hexDigest(content),
+	}}}
+	store := Store{Root: filepath.Join(dir, "oci")}
+	desc, err := store.PushDependencyBundle("platform/deps:unsigned", DependencyBundleConfig{
+		Name: "deps", Version: "1", SourceBOM: "com.example:platform-bom:1",
+		AllowUnsigned: true,
+	}, lock, layerPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := store.ResolveDependencyBundle("platform/deps:unsigned")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sbomDigest, err := store.PublishUnsignedBundleSupplyChain(
+		desc, bundle.Config, bundle.Lock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verified, err := store.VerifyBundleSupplyChain(bundle, nil, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if verified.SBOMDigest != sbomDigest ||
+		verified.BuilderIdentity != "unsigned (allowed by bundle policy)" {
+		t.Fatalf("unsigned verification = %+v", verified)
 	}
 }

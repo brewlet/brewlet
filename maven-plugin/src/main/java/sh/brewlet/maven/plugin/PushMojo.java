@@ -77,11 +77,9 @@ public class PushMojo extends AbstractBrewletMojo {
         String expectedBundleSigner = valueOrFallback(trustedSignerIdentity, signerIdentity);
         String applicationBuilder = valueOrFallback(builderIdentity, signerIdentity);
         if (dependencyBundle != null && !dependencyBundle.isBlank()) {
-            if (signingKey == null || trustedPublicKey == null
-                    || expectedBundleSigner == null || expectedBundleSigner.isBlank()
-                    || applicationBuilder == null || applicationBuilder.isBlank()) {
-                throw new MojoExecutionException("Managed dependency mode requires signingKey, "
-                        + "trustedPublicKey, trustedSignerIdentity, and builderIdentity");
+            if (signingKey == null || applicationBuilder == null || applicationBuilder.isBlank()) {
+                throw new MojoExecutionException("Managed dependency mode requires signingKey "
+                        + "and builderIdentity for final-image provenance");
             }
             if (!"image".equals(format)) {
                 throw new MojoExecutionException("Managed dependency bundles require "
@@ -287,7 +285,8 @@ public class PushMojo extends AbstractBrewletMojo {
                 MediaTypes.DSSE_ARTIFACT_TYPE);
         return verifyBundleReferrers(bundle, sbomRefs, provenanceRefs,
                 descriptor -> client.pullReferrerDocument(
-                        descriptor, bundle.manifestDigest()), expectedBundleSigner);
+                        descriptor, bundle.manifestDigest(),
+                        bundle.manifestBytes().length), expectedBundleSigner);
     }
 
     private VerifiedBundle verifyBundleReferrers(DependencyBundle.Content bundle,
@@ -296,11 +295,19 @@ public class PushMojo extends AbstractBrewletMojo {
                                                   ReferrerReader reader,
                                                   String expectedBundleSigner)
             throws IOException, InterruptedException, GeneralSecurityException {
-        if (sbomRefs.size() != 1 || provenanceRefs.isEmpty()) {
-            throw new GeneralSecurityException("Managed bundle requires exactly one SBOM and "
-                    + "at least one signed dependency-bundle provenance referrer");
+        if (sbomRefs.size() != 1) {
+            throw new GeneralSecurityException(
+                    "Managed bundle requires exactly one SBOM referrer");
         }
         byte[] sbom = reader.read(sbomRefs.get(0));
+        if (trustedPublicKey == null || expectedBundleSigner == null
+                || expectedBundleSigner.isBlank()) {
+            if (!bundle.config().allowsUnsigned()) {
+                throw new GeneralSecurityException(
+                        "Bundle policy requires trustedPublicKey and trustedSignerIdentity");
+            }
+            return new VerifiedBundle(bundle, BundleProvenance.validateSbom(bundle, sbom));
+        }
         GeneralSecurityException rejection = null;
         for (OciDescriptor provenanceRef : provenanceRefs) {
             try {
@@ -313,6 +320,9 @@ public class PushMojo extends AbstractBrewletMojo {
                         "Rejected dependency-bundle provenance referrer "
                                 + provenanceRef.getDigest(), e);
             }
+        }
+        if (provenanceRefs.isEmpty() && bundle.config().allowsUnsigned()) {
+            return new VerifiedBundle(bundle, BundleProvenance.validateSbom(bundle, sbom));
         }
         throw new GeneralSecurityException(
                 "No dependency-bundle provenance referrer was signed by the trusted signer",

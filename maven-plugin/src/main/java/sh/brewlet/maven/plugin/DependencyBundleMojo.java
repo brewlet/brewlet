@@ -36,7 +36,8 @@ public class DependencyBundleMojo extends AbstractBrewletMojo {
     @Parameter
     private List<Integer> compatibleJdks;
 
-    @Parameter(defaultValue = "${project.build.directory}/brewlet/dependency-bundle-oci")
+    @Parameter(property = "brewlet.dependencyBundleOutputDirectory",
+            defaultValue = "${project.build.directory}/brewlet/dependency-bundle-oci")
     private File dependencyBundleOutputDirectory;
 
     @Parameter(property = "brewlet.allowUnsigned", defaultValue = "false")
@@ -66,6 +67,7 @@ public class DependencyBundleMojo extends AbstractBrewletMojo {
         config.setVersion(project.getVersion());
         config.setSourceBom(sourceBom);
         config.setCompatibleJdks(compatibleJdks);
+        config.setAllowUnsigned(allowUnsigned ? Boolean.TRUE : null);
 
         DependencyBundle.Content bundle;
         BundleProvenance.Materials materials;

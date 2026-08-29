@@ -8,7 +8,7 @@ import java.util.List;
 /** Versioned config blob for an OCI dependency bundle. */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonPropertyOrder({"schemaVersion", "name", "version", "sourceBom", "lockDigest",
-        "layerDigest", "layerDiffId", "compatibleJdks"})
+        "layerDigest", "layerDiffId", "compatibleJdks", "allowUnsigned"})
 public class DependencyBundleConfig {
     private int schemaVersion = 1;
     private String name;
@@ -18,6 +18,7 @@ public class DependencyBundleConfig {
     private String layerDigest;
     private String layerDiffId;
     private List<Integer> compatibleJdks;
+    private Boolean allowUnsigned;
 
     public int getSchemaVersion() { return schemaVersion; }
     public void setSchemaVersion(int schemaVersion) { this.schemaVersion = schemaVersion; }
@@ -35,7 +36,14 @@ public class DependencyBundleConfig {
     public void setLayerDiffId(String layerDiffId) { this.layerDiffId = layerDiffId; }
     public List<Integer> getCompatibleJdks() { return compatibleJdks; }
     public void setCompatibleJdks(List<Integer> compatibleJdks) {
-        this.compatibleJdks = compatibleJdks == null ? null
-                : compatibleJdks.stream().sorted().distinct().toList();
+        this.compatibleJdks = compatibleJdks;
     }
+    public void normalizeCompatibleJdks() {
+        if (compatibleJdks != null) {
+            compatibleJdks = compatibleJdks.stream().sorted().distinct().toList();
+        }
+    }
+    public Boolean getAllowUnsigned() { return allowUnsigned; }
+    public void setAllowUnsigned(Boolean allowUnsigned) { this.allowUnsigned = allowUnsigned; }
+    public boolean allowsUnsigned() { return Boolean.TRUE.equals(allowUnsigned); }
 }

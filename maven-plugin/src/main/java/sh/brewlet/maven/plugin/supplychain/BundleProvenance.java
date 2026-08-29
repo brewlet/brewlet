@@ -29,8 +29,9 @@ public final class BundleProvenance {
                 MediaTypes.OCI_MANIFEST_MEDIA_TYPE, MediaTypes.CYCLONEDX_ARTIFACT_TYPE,
                 MediaTypes.CYCLONEDX_LAYER_MEDIA_TYPE, sbom, null);
         if (signingKey == null) {
-            if (!allowUnsigned) {
-                throw new GeneralSecurityException("A signingKey is required unless allowUnsigned=true");
+            if (!allowUnsigned || !bundle.config().allowsUnsigned()) {
+                throw new GeneralSecurityException(
+                        "A signingKey is required unless the Ops bundle policy allows unsigned provenance");
             }
             return new Materials(sbom, sbomDigest, sbomReferrer, null, null);
         }
@@ -73,6 +74,13 @@ public final class BundleProvenance {
         require(predicate, "sbomDigest", sbomDigest);
         require(predicate, "sourceBom", bundle.config().getSourceBom());
         return sbomDigest;
+    }
+
+    public static String validateSbom(DependencyBundle.Content bundle, byte[] sbom)
+            throws IOException, GeneralSecurityException {
+        CycloneDx.validate(sbom, bundle.lock(), bundle.config().getName(),
+                bundle.config().getVersion());
+        return LocalStore.sha256Hex(sbom);
     }
 
     private static void require(JsonNode predicate, String field, String expected)

@@ -224,9 +224,15 @@ public class LocalStore {
                 || !sha256Hex(manifestBytes).equals(descriptor.getDigest())) {
             throw new IOException("Referrer manifest media type, digest, or size mismatch");
         }
-        OciManifest manifest = MAPPER.readValue(manifestBytes, OciManifest.class);
-        validateReferrerManifest(manifest, descriptor, descriptor.getAnnotations() == null
-                ? null : descriptor.getAnnotations().get(MediaTypes.REFERRER_SUBJECT_ANNOTATION));
+        OciManifest manifest = OciReferrer.parseManifest(manifestBytes);
+        String subjectDigest = descriptor.getAnnotations() == null ? null
+                : descriptor.getAnnotations().get(MediaTypes.REFERRER_SUBJECT_ANNOTATION);
+        OciDescriptor subject = readIndex().getManifests().stream()
+                .filter(candidate -> candidate.getDigest().equals(subjectDigest))
+                .findFirst()
+                .orElseThrow(() -> new IOException(
+                        "Referrer subject is not indexed in the OCI layout"));
+        validateReferrerManifest(manifest, descriptor, subject);
         if (manifest.getLayers() == null || manifest.getLayers().size() != 1) {
             throw new IOException("Referrer must contain exactly one layer");
         }
@@ -245,12 +251,15 @@ public class LocalStore {
     }
 
     private static void validateReferrerManifest(OciManifest manifest, OciDescriptor descriptor,
-                                                  String expectedSubject) throws IOException {
-        if (!descriptor.getArtifactType().equals(manifest.getArtifactType())
+                                                  OciDescriptor expectedSubject) throws IOException {
+        if (manifest.getSchemaVersion() != 2
+                || !MediaTypes.OCI_MANIFEST_MEDIA_TYPE.equals(manifest.getMediaType())
+                || !descriptor.getArtifactType().equals(manifest.getArtifactType())
                 || manifest.getSubject() == null
-                || (expectedSubject != null
-                && !expectedSubject.equals(manifest.getSubject().getDigest()))) {
-            throw new IOException("Referrer artifact type or subject mismatch");
+                || !expectedSubject.getMediaType().equals(manifest.getSubject().getMediaType())
+                || !expectedSubject.getDigest().equals(manifest.getSubject().getDigest())
+                || expectedSubject.getSize() != manifest.getSubject().getSize()) {
+            throw new IOException("Referrer manifest contract or subject mismatch");
         }
         OciDescriptor config = manifest.getConfig();
         if (config == null

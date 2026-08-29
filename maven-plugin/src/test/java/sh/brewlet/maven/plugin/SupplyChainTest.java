@@ -119,6 +119,29 @@ class SupplyChainTest {
     }
 
     @Test
+    void unsignedPublicationRequiresOpsBundlePolicy() throws Exception {
+        DependencyBundle.Content required = bundle();
+        assertThrows(GeneralSecurityException.class,
+                () -> BundleProvenance.create(required, null, null, true));
+
+        DependencyBundleConfig config = new DependencyBundleConfig();
+        config.setName("platform");
+        config.setVersion("1");
+        config.setSourceBom("g:b:1");
+        config.setAllowUnsigned(true);
+        Path jar = temp.resolve("unsigned-library.jar");
+        Files.writeString(jar, "library");
+        DependencyBundle.Content optional = DependencyBundle.build(config, lock(),
+                LayerBuilder.buildBundle(List.of(
+                        new LayerBuilder.Dep("library.jar", jar, false))));
+        BundleProvenance.Materials materials =
+                BundleProvenance.create(optional, null, null, true);
+        assertNull(materials.provenanceReferrer());
+        assertEquals(materials.sbomDigest(),
+                BundleProvenance.validateSbom(optional, materials.sbom()));
+    }
+
+    @Test
     void finalImagePredicateBindsAllManagedInputs() throws Exception {
         Keys keys = keys();
         String image = "sha256:" + "1".repeat(64);

@@ -318,7 +318,8 @@ The config document has this exact field contract:
   "lockDigest": "sha256:<64 lowercase hex characters>",
   "layerDigest": "sha256:<64 lowercase hex characters>",
   "layerDiffId": "sha256:<64 lowercase hex characters>",
-  "compatibleJdks": [21, 25]
+  "compatibleJdks": [21, 25],
+  "allowUnsigned": true
 }
 ```
 
@@ -327,7 +328,11 @@ The config document has this exact field contract:
 integers. Publishers MUST serialize it in ascending order. `lockDigest`
 identifies the lock document,
 `layerDigest` identifies the compressed layer, and `layerDiffId` identifies the
-uncompressed tar stream.
+uncompressed tar stream. `allowUnsigned` is an optional Ops-authored policy and
+defaults to `false`. When `true`, applications MAY consume the bundle without a
+provenance signature, but MUST still validate the bundle, lock, dependency
+layer, and CycloneDX SBOM. Application publication has no flag that can override
+this policy.
 
 The lock document has this exact field contract:
 
@@ -398,14 +403,21 @@ dependency-bundle manifest:
 | SBOM | `application/vnd.cyclonedx+json` | CycloneDX 1.5 document derived from the dependency lock. |
 | Provenance | `application/vnd.brewlet.attestation.v1+json` / `application/vnd.dsse.envelope.v1+json` | Signed DSSE envelope containing an in-toto Statement v1 with predicate type `https://brewlet.sh/attestations/dependency-bundle/v1`. |
 
-Both referrer kinds are required before a version 1 bundle can be consumed in
-managed mode. An explicitly unsigned publication may omit provenance, but it is
-not eligible for managed consumption. CycloneDX is a wire format generated
+The SBOM referrer is always required. Provenance is required before managed
+consumption unless the Ops publisher set `allowUnsigned: true` in the bundle
+config. An unsigned-allowed publication may omit provenance; this is a bundle
+publication policy, not an application-controlled bypass. CycloneDX is a wire format generated
 directly from the lock; Brewlet does not require a CycloneDX service, SDK, or
 runtime library. The SBOM MUST have `bomFormat: CycloneDX`,
 `specVersion: 1.5`, and `version: 1`. Every lock entry MUST have exactly one
 component with matching group, name, version, SHA-256 hash, and Maven package
 URL. Its package URL is:
+
+Because an unsigned artifact cannot cryptographically prove who authored its
+embedded policy, Ops MUST restrict write access to approved bundle repositories
+and admission policy MUST restrict unsigned bundle references to those
+repositories or approved digests. Cluster-side enforcement is defined by the
+separate supply-chain admission work.
 
 ```text
 pkg:maven/<percent-encoded-groupId>/<percent-encoded-artifactId>@<percent-encoded-version>[?type=<percent-encoded-type>[&classifier=<percent-encoded-classifier>]]
@@ -522,11 +534,13 @@ sha256-<subject hex>.<first 12 hex of SHA-256(artifactType UTF-8)>.<first 24 hex
 Consumers MUST validate descriptor media types, sizes, and digests; the complete
 subject binding; empty config; document-layer type; DSSE signature and key ID;
 expected signer identity; statement and predicate types; schema version; and
-every predicate digest. Malformed or untrusted candidates do not invalidate a
+every predicate digest when provenance is required or supplied for verification.
+Malformed or untrusted candidates do not invalidate a
 different fully trusted candidate. Consumption fails closed unless exactly one
-SBOM referrer is discovered and validated, or when no provenance candidate
-satisfies the complete trust contract. No annotation may substitute for signed
-provenance.
+SBOM referrer is discovered and validated. When `allowUnsigned` is absent or
+false, consumption also fails when no provenance candidate satisfies the
+complete trust contract. No application option or annotation may substitute
+for the Ops-authored policy or required signed provenance.
 
 This is a key-based Sigstore/in-toto-compatible signing profile. Fulcio keyless
 identity issuance and Rekor transparency-log inclusion are not required by this

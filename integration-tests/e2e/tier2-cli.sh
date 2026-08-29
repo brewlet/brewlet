@@ -3,12 +3,13 @@
 # Covers: push (OCI artifact, no Dockerfile), inspect, run (java -jar + live curl),
 # bundle (resource->JVM/cgroup mapping in config.json), layered classpath, and
 # modular (JPMS) apps (entry.mode=module + module layer -> java -p ... -m ...).
-# Prereqs: go, java
+# Prereqs: go, java, python3
 
 tier2_cli() {
   section "Tier 2 — local CLI + JVM (push / inspect / run / bundle)"
   if ! have go; then skip "tier2: CLI+JVM" "go not installed"; return 0; fi
   if ! have java; then skip "tier2: CLI+JVM" "java not installed"; return 0; fi
+  if ! have python3; then skip "tier2: CLI+JVM" "python3 not installed"; return 0; fi
 
   local jh
   jh="$(resolve_java_home)"
@@ -187,6 +188,27 @@ tier2_cli() {
   else
     fail "managed: publish approved dependency bundle" "$(printf '%s' "$out" | tail -1)"
   fi
+  if python3 "$E2E_DIR/validate-managed-oci.py" bundle \
+        "$store" "$managed_ref" >"$WORK/t2-managed-wire.log" 2>&1; then
+    pass "managed: bundle satisfies the normative OCI wire contract"
+  else
+    fail "managed: bundle satisfies the normative OCI wire contract" \
+      "see $WORK/t2-managed-wire.log"
+  fi
+  local tamper_target tampered_store
+  for tamper_target in descriptor config lock layer; do
+    tampered_store="$WORK/t2-managed-tampered-$tamper_target"
+    cp -R "$store" "$tampered_store"
+    python3 "$E2E_DIR/tamper-managed-oci.py" \
+      "$tampered_store" "$managed_ref" "$tamper_target"
+    if "$bin" inspect "$managed_ref" --store "$tampered_store" \
+        >"$WORK/t2-managed-tampered-$tamper_target.log" 2>&1; then
+      fail "managed: reject tampered $tamper_target" \
+        "inspection unexpectedly succeeded"
+    else
+      pass "managed: reject tampered $tamper_target"
+    fi
+  done
 
   local managed_jar="$FIXTURES_DIR/managed-dependency-app/target/app.jar"
   if "$bin" push "$managed_jar" "$managed_app1" --store "$store" \
@@ -227,6 +249,52 @@ tier2_cli() {
     fail "managed: inspect verifies signed final-image attestation" \
       "$(printf '%s' "$out" | tail -1)"
   fi
+  if "$bin" inspect "$managed_app1" --store "$store" \
+      --trusted-public-key "$managed_public" \
+      --trusted-signer-identity untrusted-builder \
+      >"$WORK/t2-managed-wrong-identity.log" 2>&1; then
+    fail "managed: reject incorrect attestation identity" \
+      "verification unexpectedly succeeded"
+  else
+    pass "managed: reject incorrect attestation identity"
+  fi
+  if python3 "$E2E_DIR/validate-managed-oci.py" image \
+      "$store" "$managed_app1" >"$WORK/t2-managed-image-wire.log" 2>&1; then
+    pass "managed: final image attestation satisfies the normative wire contract"
+  else
+    fail "managed: final image attestation satisfies the normative wire contract" \
+      "see $WORK/t2-managed-image-wire.log"
+  fi
+
+  local mismatched_lock="$managed_dir/mismatched-lock.json"
+  sed 's/"version":"2026.08"/"version":"2026.09"/' \
+    "$managed_lock" >"$mismatched_lock"
+  if "$bin" push "$managed_jar" demo/mismatched:1 --store "$store" \
+      --dependency-bundle "$managed_ref" --dependency-lock "$mismatched_lock" \
+      --trusted-public-key "$managed_public" --signing-key "$managed_private" \
+      --trusted-signer-identity e2e-builder --builder-identity e2e-builder \
+      --main-class com.example.ManagedApp \
+      >"$WORK/t2-managed-mismatch.log" 2>&1; then
+    fail "managed: reject application graph mismatch" \
+      "publication unexpectedly succeeded"
+  else
+    pass "managed: reject application graph mismatch"
+  fi
+
+  local fat_jar="$managed_dir/fat-app.jar"
+  cp "$managed_jar" "$fat_jar"
+  jar uf "$fat_jar" -C "$managed_dir/lib" approved.jar
+  if "$bin" push "$fat_jar" demo/fat:1 --store "$store" \
+      --dependency-bundle "$managed_ref" --dependency-lock "$managed_lock" \
+      --trusted-public-key "$managed_public" --signing-key "$managed_private" \
+      --trusted-signer-identity e2e-builder --builder-identity e2e-builder \
+      --main-class com.example.ManagedApp \
+      >"$WORK/t2-managed-fat.log" 2>&1; then
+    fail "managed: reject application JAR containing dependencies" \
+      "publication unexpectedly succeeded"
+  else
+    pass "managed: reject application JAR containing dependencies"
+  fi
   if out="$("$bin" run "$managed_app1" --store "$store" 2>&1)"; then
     assert_contains "managed: JVM loads class from approved dependency layer" \
       "$out" "MANAGED DEPENDENCY OK"
@@ -264,6 +332,9 @@ tier2_cli() {
          --store "$FIXTURES_DIR/demo-app/target/brewlet/dependency-bundle-oci" \
          --trusted-public-key "$managed_public" \
          --trusted-signer-identity=platform-builder >>"$registry_log" 2>&1 \
+       && python3 "$E2E_DIR/validate-managed-oci.py" bundle \
+         "$FIXTURES_DIR/demo-app/target/brewlet/dependency-bundle-oci" \
+         "$registry_ref/platform/approved:1" >>"$registry_log" 2>&1 \
        && mvn -q -f "$FIXTURES_DIR/demo-app/pom.xml" \
          -Pmanaged-dependencies package \
          sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:push \
@@ -286,10 +357,35 @@ tier2_cli() {
       assert_contains "managed registry: publishes final-image attestation fallback ref" \
        "$app_tags" "sha256-"
       pass "managed registry: Go verifies Maven bundle signatures"
+      pass "managed registry: Maven bundle satisfies the normative wire contract"
       pass "managed registry: verifies bundle referrers before remote composition"
     else
       fail "managed registry: publish and consume signed referrers" \
        "see $registry_log"
+    fi
+    local unsigned_layout="$WORK/t2-unsigned-bundle"
+    if mvn -q -f "$FIXTURES_DIR/demo-app/pom.xml" \
+        -Pmanaged-dependencies package \
+        sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:dependency-bundle \
+        -Dbrewlet.dependencyBundleImage="$registry_ref/platform/unsigned:1" \
+        -Dbrewlet.dependencyBundleOutputDirectory="$unsigned_layout" \
+        -Dbrewlet.sourceBom=com.example.platform:approved-bom:1 \
+        -Dbrewlet.allowUnsigned=true >>"$registry_log" 2>&1 \
+        && python3 "$E2E_DIR/validate-managed-oci.py" bundle \
+          "$unsigned_layout" "$registry_ref/platform/unsigned:1" \
+          >>"$registry_log" 2>&1 \
+        && mvn -q -f "$FIXTURES_DIR/demo-app/pom.xml" \
+          -Pmanaged-dependencies package \
+          sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:push \
+          -Dbrewlet.image="$registry_ref/apps/unsigned:1" \
+          -Dbrewlet.dependencyBundle="$registry_ref/platform/unsigned:1" \
+          -Dbrewlet.mainClass=com.example.Hello \
+          -Dbrewlet.signingKey="$managed_private" \
+          -Dbrewlet.builderIdentity=application-builder >>"$registry_log" 2>&1; then
+      pass "managed registry: Ops-authorized unsigned bundle is consumable"
+    else
+      fail "managed registry: consume Ops-authorized unsigned bundle" \
+        "see $registry_log"
     fi
     docker rm -f "$registry_id" >/dev/null 2>&1 || true
   else

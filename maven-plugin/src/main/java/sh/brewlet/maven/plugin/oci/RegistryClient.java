@@ -370,8 +370,8 @@ public class RegistryClient {
                         .filter(d -> artifactType.equals(d.getArtifactType()))
                         .forEach(nativeReferrers::add);
             }
-            String link = response.headers().firstValue("Link").orElse(null);
-            next = link == null ? null : next.resolve(linkTarget(link));
+            String link = nextLinkTarget(response.headers().allValues("Link"));
+            next = link == null ? null : resolvePaginationLink(next, link);
             firstPage = false;
         }
         if (!nativeReferrers.isEmpty()) {
@@ -440,28 +440,64 @@ public class RegistryClient {
             if (values.isArray()) {
                 values.forEach(value -> tags.add(value.asText()));
             }
-            String link = response.headers().firstValue("Link").orElse(null);
-            next = link == null ? null : next.resolve(linkTarget(link));
+            String link = nextLinkTarget(response.headers().allValues("Link"));
+            next = link == null ? null : resolvePaginationLink(next, link);
         }
         return List.copyOf(tags);
     }
 
-    private static String linkTarget(String link) throws IOException {
-        int start = link.indexOf('<');
-        int end = link.indexOf('>', start + 1);
-        if (start < 0 || end < 0) {
-            throw new IOException("Registry returned an invalid pagination Link header");
+    private static String nextLinkTarget(List<String> headers) throws IOException {
+        for (String header : headers) {
+            for (String link : header.split("\\s*,\\s*(?=<)")) {
+                int start = link.indexOf('<');
+                int end = link.indexOf('>', start + 1);
+                if (start < 0 || end < 0) {
+                    throw new IOException("Registry returned an invalid pagination Link header");
+                }
+                for (String parameter : link.substring(end + 1).split(";")) {
+                    String[] parts = parameter.trim().split("=", 2);
+                    if (parts.length != 2 || !"rel".equalsIgnoreCase(parts[0].trim())) {
+                        continue;
+                    }
+                    String relations = parts[1].trim().replaceAll("^\"|\"$", "");
+                    for (String relation : relations.split("\\s+")) {
+                        if ("next".equalsIgnoreCase(relation)) {
+                            return link.substring(start + 1, end);
+                        }
+                    }
+                }
+            }
         }
-        return link.substring(start + 1, end);
+        return null;
+    }
+
+    private URI resolvePaginationLink(URI current, String link) throws IOException {
+        URI resolved = current.resolve(link);
+        URI origin = registryUri("/");
+        if (!origin.getScheme().equalsIgnoreCase(resolved.getScheme())
+                || origin.getHost() == null || resolved.getHost() == null
+                || !origin.getHost().equalsIgnoreCase(resolved.getHost())
+                || effectivePort(origin) != effectivePort(resolved)) {
+            throw new IOException("Registry pagination Link points to a different origin");
+        }
+        return resolved;
+    }
+
+    private static int effectivePort(URI uri) {
+        if (uri.getPort() >= 0) {
+            return uri.getPort();
+        }
+        return "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
     }
 
     /** Pulls the verified, single document layer from a referrer descriptor. */
     public byte[] pullReferrerDocument(OciDescriptor descriptor)
             throws IOException, InterruptedException {
-        return pullReferrerDocument(descriptor, null);
+        return pullReferrerDocument(descriptor, null, -1);
     }
 
-    public byte[] pullReferrerDocument(OciDescriptor descriptor, String expectedSubject)
+    public byte[] pullReferrerDocument(OciDescriptor descriptor, String expectedSubject,
+                                       long expectedSubjectSize)
             throws IOException, InterruptedException {
         byte[] manifestBytes = get("/v2/" + repository + "/manifests/"
                 + descriptor.getDigest(), MediaTypes.OCI_MANIFEST_MEDIA_TYPE);
@@ -470,12 +506,17 @@ public class RegistryClient {
                 || !LocalStore.sha256Hex(manifestBytes).equals(descriptor.getDigest())) {
             throw new IOException("Referrer manifest media type, digest, or size mismatch");
         }
-        OciManifest manifest = MAPPER.readValue(manifestBytes, OciManifest.class);
-        if (!descriptor.getArtifactType().equals(manifest.getArtifactType())
+        OciManifest manifest = OciReferrer.parseManifest(manifestBytes);
+        if (manifest.getSchemaVersion() != 2
+                || !MediaTypes.OCI_MANIFEST_MEDIA_TYPE.equals(manifest.getMediaType())
+                || !descriptor.getArtifactType().equals(manifest.getArtifactType())
                 || manifest.getSubject() == null
                 || (expectedSubject != null
-                && !expectedSubject.equals(manifest.getSubject().getDigest()))) {
-            throw new IOException("Referrer artifact type or subject mismatch");
+                && (!expectedSubject.equals(manifest.getSubject().getDigest())
+                || !MediaTypes.OCI_MANIFEST_MEDIA_TYPE.equals(
+                        manifest.getSubject().getMediaType())
+                || expectedSubjectSize != manifest.getSubject().getSize()))) {
+            throw new IOException("Referrer manifest contract or subject mismatch");
         }
         OciDescriptor config = manifest.getConfig();
         if (config == null

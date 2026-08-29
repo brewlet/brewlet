@@ -4,10 +4,15 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"encoding/json"
+	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDependencyBundleRoundTripAndRunnableReuse(t *testing.T) {
@@ -116,11 +121,84 @@ func TestPushDependencyBundleRejectsDuplicateLayerEntry(t *testing.T) {
 			Type: "jar", Scope: "runtime", FileName: "dependency.jar", SHA256: hexDigest(content),
 		}},
 	}
+
 	_, err := (Store{Root: filepath.Join(dir, "oci")}).PushDependencyBundle("bundle:test", DependencyBundleConfig{
 		Name: "test", Version: "1", SourceBOM: "com.example:test-bom:1",
 	}, lock, layerPath)
 	if err == nil {
 		t.Fatal("expected duplicate layer entry rejection")
+	}
+}
+
+func TestCanonicalDependencyTarNormalizesMetadataAndOrder(t *testing.T) {
+	first := []byte("first")
+	second := []byte("second")
+	lock := DependencyLock{SchemaVersion: 1, Artifacts: []DependencyLockEntry{
+		{
+			GroupID: "com.example", ArtifactID: "second", Version: "1",
+			Type: "jar", Scope: "runtime", FileName: "b.jar", SHA256: hexDigest(second),
+		},
+		{
+			GroupID: "com.example", ArtifactID: "first", Version: "1",
+			Type: "jar", Scope: "runtime", FileName: "a.jar", SHA256: hexDigest(first),
+		},
+	}}
+	source := func(files []tarFile, mode int64, modTime time.Time) []byte {
+		t.Helper()
+		var buf bytes.Buffer
+		writer := tar.NewWriter(&buf)
+		for _, file := range files {
+			header := &tar.Header{
+				Name: file.name, Mode: mode, Size: int64(len(file.content)),
+				Uid: 501, Gid: 20, ModTime: modTime, Typeflag: tar.TypeReg,
+			}
+			if err := writer.WriteHeader(header); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := writer.Write(file.content); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := writer.Close(); err != nil {
+			t.Fatal(err)
+		}
+		return buf.Bytes()
+	}
+
+	left, err := canonicalDependencyTar(source([]tarFile{
+		{name: "b.jar", content: second}, {name: "a.jar", content: first},
+	}, 0o755, time.Now()), lock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	right, err := canonicalDependencyTar(source([]tarFile{
+		{name: "a.jar", content: first}, {name: "b.jar", content: second},
+	}, 0o600, time.Unix(123456, 0)), lock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(left, right) {
+		t.Fatal("canonical tar depends on source ordering or metadata")
+	}
+
+	reader := tar.NewReader(bytes.NewReader(left))
+	var names []string
+	for {
+		header, err := reader.Next()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			t.Fatal(err)
+		}
+		names = append(names, header.Name)
+		if header.Mode != 0o644 || header.Uid != 0 || header.Gid != 0 ||
+			!header.ModTime.Equal(time.Unix(0, 0)) || header.Format != tar.FormatUSTAR {
+			t.Fatalf("non-canonical tar header: %+v", header)
+		}
+	}
+	if !reflect.DeepEqual(names, []string{"a.jar", "b.jar"}) {
+		t.Fatalf("entry order = %v", names)
 	}
 }
 
@@ -157,6 +235,81 @@ func TestResolveDependencyBundleRejectsTamperedBlob(t *testing.T) {
 	}
 	if _, err := store.ResolveDependencyBundle("bundle:test"); err == nil {
 		t.Fatal("expected tampered blob rejection")
+	}
+}
+
+func TestResolveDependencyBundleRejectsNonContractManifest(t *testing.T) {
+	tests := map[string]func(map[string]any){
+		"unknown field": func(manifest map[string]any) {
+			manifest["unexpected"] = true
+		},
+		"schema version": func(manifest map[string]any) {
+			manifest["schemaVersion"] = float64(3)
+		},
+		"media type": func(manifest map[string]any) {
+			manifest["mediaType"] = "application/json"
+		},
+	}
+	for name, mutate := range tests {
+		t.Run(name, func(t *testing.T) {
+			dir := t.TempDir()
+			layerPath := filepath.Join(dir, "deps.tar")
+			content := []byte("dependency")
+			writeOrderedTar(t, layerPath, []tarFile{{name: "dependency.jar", content: content}})
+			lock := DependencyLock{SchemaVersion: 1, Artifacts: []DependencyLockEntry{{
+				GroupID: "com.example", ArtifactID: "dependency", Version: "1",
+				Type: "jar", Scope: "runtime", FileName: "dependency.jar", SHA256: hexDigest(content),
+			}}}
+			store := Store{Root: filepath.Join(dir, "oci")}
+			if _, err := store.PushDependencyBundle("bundle:test", DependencyBundleConfig{
+				Name: "test", Version: "1", SourceBOM: "com.example:test-bom:1",
+			}, lock, layerPath); err != nil {
+				t.Fatal(err)
+			}
+			subject, err := store.DescriptorByRef("bundle:test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw, err := store.ReadBlob(subject.Digest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var manifest map[string]any
+			if err := json.Unmarshal(raw, &manifest); err != nil {
+				t.Fatal(err)
+			}
+			mutate(manifest)
+			raw, err = json.Marshal(manifest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			replacement, err := store.writeBlob(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			replacement.MediaType = subject.MediaType
+			replacement.ArtifactType = subject.ArtifactType
+			replacement.Annotations = subject.Annotations
+			index, err := store.readIndex()
+			if err != nil {
+				t.Fatal(err)
+			}
+			for i := range index.Manifests {
+				if index.Manifests[i].Digest == subject.Digest {
+					index.Manifests[i] = replacement
+				}
+			}
+			indexRaw, err := json.Marshal(index)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(store.indexPath(), indexRaw, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := store.ResolveDependencyBundle("bundle:test"); err == nil {
+				t.Fatal("expected non-contract manifest rejection")
+			}
+		})
 	}
 }
 

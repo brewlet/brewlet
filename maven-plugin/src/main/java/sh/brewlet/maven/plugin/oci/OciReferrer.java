@@ -2,12 +2,20 @@ package sh.brewlet.maven.plugin.oci;
 
 import sh.brewlet.maven.plugin.supplychain.CanonicalJson;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.MapperFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
 /** Builds a single-layer OCI 1.1 referrer manifest. */
 public final class OciReferrer {
+    private static final ObjectMapper STRICT = JsonMapper.builder()
+            .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
+            .build();
     private static final byte[] EMPTY_CONFIG = "{}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
 
     private OciReferrer() {}
@@ -35,6 +43,17 @@ public final class OciReferrer {
 
     public static byte[] emptyConfig() {
         return EMPTY_CONFIG.clone();
+    }
+
+    static OciManifest parseManifest(byte[] bytes) throws IOException {
+        JsonNode value = STRICT.readTree(bytes);
+        for (String field : List.of(
+                "schemaVersion", "mediaType", "artifactType", "subject", "config", "layers")) {
+            if (!value.hasNonNull(field)) {
+                throw new IOException("Referrer manifest is missing required field " + field);
+            }
+        }
+        return STRICT.treeToValue(value, OciManifest.class);
     }
 
     private static OciDescriptor descriptor(String mediaType, byte[] bytes) {

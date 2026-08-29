@@ -26,6 +26,7 @@ import java.util.zip.GZIPOutputStream;
 public final class DependencyBundle {
     private static final ObjectMapper CANONICAL = JsonMapper.builder()
             .enable(MapperFeature.SORT_PROPERTIES_ALPHABETICALLY)
+            .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
             .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
             .build();
 
@@ -43,6 +44,7 @@ public final class DependencyBundle {
 
     public static Content build(DependencyBundleConfig config, DependencyLock lock,
                                 ArtifactLayer layer) throws IOException {
+        config.normalizeCompatibleJdks();
         validateConfig(config, false);
         validateLock(lock);
         validateLayer(layer.tar(), lock);
@@ -73,7 +75,16 @@ public final class DependencyBundle {
     }
 
     public static Content parse(byte[] manifestBytes, BlobSource blobs) throws IOException {
+        requireFields(CANONICAL.readTree(manifestBytes), "dependency bundle manifest",
+                "schemaVersion", "mediaType", "artifactType", "config", "layers");
         OciManifest manifest = CANONICAL.readValue(manifestBytes, OciManifest.class);
+        if (manifest.getSchemaVersion() != 2
+                || !MediaTypes.OCI_MANIFEST_MEDIA_TYPE.equals(manifest.getMediaType())) {
+            throw new IOException("Dependency bundle must use OCI image manifest schema version 2");
+        }
+        if (manifest.getSubject() != null || manifest.getAnnotations() != null) {
+            throw new IOException("Dependency bundle manifest contains non-contract fields");
+        }
         if (!MediaTypes.DEPENDENCY_BUNDLE_ARTIFACT_TYPE.equals(manifest.getArtifactType())) {
             throw new IOException("Expected dependency bundle artifactType "
                     + MediaTypes.DEPENDENCY_BUNDLE_ARTIFACT_TYPE + " but found "
@@ -102,6 +113,11 @@ public final class DependencyBundle {
         byte[] lockBytes = verifiedBlob(blobs, lockDesc);
         byte[] compressedLayer = verifiedBlob(blobs, layerDesc);
         byte[] uncompressedLayer = gunzip(compressedLayer);
+        requireFields(CANONICAL.readTree(configBytes), "dependency bundle config",
+                "schemaVersion", "name", "version", "sourceBom", "lockDigest",
+                "layerDigest", "layerDiffId");
+        requireFields(CANONICAL.readTree(lockBytes), "dependency lock",
+                "schemaVersion", "artifacts");
         DependencyBundleConfig config = CANONICAL.readValue(configBytes, DependencyBundleConfig.class);
         DependencyLock lock = CANONICAL.readValue(lockBytes, DependencyLock.class);
         validateConfig(config, true);
@@ -137,9 +153,27 @@ public final class DependencyBundle {
                     + bundles.size());
         }
         OciDescriptor descriptor = bundles.get(0);
+        if (!MediaTypes.OCI_MANIFEST_MEDIA_TYPE.equals(descriptor.getMediaType())) {
+            throw new IOException("Dependency bundle index descriptor has invalid media type");
+        }
         byte[] manifest = readLayoutBlob(root, descriptor.getDigest());
+        if (manifest.length != descriptor.getSize()) {
+            throw new IOException("Dependency bundle index descriptor size mismatch");
+        }
         verifyDigest(manifest, descriptor.getDigest(), "manifest");
         return parse(manifest, digest -> readLayoutBlob(root, digest));
+    }
+
+    private static void requireFields(com.fasterxml.jackson.databind.JsonNode value,
+                                      String document, String... fields) throws IOException {
+        if (!value.isObject()) {
+            throw new IOException(document + " must be a JSON object");
+        }
+        for (String field : fields) {
+            if (!value.hasNonNull(field)) {
+                throw new IOException(document + " is missing required field " + field);
+            }
+        }
     }
 
     public static void verifyGraph(DependencyLock expected, DependencyLock actual) throws IOException {
@@ -213,6 +247,12 @@ public final class DependencyBundle {
         if (config.getCompatibleJdks() != null
                 && config.getCompatibleJdks().stream().anyMatch(jdk -> jdk == null || jdk < 1)) {
             throw new IOException("compatibleJdks must contain positive feature versions");
+        }
+        if (config.getCompatibleJdks() != null) {
+            List<Integer> canonical = config.getCompatibleJdks().stream().sorted().distinct().toList();
+            if (!canonical.equals(config.getCompatibleJdks())) {
+                throw new IOException("compatibleJdks must be unique and sorted");
+            }
         }
     }
 

@@ -2,6 +2,7 @@ package sh.brewlet.maven.plugin;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -137,6 +138,113 @@ class DependencyBundleTest {
         IOException error = assertThrows(IOException.class,
                 () -> DependencyBundle.loadLayout(temp.resolve("tampered")));
         assertTrue(error.getMessage().contains("SHA-256 mismatch"));
+    }
+
+    @Test
+    void parsingRejectsNonContractManifest() throws IOException {
+        Path dependency = temp.resolve("a.jar");
+        Files.writeString(dependency, "a");
+        DependencyBundle.Content content = DependencyBundle.build(config(), lock("a"),
+                LayerBuilder.buildBundle(List.of(
+                        new LayerBuilder.Dep("a.jar", dependency, false))));
+
+        ObjectNode wrongVersion = (ObjectNode) MAPPER.readTree(content.manifestBytes());
+        wrongVersion.put("schemaVersion", 3);
+        assertThrows(IOException.class, () -> DependencyBundle.parse(
+                MAPPER.writeValueAsBytes(wrongVersion), digest -> new byte[0]));
+
+        ObjectNode missingVersion = (ObjectNode) MAPPER.readTree(content.manifestBytes());
+        missingVersion.remove("schemaVersion");
+        assertThrows(IOException.class, () -> DependencyBundle.parse(
+                MAPPER.writeValueAsBytes(missingVersion), digest -> new byte[0]));
+
+        ObjectNode wrongMediaType = (ObjectNode) MAPPER.readTree(content.manifestBytes());
+        wrongMediaType.put("mediaType", "application/json");
+        assertThrows(IOException.class, () -> DependencyBundle.parse(
+                MAPPER.writeValueAsBytes(wrongMediaType), digest -> new byte[0]));
+
+        ObjectNode missingMediaType = (ObjectNode) MAPPER.readTree(content.manifestBytes());
+        missingMediaType.remove("mediaType");
+        assertThrows(IOException.class, () -> DependencyBundle.parse(
+                MAPPER.writeValueAsBytes(missingMediaType), digest -> new byte[0]));
+
+        ObjectNode unknownField = (ObjectNode) MAPPER.readTree(content.manifestBytes());
+        unknownField.put("unexpected", true);
+        assertThrows(IOException.class, () -> DependencyBundle.parse(
+                MAPPER.writeValueAsBytes(unknownField), digest -> new byte[0]));
+
+        ObjectNode subject = (ObjectNode) MAPPER.readTree(content.manifestBytes());
+        subject.putObject("subject")
+                .put("mediaType", MediaTypes.OCI_MANIFEST_MEDIA_TYPE)
+                .put("digest", "sha256:" + "a".repeat(64))
+                .put("size", 1);
+        assertThrows(IOException.class, () -> DependencyBundle.parse(
+                MAPPER.writeValueAsBytes(subject), digest -> new byte[0]));
+
+        ObjectNode annotations = (ObjectNode) MAPPER.readTree(content.manifestBytes());
+        annotations.putObject("annotations").put("example", "value");
+        assertThrows(IOException.class, () -> DependencyBundle.parse(
+                MAPPER.writeValueAsBytes(annotations), digest -> new byte[0]));
+    }
+
+    @Test
+    void parsingRejectsDuplicateCompatibleJdks() throws IOException {
+        Path dependency = temp.resolve("a.jar");
+        Files.writeString(dependency, "a");
+        DependencyBundle.Content content = DependencyBundle.build(config(), lock("a"),
+                LayerBuilder.buildBundle(List.of(
+                        new LayerBuilder.Dep("a.jar", dependency, false))));
+        ObjectNode config = (ObjectNode) MAPPER.readTree(content.configBytes());
+        config.putArray("compatibleJdks").add(21).add(21);
+        byte[] configBytes = MAPPER.writeValueAsBytes(config);
+        String configDigest = LocalStore.sha256Hex(configBytes);
+
+        ObjectNode manifest = (ObjectNode) MAPPER.readTree(content.manifestBytes());
+        ((ObjectNode) manifest.path("config"))
+                .put("digest", configDigest)
+                .put("size", configBytes.length);
+        byte[] manifestBytes = MAPPER.writeValueAsBytes(manifest);
+
+        assertThrows(IOException.class, () -> DependencyBundle.parse(manifestBytes, digest -> {
+            if (digest.equals(configDigest)) {
+                return configBytes;
+            }
+            if (digest.equals(content.config().getLockDigest())) {
+                return content.lockBytes();
+            }
+            if (digest.equals(content.config().getLayerDigest())) {
+                return content.compressedLayer();
+            }
+            throw new IOException("unexpected digest " + digest);
+        }));
+    }
+
+    @Test
+    void parsingRejectsStringUnsignedPolicy() throws IOException {
+        Path dependency = temp.resolve("a.jar");
+        Files.writeString(dependency, "a");
+        DependencyBundle.Content content = DependencyBundle.build(config(), lock("a"),
+                LayerBuilder.buildBundle(List.of(
+                        new LayerBuilder.Dep("a.jar", dependency, false))));
+        ObjectNode config = (ObjectNode) MAPPER.readTree(content.configBytes());
+        config.put("allowUnsigned", "true");
+        byte[] configBytes = MAPPER.writeValueAsBytes(config);
+        String configDigest = LocalStore.sha256Hex(configBytes);
+        ObjectNode manifest = (ObjectNode) MAPPER.readTree(content.manifestBytes());
+        ((ObjectNode) manifest.path("config"))
+                .put("digest", configDigest)
+                .put("size", configBytes.length);
+
+        assertThrows(IOException.class, () -> DependencyBundle.parse(
+                MAPPER.writeValueAsBytes(manifest), digest -> {
+                    if (digest.equals(configDigest)) {
+                        return configBytes;
+                    }
+                    if (digest.equals(content.config().getLockDigest())) {
+                        return content.lockBytes();
+                    }
+                    return content.compressedLayer();
+                }));
     }
 
     @Test

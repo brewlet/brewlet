@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 )
 
 const (
@@ -34,6 +35,7 @@ type DependencyBundleConfig struct {
 	LayerDigest    string `json:"layerDigest"`
 	LayerDiffID    string `json:"layerDiffId"`
 	CompatibleJDKs []int  `json:"compatibleJdks,omitempty"`
+	AllowUnsigned  bool   `json:"allowUnsigned,omitempty"`
 }
 
 // DependencyLock is the canonical inventory used to compare an application's
@@ -200,11 +202,16 @@ func (s Store) PushDependencyBundle(ref string, cfg DependencyBundleConfig, lock
 	if err := validateDependencyTar(tarBytes, lock); err != nil {
 		return Descriptor{}, err
 	}
+	tarBytes, err = canonicalDependencyTar(tarBytes, lock)
+	if err != nil {
+		return Descriptor{}, err
+	}
 
 	lockBytes, err := json.MarshalIndent(lock, "", "  ")
 	if err != nil {
 		return Descriptor{}, err
 	}
+
 	lockDesc, err := s.writeBlob(lockBytes)
 	if err != nil {
 		return Descriptor{}, err
@@ -270,10 +277,71 @@ func (s Store) PushDependencyBundle(ref string, cfg DependencyBundleConfig, lock
 	return desc, nil
 }
 
+func canonicalDependencyTar(raw []byte, lock DependencyLock) ([]byte, error) {
+	contents := make(map[string][]byte, len(lock.Artifacts))
+	tr := tar.NewReader(bytes.NewReader(raw))
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("read dependency classpath tar: %w", err)
+		}
+		content, err := io.ReadAll(tr)
+		if err != nil {
+			return nil, fmt.Errorf("read dependency %q: %w", header.Name, err)
+		}
+		contents[header.Name] = content
+	}
+	var output bytes.Buffer
+	tw := tar.NewWriter(&output)
+	entries := append([]DependencyLockEntry(nil), lock.Artifacts...)
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].FileName < entries[j].FileName
+	})
+	for _, entry := range entries {
+		content := contents[entry.FileName]
+		if err := tw.WriteHeader(&tar.Header{
+			Name: entry.FileName, Mode: 0o644, Size: int64(len(content)),
+			ModTime: time.Unix(0, 0), Typeflag: tar.TypeReg, Format: tar.FormatUSTAR,
+		}); err != nil {
+			return nil, fmt.Errorf("write dependency %q header: %w", entry.FileName, err)
+		}
+		if _, err := tw.Write(content); err != nil {
+			return nil, fmt.Errorf("write dependency %q: %w", entry.FileName, err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		return nil, fmt.Errorf("close canonical dependency tar: %w", err)
+	}
+	return output.Bytes(), nil
+}
+
 func (s Store) ResolveDependencyBundle(ref string) (ResolvedDependencyBundle, error) {
-	manifest, digest, err := s.ResolveManifestByRef(ref)
+	subject, err := s.DescriptorByRef(ref)
 	if err != nil {
 		return ResolvedDependencyBundle{}, err
+	}
+	if subject.MediaType != ociManifestMediaType {
+		return ResolvedDependencyBundle{}, fmt.Errorf("dependency bundle descriptor mediaType=%q, want %q", subject.MediaType, ociManifestMediaType)
+	}
+	manifestRaw, err := s.readVerifiedBlob(subject)
+	if err != nil {
+		return ResolvedDependencyBundle{}, err
+	}
+	var manifest struct {
+		SchemaVersion int          `json:"schemaVersion"`
+		MediaType     string       `json:"mediaType"`
+		ArtifactType  string       `json:"artifactType"`
+		Config        Descriptor   `json:"config"`
+		Layers        []Descriptor `json:"layers"`
+	}
+	if err := decodeStrict(manifestRaw, &manifest); err != nil {
+		return ResolvedDependencyBundle{}, fmt.Errorf("decode dependency bundle manifest: %w", err)
+	}
+	if manifest.SchemaVersion != 2 || manifest.MediaType != ociManifestMediaType {
+		return ResolvedDependencyBundle{}, fmt.Errorf("invalid dependency bundle manifest schemaVersion or mediaType")
 	}
 	if manifest.ArtifactType != DependencyBundleArtifactType {
 		return ResolvedDependencyBundle{}, fmt.Errorf("ref %q is not a Brewlet dependency bundle (artifactType=%q)", ref, manifest.ArtifactType)
@@ -298,7 +366,7 @@ func (s Store) ResolveDependencyBundle(ref string) (ResolvedDependencyBundle, er
 			locks = append(locks, layer)
 		}
 	}
-	if len(layers) != 1 || len(locks) != 1 {
+	if len(manifest.Layers) != 2 || len(layers) != 1 || len(locks) != 1 {
 		return ResolvedDependencyBundle{}, fmt.Errorf("dependency bundle requires exactly one classpath layer and one dependency lock (got %d and %d)", len(layers), len(locks))
 	}
 	if cfg.LayerDigest != layers[0].Digest || cfg.LockDigest != locks[0].Digest {
@@ -335,7 +403,7 @@ func (s Store) ResolveDependencyBundle(ref string) (ResolvedDependencyBundle, er
 	if err := validateDependencyTar(layerTar, lock); err != nil {
 		return ResolvedDependencyBundle{}, err
 	}
-	return ResolvedDependencyBundle{ManifestDigest: digest, Config: cfg, Lock: lock, Layer: layers[0]}, nil
+	return ResolvedDependencyBundle{ManifestDigest: subject.Digest, Config: cfg, Lock: lock, Layer: layers[0]}, nil
 }
 
 func (s Store) readVerifiedBlob(desc Descriptor) ([]byte, error) {
