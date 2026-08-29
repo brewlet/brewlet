@@ -136,6 +136,22 @@ class JarInspectorTest {
         assertEquals(1, scan.unrecognized().size());
     }
 
+    @Test
+    void embeddedJarsDetectFatJarAndWarLayouts() throws IOException {
+        File jar = createJarWithEntries(
+                "BOOT-INF/lib/spring.jar", "WEB-INF/lib/servlet.jar", "lib/other.jar",
+                "com/acme/App.class");
+        assertEquals(java.util.List.of(
+                        "BOOT-INF/lib/spring.jar", "WEB-INF/lib/servlet.jar", "lib/other.jar"),
+                JarInspector.embeddedJars(jar));
+    }
+
+    @Test
+    void embeddedJarsAcceptThinJar() throws IOException {
+        assertTrue(JarInspector.embeddedJars(
+                createJarWithEntries("com/acme/App.class")).isEmpty());
+    }
+
     // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------

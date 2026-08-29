@@ -32,6 +32,8 @@ class LayerBuilderTest {
     void emptyDepsProduceNoLayers() throws IOException {
         assertTrue(LayerBuilder.build(List.of(), true).isEmpty());
         assertTrue(LayerBuilder.build(null, true).isEmpty());
+        assertNotNull(LayerBuilder.buildBundle(List.of()).tar(),
+                "a dependency bundle always has a classpath layer");
     }
 
     @Test

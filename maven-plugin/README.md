@@ -90,6 +90,7 @@ descriptor as part of the normal lifecycle.
 | `brewlet:build` | — | Assemble the OCI artifact into a local **OCI image-layout** dir (`target/brewlet/oci`) without pushing. Good for inspection, air-gapped flows, or local-registry tests. |
 | `brewlet:push` | `deploy` | Build and push to the registry in `<image>`. By default (`image` format) this pushes a **runnable OCI image** — a standard, kubelet-pullable image (see [Delivery format](#delivery-format-native-artifact-vs-runnable-image)). With `-Dbrewlet.format=artifact` it pushes the native Brewlet artifact instead (JAR layer + launch-config blob + manifest with `artifactType: application/vnd.brewlet.app.v1+json`). |
 | `brewlet:appcds` | — | Generate a dynamic AppCDS archive (`target/brewlet/app.jsa`) with a self-terminating fat-JAR training run. Attach it later with `-Dbrewlet.cdsArchive=...`. |
+| `brewlet:dependency-bundle` | `package` | Resolve the runtime dependency closure, create a canonical lock and deterministic flat classpath tar, write `target/brewlet/dependency-bundle-oci`, and publish an OCI dependency bundle. |
 | `brewlet:manifest` | — | Emit a `JavaApplication` CR (or raw `Deployment`) YAML compatible with the [Brewlet Kubernetes components](../kubernetes) to `target/brewlet/` for `kubectl apply`, including `spec.jvm.version` / `spec.jvm.launcher`. |
 | `brewlet:inspect` | — | Print the fully-resolved launch config and OCI descriptor that *would* be pushed — a dry run to verify inference. |
 
@@ -116,6 +117,12 @@ property. Values configured in `<configuration>` and CLI properties can be mixed
 | `dryRun` | `brewlet.dryRun` | `false` | Generate + display the config but do not push. |
 | `layered` | `brewlet.layered` | `false` | **Layered deployment.** Ship a thin app JAR plus the resolved (transitive) POM dependency tree packed into reproducible OCI layers, instead of one opaque JAR. In `classpath` mode this produces `classpath.layer.v1+tar` layers unpacked to `/app/lib` and sets `entry.classPath=[mainJar, "lib/*"]`. In `module` mode the dependency modules are packed into a single `modulepath.layer.v1+tar` layer unpacked to `/app/mods` and `entry.modulePath=[mainJar, "mods"]` is set, so the app launches with `java -p /app/<jar>:/app/mods -m ...`. When the mode is not modular, `layered` forces `entry.mode=classpath`. Unchanged dependency layers dedup by digest across rebuilds/apps. See [layered class-path deployment](https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md). |
 | `splitSnapshotLayers` | `brewlet.splitSnapshotLayers` | `true` | When `layered`, pack released deps and `-SNAPSHOT` deps into separate `deps` / `snapshot-deps` layers (stable→volatile) for finer dedup. |
+| `dependencyBundle` | `brewlet.dependencyBundle` | — | For `push`, a registry reference or local OCI-layout directory containing a managed dependency bundle. The resolved runtime graph must exactly match its lock. Forces thin-JAR classpath launch and requires `mainClass`. |
+| `signingKey` | `brewlet.signingKey` | — | Optional PKCS#8 PEM ECDSA P-256 private key. When present, bundle or final-image provenance is published and must be paired with the corresponding identity. |
+| `trustedPublicKey` | `brewlet.trustedPublicKey` | — | SubjectPublicKeyInfo PEM ECDSA P-256 public key trusted to verify a managed bundle. Required when the selected bundle has provenance. |
+| `signerIdentity` | `brewlet.signerIdentity` | — | Bundle-publisher identity used only by `dependency-bundle`; required when that goal uses `signingKey`. |
+| `trustedSignerIdentity` | `brewlet.trustedSignerIdentity` | — | Expected identity in signed bundle provenance. Required when the selected bundle has provenance. |
+| `builderIdentity` | `brewlet.builderIdentity` | — | Application publisher identity asserted in optional final-image provenance. Required with `signingKey` when pushing a managed application. |
 | `cdsArchive` | `brewlet.cdsArchive` | — | Optional prebuilt AppCDS `.jsa` archive to append as a `application/vnd.brewlet.cds.layer.v1+jsa` layer after dependency layers. The archive basename becomes `cds.archive`, is mounted at `/app/<name>`, and launches with `-Xshare:auto -XX:SharedArchiveFile=/app/<name>` as best-effort acceleration. See [AppCDS §4.1](https://github.com/brewlet/site/blob/main/docs/appcds.md#41-build-time-archive-layer-recommended-primary). |
 
 ### Descriptor JDK / launcher requests
@@ -143,6 +150,86 @@ descriptor. They are **not** serialized into `target/brewlet/jvm-config.json`.
 
 Framework auto-detection is still used for port inference, but framework labels are
 not written into the artifact.
+
+---
+
+## Managed dependency bundles
+
+Publish a reusable bundle from a Maven project:
+
+```bash
+mvn package brewlet:dependency-bundle \
+  -Dbrewlet.dependencyBundleImage=registry.example.com/team/java-platform:1 \
+  -Dbrewlet.sourceBom=com.acme:platform-bom:1 \
+  -Dbrewlet.signingKey=builder-private.pem \
+  -Dbrewlet.signerIdentity=https://ci.example.com/builders/platform
+```
+
+`sourceBom` is required and must be `G:A:V`. `compatibleJdks` can be configured
+as an integer list. The goal always writes a local OCI layout
+to `target/brewlet/dependency-bundle-oci`; `-Dbrewlet.dryRun=true` skips registry
+publication.
+
+The bundle layout and registry repository always receive a CycloneDX 1.5 SBOM
+referrer. Supplying `signingKey` and `signerIdentity` additionally publishes a
+DSSE-signed in-toto bundle-provenance referrer; omitting both publishes an
+unsigned bundle.
+
+The artifact uses:
+
+- artifact type `application/vnd.brewlet.dependencies.v1+json`
+- config `application/vnd.brewlet.dependencies.config.v1+json`
+- dependency lock `application/vnd.brewlet.dependencies.lock.v1+json`
+- reusable classpath layer `application/vnd.oci.image.layer.v1.tar+gzip` with
+  `brewlet.sh/layer=classpath`
+
+Consume it while publishing an application:
+
+```bash
+mvn package brewlet:push \
+  -Dbrewlet.image=registry.example.com/team/orders:1 \
+  -Dbrewlet.dependencyBundle=registry.example.com/team/java-platform:1 \
+  -Dbrewlet.mainClass=com.acme.orders.Main \
+  -Dbrewlet.signingKey=app-private.pem \
+  -Dbrewlet.trustedPublicKey=builder-public.pem \
+  -Dbrewlet.trustedSignerIdentity=https://ci.example.com/builders/platform \
+  -Dbrewlet.builderIdentity=https://ci.example.com/builders/apps
+```
+
+`dependencyBundle` may instead name the local OCI-layout directory. The plugin
+verifies artifact/config/lock/layer media types, all descriptor sizes and
+SHA-256 digests, and exact GAV/type/classifier/scope/filename/file-hash agreement
+with the current resolved runtime graph. It always requires and validates the
+SBOM. When bundle provenance exists, it requires trust credentials and verifies
+the subject, predicate, identity, and all digest bindings; invalid provenance
+never falls back to unsigned treatment or project-built
+layers after a bundle error. Managed mode rejects every application JAR with an
+embedded `.jar` (including `BOOT-INF/lib` and `WEB-INF/lib`), forces
+`entry.mode=classpath`, and composes the verified bundle layer into a runnable
+image.
+
+Dependency scope is part of the version 1 lock contract and comparison. A
+`compile`/`runtime` scope difference is rejected even when the artifact bytes are
+identical; publish the bundle from the same runtime dependency model used by the
+applications.
+
+The bundle config records both `layerDigest` (the compressed blob digest) and
+`layerDiffId` (the uncompressed tar digest). Runnable images reuse the standard gzip
+blob and descriptor unchanged and append that exact `diffId` to
+`rootfs.diff_ids`, enabling registry deduplication and cross-repository mounting.
+The custom `application/vnd.brewlet.classpath.layer.v1+tar` media type remains
+only for native/legacy Brewlet artifacts because container runtimes cannot
+unpack it as a runnable image layer.
+
+When `signingKey` and `builderIdentity` are supplied, the final image index
+receives a signed DSSE managed-dependency attestation. Otherwise the application
+image is published unsigned.
+It also carries
+canonical `brewlet.sh/managed-dependency-evidence` JSON: schema version,
+thin-JAR verdict, application JAR digest, bundle/layer/lock/SBOM digests, source
+BOM, and builder identity. The annotation remains informational and makes no
+claim about signature status;
+the OCI referrer is the cryptographic evidence.
 
 ---
 

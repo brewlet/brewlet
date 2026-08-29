@@ -18,6 +18,7 @@ The harness does not switch branches or modify component sources. It uses
 | Tool | Tiers |
 |---|---|
 | Go | all |
+| Python 3 | 2, 12 |
 | JDK 21+ | 2, 3, 7, 8, 9, 12, 14 |
 | Docker | 3, 6, 7, 8-12, 14 |
 | kubectl and a reachable cluster | 4-14 |

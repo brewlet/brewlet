@@ -37,6 +37,39 @@ public final class MediaTypes {
     public static final String CLASSPATH_LAYER_MEDIA_TYPE =
             "application/vnd.brewlet.classpath.layer.v1+tar";
 
+    /** OCI artifact type for a managed dependency bundle. */
+    public static final String DEPENDENCY_BUNDLE_ARTIFACT_TYPE =
+            "application/vnd.brewlet.dependencies.v1+json";
+
+    /** Config media type for a managed dependency bundle. */
+    public static final String DEPENDENCY_BUNDLE_CONFIG_MEDIA_TYPE =
+            "application/vnd.brewlet.dependencies.config.v1+json";
+
+    /** Canonical dependency-lock blob media type. */
+    public static final String DEPENDENCY_LOCK_MEDIA_TYPE =
+            "application/vnd.brewlet.dependencies.lock.v1+json";
+
+    public static final String OCI_EMPTY_CONFIG_MEDIA_TYPE =
+            "application/vnd.oci.empty.v1+json";
+    public static final String CYCLONEDX_ARTIFACT_TYPE =
+            "application/vnd.cyclonedx+json";
+    public static final String CYCLONEDX_LAYER_MEDIA_TYPE =
+            "application/vnd.cyclonedx+json";
+    public static final String DSSE_ARTIFACT_TYPE =
+            "application/vnd.brewlet.attestation.v1+json";
+    public static final String DSSE_LAYER_MEDIA_TYPE =
+            "application/vnd.dsse.envelope.v1+json";
+    public static final String PREDICATE_TYPE_ANNOTATION = "brewlet.sh/predicate-type";
+    public static final String REFERRER_SUBJECT_ANNOTATION = "brewlet.sh/referrer-subject";
+    public static final String MANAGED_DEPENDENCY_PREDICATE_TYPE =
+            "https://brewlet.sh/attestations/managed-dependencies/v1";
+    public static final String DEPENDENCY_BUNDLE_PREDICATE_TYPE =
+            "https://brewlet.sh/attestations/dependency-bundle/v1";
+
+    /** Annotation carrying canonical, unsigned managed-dependency evidence. */
+    public static final String MANAGED_DEPENDENCY_EVIDENCE_ANNOTATION =
+            "brewlet.sh/managed-dependency-evidence";
+
     /**
      * Media type for an optional modulepath (library-module) layer: a tar of
      * library module JARs the shim unpacks under {@code /app/mods} for modular

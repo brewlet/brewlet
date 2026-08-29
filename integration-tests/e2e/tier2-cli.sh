@@ -3,12 +3,13 @@
 # Covers: push (OCI artifact, no Dockerfile), inspect, run (java -jar + live curl),
 # bundle (resource->JVM/cgroup mapping in config.json), layered classpath, and
 # modular (JPMS) apps (entry.mode=module + module layer -> java -p ... -m ...).
-# Prereqs: go, java
+# Prereqs: go, java, python3
 
 tier2_cli() {
   section "Tier 2 — local CLI + JVM (push / inspect / run / bundle)"
   if ! have go; then skip "tier2: CLI+JVM" "go not installed"; return 0; fi
   if ! have java; then skip "tier2: CLI+JVM" "java not installed"; return 0; fi
+  if ! have python3; then skip "tier2: CLI+JVM" "python3 not installed"; return 0; fi
 
   local jh
   jh="$(resolve_java_home)"
@@ -135,6 +136,286 @@ tier2_cli() {
     assert_contains "classpath: push attaches a dependency layer" "$out" "classpath layers: 1"
   else
     fail "classpath: push with --classpath-layer" "$(printf '%s' "$out" | tail -1)"
+  fi
+
+  # --- managed dependencies: two apps reuse one approved OCI layer ----------
+  local managed_dir="$WORK/managed-dependencies"
+  local managed_tar="$managed_dir/dependencies.tar"
+  local managed_lock="$managed_dir/dependency-lock.json"
+  local managed_ref="platform/approved:2026.08"
+  local managed_app1="demo/managed-one:1.0.0"
+  local managed_app2="demo/managed-two:1.0.0"
+  local managed_private="$managed_dir/signing-key.pem"
+  local managed_public="$managed_dir/signing-key.pub.pem"
+  if "$FIXTURES_DIR/managed-dependency-app/build.sh" \
+      >"$WORK/t2-managed-build.log" 2>&1; then
+    pass "managed: build thin app and real dependency JAR"
+  else
+    fail "managed: build thin app and real dependency JAR" \
+      "see $WORK/t2-managed-build.log"
+    return 0
+  fi
+  mkdir -p "$managed_dir/lib"
+  if "$bin" keygen --private "$managed_private" --public "$managed_public" \
+      >"$WORK/t2-managed-keygen.log" 2>&1; then
+    pass "managed: generate signing key pair"
+  else
+    fail "managed: generate signing key pair" "see $WORK/t2-managed-keygen.log"
+    return 0
+  fi
+  cp "$FIXTURES_DIR/managed-dependency-app/target/approved.jar" \
+    "$managed_dir/lib/approved.jar"
+  COPYFILE_DISABLE=1 tar -cf "$managed_tar" -C "$managed_dir/lib" approved.jar
+  local dependency_sha
+  if have sha256sum; then
+    dependency_sha="$(sha256sum "$managed_dir/lib/approved.jar" | awk '{print $1}')"
+  else
+    dependency_sha="$(shasum -a 256 "$managed_dir/lib/approved.jar" | awk '{print $1}')"
+  fi
+  printf '{"schemaVersion":1,"artifacts":[{"groupId":"com.example.platform","artifactId":"approved","version":"2026.08","type":"jar","scope":"runtime","fileName":"approved.jar","sha256":"%s"}]}\n' \
+    "$dependency_sha" >"$managed_lock"
+
+  if out="$("$bin" dependency-bundle "$managed_tar" "$managed_ref" \
+      --store "$store" \
+      --name approved \
+      --version 2026.08 \
+      --source-bom com.example.platform:approved-spring-boot-bom:2026.08 \
+      --lock "$managed_lock" \
+      --signing-key "$managed_private" \
+      --signer-identity e2e-builder \
+      --compatible-jdks 21,25 2>&1)"; then
+    assert_contains "managed: publish approved dependency bundle" "$out" "pushed managed dependency bundle"
+  else
+    fail "managed: publish approved dependency bundle" "$(printf '%s' "$out" | tail -1)"
+  fi
+  if python3 "$E2E_DIR/validate-managed-oci.py" bundle \
+        "$store" "$managed_ref" --require-signature \
+        >"$WORK/t2-managed-wire.log" 2>&1; then
+    pass "managed: bundle satisfies the normative OCI wire contract"
+  else
+    fail "managed: bundle satisfies the normative OCI wire contract" \
+      "see $WORK/t2-managed-wire.log"
+  fi
+  local tamper_target tampered_store
+  for tamper_target in descriptor config lock layer; do
+    tampered_store="$WORK/t2-managed-tampered-$tamper_target"
+    cp -R "$store" "$tampered_store"
+    python3 "$E2E_DIR/tamper-managed-oci.py" \
+      "$tampered_store" "$managed_ref" "$tamper_target"
+    if "$bin" inspect "$managed_ref" --store "$tampered_store" \
+        >"$WORK/t2-managed-tampered-$tamper_target.log" 2>&1; then
+      fail "managed: reject tampered $tamper_target" \
+        "inspection unexpectedly succeeded"
+    else
+      pass "managed: reject tampered $tamper_target"
+    fi
+  done
+
+  local managed_jar="$FIXTURES_DIR/managed-dependency-app/target/app.jar"
+  if "$bin" push "$managed_jar" "$managed_app1" --store "$store" \
+      --dependency-bundle "$managed_ref" --dependency-lock "$managed_lock" \
+      --trusted-public-key "$managed_public" --signing-key "$managed_private" \
+      --trusted-signer-identity e2e-builder --builder-identity e2e-builder \
+      --main-class com.example.ManagedApp \
+      >"$WORK/t2-managed-one.log" 2>&1 \
+      && "$bin" push "$managed_jar" "$managed_app2" --store "$store" \
+      --dependency-bundle "$managed_ref" --dependency-lock "$managed_lock" \
+      --trusted-public-key "$managed_public" \
+      --trusted-signer-identity e2e-builder \
+      --main-class com.example.ManagedApp \
+      >"$WORK/t2-managed-two.log" 2>&1; then
+    pass "managed: compose signed and unsigned applications from one bundle"
+  else
+    fail "managed: compose two applications from one bundle" "see $WORK/t2-managed-*.log"
+  fi
+
+  local managed_out1 managed_out2 layer1 layer2
+  managed_out1="$("$bin" inspect "$managed_app1" --store "$store" 2>&1)"
+  managed_out2="$("$bin" inspect "$managed_app2" --store "$store" 2>&1)"
+  assert_contains "managed: inspect records approved source BOM" "$managed_out1" \
+    '"sourceBom": "com.example.platform:approved-spring-boot-bom:2026.08"'
+  layer1="$(printf '%s' "$managed_out1" | sed -n 's/.*"dependencyLayerDigest": "\(sha256:[0-9a-f]*\)".*/\1/p' | head -1)"
+  layer2="$(printf '%s' "$managed_out2" | sed -n 's/.*"dependencyLayerDigest": "\(sha256:[0-9a-f]*\)".*/\1/p' | head -1)"
+  if [[ -n "$layer1" ]]; then
+    assert_eq "managed: applications reuse exact dependency layer digest" "$layer2" "$layer1"
+  else
+    fail "managed: applications reuse exact dependency layer digest" "evidence did not expose a layer digest"
+  fi
+  if out="$("$bin" inspect "$managed_app1" --store "$store" \
+      --trusted-public-key "$managed_public" \
+      --trusted-signer-identity e2e-builder 2>&1)"; then
+    assert_contains "managed: inspect verifies signed final-image attestation" \
+      "$out" "managed dependency attestation (signed, verified)"
+  else
+    fail "managed: inspect verifies signed final-image attestation" \
+      "$(printf '%s' "$out" | tail -1)"
+  fi
+  if "$bin" inspect "$managed_app1" --store "$store" \
+      --trusted-public-key "$managed_public" \
+      --trusted-signer-identity untrusted-builder \
+      >"$WORK/t2-managed-wrong-identity.log" 2>&1; then
+    fail "managed: reject incorrect attestation identity" \
+      "verification unexpectedly succeeded"
+  else
+    pass "managed: reject incorrect attestation identity"
+  fi
+  if python3 "$E2E_DIR/validate-managed-oci.py" image \
+      "$store" "$managed_app1" --require-signature \
+      >"$WORK/t2-managed-image-wire.log" 2>&1 \
+      && python3 "$E2E_DIR/validate-managed-oci.py" image \
+      "$store" "$managed_app2" >"$WORK/t2-managed-unsigned-image-wire.log" 2>&1; then
+    pass "managed: final image attestation satisfies the normative wire contract"
+    pass "managed: unsigned final image satisfies the normative wire contract"
+  else
+    fail "managed: final image attestation satisfies the normative wire contract" \
+      "see $WORK/t2-managed-image-wire.log"
+  fi
+
+  local mismatched_lock="$managed_dir/mismatched-lock.json"
+  sed 's/"version":"2026.08"/"version":"2026.09"/' \
+    "$managed_lock" >"$mismatched_lock"
+  if "$bin" push "$managed_jar" demo/mismatched:1 --store "$store" \
+      --dependency-bundle "$managed_ref" --dependency-lock "$mismatched_lock" \
+      --trusted-public-key "$managed_public" --signing-key "$managed_private" \
+      --trusted-signer-identity e2e-builder --builder-identity e2e-builder \
+      --main-class com.example.ManagedApp \
+      >"$WORK/t2-managed-mismatch.log" 2>&1; then
+    fail "managed: reject application graph mismatch" \
+      "publication unexpectedly succeeded"
+  else
+    pass "managed: reject application graph mismatch"
+  fi
+
+  local fat_jar="$managed_dir/fat-app.jar"
+  cp "$managed_jar" "$fat_jar"
+  jar uf "$fat_jar" -C "$managed_dir/lib" approved.jar
+  if "$bin" push "$fat_jar" demo/fat:1 --store "$store" \
+      --dependency-bundle "$managed_ref" --dependency-lock "$managed_lock" \
+      --trusted-public-key "$managed_public" --signing-key "$managed_private" \
+      --trusted-signer-identity e2e-builder --builder-identity e2e-builder \
+      --main-class com.example.ManagedApp \
+      >"$WORK/t2-managed-fat.log" 2>&1; then
+    fail "managed: reject application JAR containing dependencies" \
+      "publication unexpectedly succeeded"
+  else
+    pass "managed: reject application JAR containing dependencies"
+  fi
+  if out="$("$bin" run "$managed_app1" --store "$store" 2>&1)"; then
+    assert_contains "managed: JVM loads class from approved dependency layer" \
+      "$out" "MANAGED DEPENDENCY OK"
+  else
+    fail "managed: JVM loads class from approved dependency layer" \
+      "$(printf '%s' "$out" | tail -1)"
+  fi
+
+  # --- managed dependencies: live OCI registry referrers --------------------
+  if have docker && have mvn; then
+    local registry_id registry_port registry_ref registry_log="$WORK/t2-registry.log"
+    local maven_bom="com.example.platform:approved-bom:1.0.0"
+    local maven_bundle_pom="$FIXTURES_DIR/managed-dependency-bundle/pom.xml"
+    local maven_bundle_layout="$FIXTURES_DIR/managed-dependency-bundle/target/brewlet/dependency-bundle-oci"
+    registry_id="$(docker run -d -P registry:3 2>>"$registry_log")"
+    registry_port="$(docker port "$registry_id" 5000/tcp 2>>"$registry_log" \
+      | head -1 | sed 's/.*://')"
+    registry_ref="localhost:$registry_port"
+    local registry_ready=false
+    for _ in {1..50}; do
+      if curl -fsS "http://$registry_ref/v2/" >/dev/null 2>&1; then
+       registry_ready=true
+       break
+      fi
+      sleep 0.2
+    done
+    if [[ "$registry_ready" == true ]] \
+       && mvn -q -f "$MONOREPO_DIR/maven-plugin/pom.xml" install \
+         >>"$registry_log" 2>&1 \
+       && mvn -q -f "$FIXTURES_DIR/managed-dependency-bom/pom.xml" install \
+         >>"$registry_log" 2>&1 \
+       && mvn -q -f "$maven_bundle_pom" package \
+         sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:dependency-bundle \
+         -Dbrewlet.dependencyBundleImage="$registry_ref/platform/approved:1" \
+         -Dbrewlet.sourceBom="$maven_bom" \
+         -Dbrewlet.signingKey="$managed_private" \
+         -Dbrewlet.signerIdentity=platform-builder >>"$registry_log" 2>&1 \
+       && "$bin" inspect "$registry_ref/platform/approved:1" \
+         --store "$maven_bundle_layout" \
+         --trusted-public-key "$managed_public" \
+         --trusted-signer-identity=platform-builder >>"$registry_log" 2>&1 \
+       && python3 "$E2E_DIR/validate-managed-oci.py" bundle \
+         "$maven_bundle_layout" \
+         "$registry_ref/platform/approved:1" --require-signature \
+         >>"$registry_log" 2>&1 \
+       && mvn -q -f "$FIXTURES_DIR/demo-app/pom.xml" \
+         -Pmanaged-dependencies package \
+         sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:push \
+         -Dbrewlet.image="$registry_ref/apps/demo:1" \
+         -Dbrewlet.dependencyBundle="$registry_ref/platform/approved:1" \
+         -Dbrewlet.mainClass=com.example.Hello \
+         -Dbrewlet.signingKey="$managed_private" \
+         -Dbrewlet.trustedPublicKey="$managed_public" \
+         -Dbrewlet.trustedSignerIdentity=platform-builder \
+         -Dbrewlet.builderIdentity=application-builder >>"$registry_log" 2>&1 \
+       && mvn -q -f "$FIXTURES_DIR/demo-app/pom.xml" \
+         -Pmanaged-dependencies package \
+         sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:push \
+         -Dbrewlet.image="$registry_ref/apps/signed-bundle-unsigned-app:1" \
+         -Dbrewlet.dependencyBundle="$registry_ref/platform/approved:1" \
+         -Dbrewlet.mainClass=com.example.Hello \
+         -Dbrewlet.trustedPublicKey="$managed_public" \
+         -Dbrewlet.trustedSignerIdentity=platform-builder >>"$registry_log" 2>&1 \
+       && python3 "$E2E_DIR/validate-managed-registry.py" \
+         "$registry_ref" platform/approved 1 apps/demo 1 "$maven_bom" \
+         org.apache.commons:commons-lang3:3.17.0 "$managed_public" \
+         application-builder >>"$registry_log" 2>&1; then
+      local bundle_tags app_tags
+      bundle_tags="$(curl -fsS \
+       "http://$registry_ref/v2/platform/approved/tags/list")"
+      app_tags="$(curl -fsS "http://$registry_ref/v2/apps/demo/tags/list")"
+      local bundle_referrer_tags
+      bundle_referrer_tags="$(printf '%s' "$bundle_tags" | grep -o 'sha256-' | wc -l \
+       | tr -d ' ')"
+      assert_eq "managed registry: publishes SBOM and provenance fallback refs" \
+       "$bundle_referrer_tags" "2"
+      assert_contains "managed registry: publishes final-image attestation fallback ref" \
+       "$app_tags" "sha256-"
+      pass "managed registry: signed BOM bundle composition and attestations"
+    else
+      fail "managed registry: publish and consume signed referrers" \
+       "see $registry_log"
+    fi
+    local unsigned_layout="$WORK/t2-unsigned-bundle"
+    if mvn -q -f "$maven_bundle_pom" package \
+        sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:dependency-bundle \
+        -Dbrewlet.dependencyBundleImage="$registry_ref/platform/unsigned:1" \
+        -Dbrewlet.dependencyBundleOutputDirectory="$unsigned_layout" \
+        -Dbrewlet.sourceBom="$maven_bom" \
+        >>"$registry_log" 2>&1 \
+        && python3 "$E2E_DIR/validate-managed-oci.py" bundle \
+          "$unsigned_layout" "$registry_ref/platform/unsigned:1" \
+          >>"$registry_log" 2>&1 \
+        && mvn -q -f "$FIXTURES_DIR/demo-app/pom.xml" \
+          -Pmanaged-dependencies package \
+          sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:push \
+          -Dbrewlet.image="$registry_ref/apps/unsigned:1" \
+          -Dbrewlet.dependencyBundle="$registry_ref/platform/unsigned:1" \
+          -Dbrewlet.mainClass=com.example.Hello >>"$registry_log" 2>&1 \
+        && mvn -q -f "$FIXTURES_DIR/demo-app/pom.xml" \
+          -Pmanaged-dependencies package \
+          sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:push \
+          -Dbrewlet.image="$registry_ref/apps/unsigned-bundle-signed-app:1" \
+          -Dbrewlet.dependencyBundle="$registry_ref/platform/unsigned:1" \
+          -Dbrewlet.mainClass=com.example.Hello \
+          -Dbrewlet.signingKey="$managed_private" \
+          -Dbrewlet.builderIdentity=application-builder >>"$registry_log" 2>&1; then
+      pass "managed registry: unsigned bundle and application are consumable"
+      pass "managed registry: unsigned bundle can produce a signed application"
+    else
+      fail "managed registry: consume unsigned bundle" \
+        "see $registry_log"
+    fi
+    docker rm -f "$registry_id" >/dev/null 2>&1 || true
+  else
+    skip "managed registry referrers" "docker and mvn are required"
   fi
 
   # --- modular (JPMS) app: entry.mode=module + module layer -----------------

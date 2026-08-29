@@ -26,6 +26,9 @@ public class OciManifest {
     @JsonProperty("config")
     private OciDescriptor config;
 
+    @JsonProperty("subject")
+    private OciDescriptor subject;
+
     @JsonProperty("layers")
     private List<OciDescriptor> layers;
 
@@ -43,6 +46,9 @@ public class OciManifest {
 
     public OciDescriptor getConfig() { return config; }
     public void setConfig(OciDescriptor config) { this.config = config; }
+
+    public OciDescriptor getSubject() { return subject; }
+    public void setSubject(OciDescriptor subject) { this.subject = subject; }
 
     public List<OciDescriptor> getLayers() { return layers; }
     public void setLayers(List<OciDescriptor> layers) { this.layers = layers; }

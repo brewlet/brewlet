@@ -88,6 +88,11 @@ public final class LayerBuilder {
         return layers;
     }
 
+    /** Builds the single deterministic flat classpath layer used by dependency bundles. */
+    public static ArtifactLayer buildBundle(List<Dep> deps) throws IOException {
+        return pack("dependencies", deps == null ? List.of() : deps);
+    }
+
     /** Packs a set of dependencies into a single deterministic tar layer. */
     private static ArtifactLayer pack(String name, List<Dep> deps) throws IOException {
         List<Dep> sorted = new ArrayList<>(deps);

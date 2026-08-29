@@ -12,6 +12,7 @@ import org.apache.maven.project.MavenProject;
 import org.apache.maven.settings.Settings;
 import sh.brewlet.maven.plugin.model.*;
 import sh.brewlet.maven.plugin.oci.ArtifactLayer;
+import sh.brewlet.maven.plugin.oci.LocalStore;
 import sh.brewlet.maven.plugin.oci.MediaTypes;
 import sh.brewlet.maven.plugin.util.JarInspector;
 import sh.brewlet.maven.plugin.util.JdkVersionResolver;
@@ -247,6 +248,33 @@ public abstract class AbstractBrewletMojo extends AbstractMojo {
      */
     @Parameter(property = "brewlet.format", defaultValue = "image")
     protected String format;
+
+    /**
+     * Managed dependency bundle reference for {@code brewlet:push}. This may be
+     * an OCI registry reference or a path to a local OCI image layout.
+     */
+    @Parameter(property = "brewlet.dependencyBundle")
+    protected String dependencyBundle;
+
+    /** PKCS#8 PEM ECDSA P-256 private key used for supply-chain attestations. */
+    @Parameter(property = "brewlet.signingKey")
+    protected File signingKey;
+
+    /** SubjectPublicKeyInfo PEM public key trusted for managed dependency bundles. */
+    @Parameter(property = "brewlet.trustedPublicKey")
+    protected File trustedPublicKey;
+
+    /** Expected and asserted builder identity in signed predicates. */
+    @Parameter(property = "brewlet.signerIdentity")
+    protected String signerIdentity;
+
+    /** Expected identity in signed dependency-bundle provenance. */
+    @Parameter(property = "brewlet.trustedSignerIdentity")
+    protected String trustedSignerIdentity;
+
+    /** Identity asserted by the final application-image publisher. */
+    @Parameter(property = "brewlet.builderIdentity")
+    protected String builderIdentity;
 
     /**
      * Output directory for generated Brewlet files
@@ -506,6 +534,48 @@ public abstract class AbstractBrewletMojo extends AbstractMojo {
             deps.add(new LayerBuilder.Dep(file.getName(), file.toPath(), a.isSnapshot()));
         }
         return deps;
+    }
+
+    /** Builds the canonical lock for the current resolved Maven runtime graph. */
+    protected DependencyLock collectRuntimeDependencyLock() throws MojoExecutionException {
+        List<DependencyLock.Entry> entries = new ArrayList<>();
+        Set<String> filenames = new HashSet<>();
+        for (Artifact artifact : project.getArtifacts()) {
+            if (artifact.getArtifactHandler() != null
+                    && !artifact.getArtifactHandler().isAddedToClasspath()) {
+                continue;
+            }
+            String scope = artifact.getScope();
+            if (Artifact.SCOPE_TEST.equals(scope) || Artifact.SCOPE_PROVIDED.equals(scope)
+                    || Artifact.SCOPE_SYSTEM.equals(scope)) {
+                continue;
+            }
+            File file = artifact.getFile();
+            if (file == null || !file.isFile()) {
+                throw new MojoExecutionException("Runtime dependency is unresolved: "
+                        + artifact.getId() + ". Run Maven dependency resolution/package first.");
+            }
+            if (!filenames.add(file.getName())) {
+                throw new MojoExecutionException("Dependency bundle cannot use a flat classpath: "
+                        + "duplicate filename " + file.getName());
+            }
+            try {
+                entries.add(new DependencyLock.Entry(
+                        artifact.getGroupId(), artifact.getArtifactId(), artifact.getVersion(),
+                        artifact.getType(), blankToNull(artifact.getClassifier()), scope,
+                        file.getName(), LocalStore.sha256Hex(Files.readAllBytes(file.toPath()))
+                                .substring("sha256:".length())));
+            } catch (IOException e) {
+                throw new MojoExecutionException("Failed to hash dependency " + artifact.getId(), e);
+            }
+        }
+        DependencyLock lock = new DependencyLock();
+        lock.setDependencies(entries);
+        return lock;
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     /**

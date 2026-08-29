@@ -113,6 +113,14 @@ type runnableLayer struct {
 	DiffID string     // sha256 of the UNCOMPRESSED tar (rootfs.diff_ids entry)
 }
 
+// RunnableImageOptions carries optional publication-time composition metadata.
+// A managed dependency layer is already gzip-compressed and content-addressed,
+// so the final image reuses its descriptor without repacking the bytes.
+type RunnableImageOptions struct {
+	ManagedDependency *ResolvedDependencyBundle
+	ManagedEvidence   *ManagedDependencyEvidence
+}
+
 // PushRunnableImage publishes cfg + jarPath (and any classpath/module/CDS
 // layers) as a STANDARD, kubelet-pullable OCI image and tags it as ref. Unlike
 // PushWithCDS (which writes a native Brewlet artifact with custom media types),
@@ -125,6 +133,10 @@ type runnableLayer struct {
 // a Brewlet config blob. Pass "" for cdsArchivePath when the app ships no CDS
 // archive. See https://github.com/brewlet/site/blob/main/docs/runnable-image.md.
 func (s Store) PushRunnableImage(ref string, cfg JVMConfig, jarPath string, classpathTars, modulepathTars []string, cdsArchivePath string) (Descriptor, error) {
+	return s.PushRunnableImageWithOptions(ref, cfg, jarPath, classpathTars, modulepathTars, cdsArchivePath, RunnableImageOptions{})
+}
+
+func (s Store) PushRunnableImageWithOptions(ref string, cfg JVMConfig, jarPath string, classpathTars, modulepathTars []string, cdsArchivePath string, opts RunnableImageOptions) (Descriptor, error) {
 	if err := cfg.Validate(); err != nil {
 		return Descriptor{}, fmt.Errorf("invalid launch config: %w", err)
 	}
@@ -144,6 +156,23 @@ func (s Store) PushRunnableImage(ref string, cfg JVMConfig, jarPath string, clas
 		return Descriptor{}, err
 	}
 	layers := []runnableLayer{appLayer}
+	if opts.ManagedDependency != nil {
+		if len(classpathTars) > 0 || len(modulepathTars) > 0 {
+			return Descriptor{}, fmt.Errorf("managed dependency bundle and local classpath/modulepath layers are mutually exclusive")
+		}
+		if cfg.Entry.Mode != "classpath" {
+			return Descriptor{}, fmt.Errorf("managed dependency bundle requires entry.mode=classpath")
+		}
+		required := map[string]bool{cfg.MainJar: false, "lib/*": false}
+		for _, entry := range cfg.Entry.ClassPath {
+			if _, ok := required[entry]; ok {
+				required[entry] = true
+			}
+		}
+		if !required[cfg.MainJar] || !required["lib/*"] {
+			return Descriptor{}, fmt.Errorf("managed dependency bundle requires classPath to include %q and %q", cfg.MainJar, "lib/*")
+		}
+	}
 
 	// Classpath/module layers are the SAME flat-JAR tars a native artifact ships,
 	// just gzip-compressed and role-tagged, so the shim's existing
@@ -164,6 +193,32 @@ func (s Store) PushRunnableImage(ref string, cfg JVMConfig, jarPath string, clas
 			layers = append(layers, l)
 		}
 	}
+	manifestAnnotations := map[string]string{}
+	if opts.ManagedDependency != nil {
+		bundle := opts.ManagedDependency
+		if bundle.Layer.MediaType != OCILayerGzipMediaType || bundle.Layer.Annotations[LayerRoleAnnotation] != LayerRoleClasspath {
+			return Descriptor{}, fmt.Errorf("managed dependency bundle has an invalid runnable classpath layer")
+		}
+		if _, err := s.ReadBlob(bundle.Layer.Digest); err != nil {
+			return Descriptor{}, fmt.Errorf("managed dependency layer %s is unavailable in the OCI store: %w", bundle.Layer.Digest, err)
+		}
+		layers = append(layers, runnableLayer{Desc: bundle.Layer, DiffID: bundle.Config.LayerDiffID})
+		var evidence ManagedDependencyEvidence
+		if opts.ManagedEvidence != nil {
+			evidence = *opts.ManagedEvidence
+		} else {
+			var err error
+			evidence, err = bundle.Evidence(jarPath)
+			if err != nil {
+				return Descriptor{}, err
+			}
+		}
+		raw, err := json.Marshal(evidence)
+		if err != nil {
+			return Descriptor{}, err
+		}
+		manifestAnnotations[ManagedDependencyAnnotation] = string(raw)
+	}
 
 	cfgJSON, err := encodeConfigCompact(cfg)
 	if err != nil {
@@ -173,7 +228,7 @@ func (s Store) PushRunnableImage(ref string, cfg JVMConfig, jarPath string, clas
 	arches := targetArches(cfg)
 	indexManifests := make([]Descriptor, 0, len(arches))
 	for _, arch := range arches {
-		manDesc, err := s.writeRunnableManifest(arch, cfgJSON, layers)
+		manDesc, err := s.writeRunnableManifest(arch, cfgJSON, layers, manifestAnnotations)
 		if err != nil {
 			return Descriptor{}, err
 		}
@@ -185,6 +240,7 @@ func (s Store) PushRunnableImage(ref string, cfg JVMConfig, jarPath string, clas
 		SchemaVersion: 2,
 		MediaType:     OCIImageIndexMediaType,
 		Manifests:     indexManifests,
+		Annotations:   manifestAnnotations,
 	}
 	idxBytes, err := marshalIndent(idx)
 	if err != nil {
@@ -208,7 +264,7 @@ func (s Store) PushRunnableImage(ref string, cfg JVMConfig, jarPath string, clas
 
 // writeRunnableManifest writes one platform's image config blob and image
 // manifest blob (sharing the given layers) and returns the manifest descriptor.
-func (s Store) writeRunnableManifest(arch, jvmConfigJSON string, layers []runnableLayer) (Descriptor, error) {
+func (s Store) writeRunnableManifest(arch, jvmConfigJSON string, layers []runnableLayer, extraAnnotations map[string]string) (Descriptor, error) {
 	diffIDs := make([]string, 0, len(layers))
 	mLayers := make([]Descriptor, 0, len(layers))
 	for _, l := range layers {
@@ -234,12 +290,16 @@ func (s Store) writeRunnableManifest(arch, jvmConfigJSON string, layers []runnab
 	}
 	cfgDesc.MediaType = OCIImageConfigMediaType
 
+	annotations := map[string]string{JVMConfigAnnotation: jvmConfigJSON}
+	for key, value := range extraAnnotations {
+		annotations[key] = value
+	}
 	man := Manifest{
 		SchemaVersion: 2,
 		MediaType:     ociManifestMediaType,
 		Config:        cfgDesc,
 		Layers:        mLayers,
-		Annotations:   map[string]string{JVMConfigAnnotation: jvmConfigJSON},
+		Annotations:   annotations,
 	}
 	mBytes, err := marshalIndent(man)
 	if err != nil {
@@ -454,18 +514,19 @@ func (s Store) ResolveManifestByRef(ref string) (Manifest, string, error) {
 		if top.Annotations[refNameAnnotation] != ref {
 			continue
 		}
-		return s.readManifestFollowingIndex(top.Digest)
+		return s.readManifestFollowingIndex(top)
 	}
 	return Manifest{}, "", fmt.Errorf("ref %q not found in store %s", ref, s.Root)
 }
 
 // readManifestFollowingIndex reads the blob at digest; if it is an image index
 // it selects the entry for the running node's arch and reads that manifest.
-func (s Store) readManifestFollowingIndex(digest string) (Manifest, string, error) {
-	raw, err := s.ReadBlob(digest)
+func (s Store) readManifestFollowingIndex(desc Descriptor) (Manifest, string, error) {
+	raw, err := s.readVerifiedBlob(desc)
 	if err != nil {
 		return Manifest{}, "", err
 	}
+	digest := desc.Digest
 	if IsIndexBlob(raw) {
 		var idx Index
 		if err := json.Unmarshal(raw, &idx); err != nil {
@@ -476,7 +537,7 @@ func (s Store) readManifestFollowingIndex(digest string) (Manifest, string, erro
 			return Manifest{}, "", fmt.Errorf("image index %s has no manifests", digest)
 		}
 		digest = sel.Digest
-		if raw, err = s.ReadBlob(digest); err != nil {
+		if raw, err = s.readVerifiedBlob(sel); err != nil {
 			return Manifest{}, "", err
 		}
 	}

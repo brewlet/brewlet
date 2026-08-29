@@ -18,7 +18,8 @@ public final class Hello {
         HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
 
         server.createContext("/hello", exchange -> {
-            String body = "Hello from a JAR running directly on the node via Brewlet!\n";
+            String body = "Hello from a JAR running directly on the node via Brewlet!\n"
+                    + managedDependencyGreeting();
             respond(exchange, 200, body);
         });
 
@@ -54,6 +55,17 @@ public final class Hello {
         exchange.sendResponseHeaders(code, bytes.length);
         try (OutputStream os = exchange.getResponseBody()) {
             os.write(bytes);
+        }
+    }
+
+    private static String managedDependencyGreeting() {
+        try {
+            Class<?> greeting = Class.forName("com.example.approved.Greeting");
+            return greeting.getMethod("message").invoke(null) + "\n";
+        } catch (ClassNotFoundException absent) {
+            return "";
+        } catch (ReflectiveOperationException invalidDependency) {
+            throw new IllegalStateException("Could not invoke managed dependency", invalidDependency);
         }
     }
 

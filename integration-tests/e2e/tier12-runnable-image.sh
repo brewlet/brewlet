@@ -27,7 +27,10 @@
 #       `ctr images unpack` on containerd 1.x or during import on containerd 2.x.
 #   (1) the pod's container `image:` is the brewlet artifact ref ITSELF (not a
 #       placeholder), and the pod reaches Ready — i.e. kubelet pulled/unpacked it.
-#   (2) the running JVM serves real Service traffic and is cgroup-aware.
+#   (2) both the signed default and an unsigned bundle explicitly authorized by
+#       the Ops-authored bundle policy run on Kubernetes.
+#   (3) both running JVMs load the managed dependency; the workload serves real
+#       Service traffic and is cgroup-aware.
 #
 # It reuses tier 9's generic node-provisioning helpers (shim binary, temurin JDK
 # userland root, containerd `brewlet` runtime registration, capability labels).
@@ -37,6 +40,7 @@
 # to pull eclipse-temurin:21 for the JDK userland root. SKIPs otherwise.
 
 T12_REF="demo/hello:runnable-e2e"
+T12_UNSIGNED_REF="demo/hello:unsigned-e2e"
 T12_NS="brewlet-runnable"
 T12_APP="orders-img"
 T12_PORT=8080
@@ -46,7 +50,7 @@ declare -a T12_PROVISIONED_NODES=()
 
 _t12_cleanup() {
   info "tier12: cleaning up"
-  kubectl delete ns "$T12_NS" --ignore-not-found --wait=false >/dev/null 2>&1 || true
+  kubectl delete ns "$T12_NS" --ignore-not-found --wait=true --timeout=120s >/dev/null 2>&1 || true
   [[ -n "$T12_RC_CREATED" ]] && kubectl delete runtimeclass brewlet --ignore-not-found >/dev/null 2>&1 || true
   for n in ${T12_PROVISIONED_NODES[@]+"${T12_PROVISIONED_NODES[@]}"}; do
     label_node "$n" brewlet.sh/runtime- "brewlet.sh/jdk.$T9_JDK-" "brewlet.sh/jdk-feature.${T9_JDK##*-}-" brewlet.sh/launcher.java- >/dev/null 2>&1 || true
@@ -134,6 +138,7 @@ tier12_runnable_image() {
   if ! have kubectl || ! k8s_reachable; then skip "tier12: runnable image pulled by kubelet" "no reachable cluster"; return 0; fi
   if ! have docker || ! docker info >/dev/null 2>&1; then skip "tier12: runnable image pulled by kubelet" "docker daemon not available"; return 0; fi
   if ! have go; then skip "tier12: runnable image pulled by kubelet" "go not installed"; return 0; fi
+  if ! have python3; then skip "tier12: runnable image pulled by kubelet" "python3 not installed"; return 0; fi
 
   # Pick a node that is a local containerd docker container we can provision,
   # preferring one that is schedulable (kind's single node, or a Docker Desktop
@@ -160,23 +165,83 @@ tier12_runnable_image() {
   if ! ( cd "$BREWLET_CORE_DIR" && go build -o "$WORK/t12-brewlet" ./cmd/brewlet ) >>"$WORK/t12-build.log" 2>&1; then
     fail "tier12: build brewlet CLI" "see $WORK/t12-build.log"; return 0
   fi
+  if ! have java; then
+    skip "tier12: runnable image pulled by kubelet" "no JDK to build fixtures (set JAVA_HOME, JDK 21+)"; return 0
+  fi
+  local jh; jh="$(resolve_java_home)"
+  if ! env JAVA_HOME="$jh" PATH="$jh/bin:$PATH" \
+      "$FIXTURES_DIR/demo-app/build.sh" >>"$WORK/t12-build.log" 2>&1 \
+      || ! env JAVA_HOME="$jh" PATH="$jh/bin:$PATH" \
+      "$FIXTURES_DIR/managed-dependency-app/build.sh" >>"$WORK/t12-build.log" 2>&1; then
+    fail "tier12: build demo and managed dependency JARs" "see $WORK/t12-build.log"; return 0
+  fi
   local jar="$FIXTURES_DIR/demo-app/target/app.jar"
-  if [[ ! -f "$jar" ]]; then
-    if ! have java; then
-      skip "tier12: runnable image pulled by kubelet" "demo JAR absent and no JDK to build it (set JAVA_HOME, JDK 21+)"; return 0
-    fi
-    local jh; jh="$(resolve_java_home)"
-    if ! env JAVA_HOME="$jh" PATH="$jh/bin:$PATH" "$FIXTURES_DIR/demo-app/build.sh" >>"$WORK/t12-build.log" 2>&1; then
-      fail "tier12: build demo JAR" "see $WORK/t12-build.log"; return 0
-    fi
+
+  # --- publish signed and unsigned bundles -----------------------------------
+  local store="$WORK/t12-oci"; rm -rf "$store"
+  local managed_dir="$WORK/t12-managed" managed_tar="$WORK/t12-managed/dependencies.tar"
+  local managed_lock="$WORK/t12-managed/dependency-lock.json"
+  local managed_ref="platform/t12-approved:1"
+  local private_key="$WORK/t12-managed/signing-key.pem"
+  local public_key="$WORK/t12-managed/signing-key.pub.pem"
+  mkdir -p "$managed_dir/lib"
+  cp "$FIXTURES_DIR/managed-dependency-app/target/approved.jar" \
+    "$managed_dir/lib/approved.jar"
+  COPYFILE_DISABLE=1 tar -cf "$managed_tar" -C "$managed_dir/lib" approved.jar
+  local dependency_sha
+  if have sha256sum; then
+    dependency_sha="$(sha256sum "$managed_dir/lib/approved.jar" | awk '{print $1}')"
+  else
+    dependency_sha="$(shasum -a 256 "$managed_dir/lib/approved.jar" | awk '{print $1}')"
+  fi
+  printf '{"schemaVersion":1,"artifacts":[{"groupId":"com.example.platform","artifactId":"approved","version":"1","type":"jar","scope":"runtime","fileName":"approved.jar","sha256":"%s"}]}\n' \
+    "$dependency_sha" >"$managed_lock"
+  if ! "$WORK/t12-brewlet" keygen --private "$private_key" --public "$public_key" \
+      >>"$WORK/t12-build.log" 2>&1 \
+      || ! "$WORK/t12-brewlet" dependency-bundle "$managed_tar" "$managed_ref" \
+        --store "$store" --name approved --version 1 \
+        --source-bom com.example.platform:approved-bom:1 --lock "$managed_lock" \
+        --signing-key "$private_key" --signer-identity platform-builder \
+        >>"$WORK/t12-build.log" 2>&1; then
+    fail "tier12: publish signed managed dependency bundle" "see $WORK/t12-build.log"; return 0
+  fi
+  pass "tier12: published signed managed dependency bundle"
+  if "$WORK/t12-brewlet" push "$jar" demo/t12-policy-bypass:1 \
+      --store "$store" --dependency-bundle "$managed_ref" \
+      --dependency-lock "$managed_lock" --signing-key "$private_key" \
+      --builder-identity application-builder --main-class com.example.Hello \
+      >>"$WORK/t12-build.log" 2>&1; then
+    fail "tier12: signed bundle requires trust credentials" \
+      "managed image publication unexpectedly succeeded without bundle trust"
+    return 0
+  else
+    pass "tier12: signed bundle cannot be consumed without trust credentials"
   fi
 
-  # --- push as a RUNNABLE OCI IMAGE (the whole point) -----------------------
-  local store="$WORK/t12-oci"; rm -rf "$store"
-  if ! "$WORK/t12-brewlet" push "$jar" "$T12_REF" --store "$store" --format=image >>"$WORK/t12-build.log" 2>&1; then
-    fail "tier12: push runnable image" "see $WORK/t12-build.log"; return 0
+  local unsigned_bundle_ref="platform/t12-unsigned:1"
+  if ! "$WORK/t12-brewlet" dependency-bundle "$managed_tar" "$unsigned_bundle_ref" \
+      --store "$store" --name approved-unsigned --version 1 \
+      --source-bom com.example.platform:approved-bom:1 --lock "$managed_lock" \
+      >>"$WORK/t12-build.log" 2>&1 \
+      || ! "$WORK/t12-brewlet" push "$jar" "$T12_UNSIGNED_REF" \
+      --store "$store" --dependency-bundle "$unsigned_bundle_ref" \
+      --dependency-lock "$managed_lock" --main-class com.example.Hello \
+      >>"$WORK/t12-build.log" 2>&1; then
+    fail "tier12: compose unsigned bundle and application" \
+      "see $WORK/t12-build.log"
+    return 0
   fi
-  local digest
+  pass "tier12: unsigned bundle and application produce a runnable image"
+
+  # --- push signed bundle composition as a RUNNABLE OCI IMAGE ----------------
+  if ! "$WORK/t12-brewlet" push "$jar" "$T12_REF" --store "$store" \
+      --dependency-bundle "$managed_ref" --dependency-lock "$managed_lock" \
+      --trusted-public-key "$public_key" --trusted-signer-identity platform-builder \
+      --signing-key "$private_key" --builder-identity application-builder \
+      --main-class com.example.Hello >>"$WORK/t12-build.log" 2>&1; then
+    fail "tier12: push signed managed runnable image" "see $WORK/t12-build.log"; return 0
+  fi
+  local digest unsigned_digest
   digest="$(python3 - "$store" "$T12_REF" <<'PY'
 import json, sys
 root, ref = sys.argv[1], sys.argv[2]
@@ -191,8 +256,19 @@ else:
 PY
 )"
   if [[ -z "$digest" ]]; then fail "tier12: resolve image index digest" "index.json had no manifest"; return 0; fi
+  unsigned_digest="$(python3 - "$store" "$T12_UNSIGNED_REF" <<'PY'
+import json, sys
+root, ref = sys.argv[1], sys.argv[2]
+idx = json.load(open(f"{root}/index.json"))
+for manifest in idx["manifests"]:
+    if manifest.get("annotations", {}).get("org.opencontainers.image.ref.name") == ref:
+        print(manifest["digest"])
+        break
+PY
+)"
+  if [[ -z "$unsigned_digest" ]]; then fail "tier12: resolve unsigned image index digest" "index.json had no unsigned image"; return 0; fi
   info "tier12: runnable image index digest $digest"
-  pass "tier12: built shim + CLI + demo JAR; pushed runnable OCI image ($T12_REF)"
+  pass "tier12: composed signed bundle into runnable OCI image ($T12_REF)"
 
   # --- import the STANDARD image into the node content store ----------------
   if ! ( cd "$store" && tar -cf - . ) | docker exec -i "$T12_NODE" ctr -n k8s.io images import --digests - >>"$WORK/t12-import.log" 2>&1; then
@@ -204,6 +280,8 @@ PY
   if [[ "${T12_REF%%/*}" != *.* && "${T12_REF%%/*}" != *:* && "${T12_REF%%/*}" != "localhost" ]]; then
     cri_ref="docker.io/$T12_REF"
     docker exec "$T12_NODE" ctr -n k8s.io images tag "$T12_REF" "$cri_ref" >>"$WORK/t12-import.log" 2>&1 || true
+    docker exec "$T12_NODE" ctr -n k8s.io images tag "$T12_UNSIGNED_REF" \
+      "docker.io/$T12_UNSIGNED_REF" >>"$WORK/t12-import.log" 2>&1 || true
   fi
 
   # (0) THE decisive assertion: containerd can UNPACK the brewlet image — the
@@ -216,7 +294,7 @@ PY
     else
       fail "tier12: containerd unpack of the runnable image" "see $WORK/t12-import.log"; return 0
     fi
-  elif docker exec "$T12_NODE" ctr -n k8s.io images import --help 2>/dev/null | grep -q -- "--no-unpack"; then
+  elif docker exec "$T12_NODE" ctr -n k8s.io images import --help 2>/dev/null | grep -- "--no-unpack" >/dev/null; then
     pass "tier12: containerd import UNPACKED the brewlet image by default (containerd 2.x)"
   else
     fail "tier12: containerd unpack capability" "node ctr supports neither explicit unpack nor import-time unpack"; return 0
@@ -274,15 +352,40 @@ YAML
   assert_contains "tier12: the running pod's image is the brewlet artifact (SpinKube model, no placeholder)" "$podimg" "$T12_REF"
   pass "tier12: kubelet pulled/unpacked the brewlet image and the shim ran it (java -jar as PID 1)"
 
-  # (2) It actually serves, and is cgroup-aware.
+  # (2) It loads the managed dependency. (3) It serves and is cgroup-aware.
   if ! kubectl wait -n "$T12_NS" --for=condition=Ready pod/t12-client --timeout=60s >>"$WORK/t12-deploy.log" 2>&1; then
     skip "tier12: serve real traffic" "in-cluster curl client not Ready"; return 0
   fi
   local hello
   if hello="$(_t12_curl_retry /hello)"; then
     assert_contains "tier12: GET /hello over the Service returns the app body (200)" "$hello" "Hello from a JAR"
+    assert_contains "tier12: Kubernetes JVM loads the signed managed dependency layer" \
+      "$hello" "MANAGED DEPENDENCY OK"
   else
+    kubectl get pods,svc,endpoints -n "$T12_NS" -o wide >>"$WORK/t12-deploy.log" 2>&1 || true
+    kubectl logs -n "$T12_NS" -l app="$T12_APP" --tail=100 >>"$WORK/t12-deploy.log" 2>&1 || true
+    kubectl exec -n "$T12_NS" t12-client -- \
+      wget -S -O- -T 5 "http://$T12_APP.$T12_NS.svc.cluster.local:$T12_PORT/hello" \
+      >>"$WORK/t12-deploy.log" 2>&1 || true
     fail "tier12: GET /hello over the Service" "no 200 from http://$T12_APP.$T12_NS.svc:$T12_PORT/hello"
+    return 0
+  fi
+
+  # Roll the same Kubernetes workload to the unsigned bundle and application.
+  T12_REF="$T12_UNSIGNED_REF"
+  _t12_apply_deploy "$unsigned_digest" 1
+  if kubectl rollout status -n "$T12_NS" deploy/"$T12_APP" \
+      --timeout=150s >>"$WORK/t12-deploy.log" 2>&1 \
+      && hello="$(_t12_curl_retry /hello)"; then
+    podimg="$(kubectl get deployment -n "$T12_NS" "$T12_APP" \
+      -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null)"
+    assert_contains "tier12: unsigned workload uses its managed image" \
+      "$podimg" "$T12_UNSIGNED_REF"
+    assert_contains "tier12: Kubernetes JVM loads the unsigned managed bundle" \
+      "$hello" "MANAGED DEPENDENCY OK"
+  else
+    fail "tier12: deploy unsigned application and managed bundle" \
+      "see $WORK/t12-deploy.log"
     return 0
   fi
   local info_body procs mem
