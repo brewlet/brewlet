@@ -207,13 +207,33 @@ public class LocalStore {
     /** Returns referrer descriptors for a subject and artifact type. */
     public List<OciDescriptor> referrers(String subjectDigest, String artifactType)
             throws IOException {
-        return readIndex().getManifests() == null ? List.of()
-                : readIndex().getManifests().stream()
-                .filter(d -> d != null && artifactType.equals(d.getArtifactType()))
-                .filter(d -> d.getAnnotations() != null
-                        && subjectDigest.equals(d.getAnnotations().get(
-                        MediaTypes.REFERRER_SUBJECT_ANNOTATION)))
-                .toList();
+        OciIndex index = readIndex();
+        if (index.getManifests() == null) {
+            return List.of();
+        }
+        List<OciDescriptor> matches = new ArrayList<>();
+        for (OciDescriptor descriptor : index.getManifests()) {
+            if (descriptor == null || !artifactType.equals(descriptor.getArtifactType())) {
+                continue;
+            }
+            if (descriptor.getAnnotations() != null
+                    && subjectDigest.equals(descriptor.getAnnotations().get(
+                    MediaTypes.REFERRER_SUBJECT_ANNOTATION))) {
+                matches.add(descriptor);
+                continue;
+            }
+            try {
+                byte[] manifestBytes = Files.readAllBytes(blobPath(descriptor.getDigest()));
+                OciManifest manifest = OciReferrer.parseManifest(manifestBytes);
+                if (manifest != null && manifest.getSubject() != null
+                        && subjectDigest.equals(manifest.getSubject().getDigest())) {
+                    matches.add(descriptor);
+                }
+            } catch (IOException | RuntimeException ignored) {
+                // A malformed descriptor without a matching discovery hint is unrelated.
+            }
+        }
+        return matches;
     }
 
     /** Reads and validates the sole document layer of a local referrer. */
@@ -228,8 +248,8 @@ public class LocalStore {
             throw new IOException("Referrer manifest media type, digest, or size mismatch");
         }
         OciManifest manifest = OciReferrer.parseManifest(manifestBytes);
-        String subjectDigest = descriptor.getAnnotations() == null ? null
-                : descriptor.getAnnotations().get(MediaTypes.REFERRER_SUBJECT_ANNOTATION);
+        String subjectDigest = manifest == null || manifest.getSubject() == null
+                ? null : manifest.getSubject().getDigest();
         OciDescriptor subject = readIndex().getManifests().stream()
                 .filter(candidate -> candidate != null
                         && java.util.Objects.equals(candidate.getDigest(), subjectDigest))

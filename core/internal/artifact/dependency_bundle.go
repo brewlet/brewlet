@@ -538,5 +538,5 @@ func isLowerHex(value string) bool {
 }
 
 func lockCoordinate(entry DependencyLockEntry) string {
-	return strings.Join([]string{entry.GroupID, entry.ArtifactID, entry.Type, entry.Classifier, entry.Version, entry.FileName, entry.SHA256}, ":")
+	return strings.Join([]string{entry.GroupID, entry.ArtifactID, entry.Type, entry.Classifier, entry.Version}, ":")
 }

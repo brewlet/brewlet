@@ -315,8 +315,10 @@ public final class DependencyBundle {
                 break;
             }
             String name = tarString(tar, offset, 100);
+            String prefix = tarString(tar, offset + 345, 155);
             int type = tar[offset + 156] & 0xff;
-            if ((type != 0 && type != '0') || name.contains("/") || name.contains("\\")
+            if (!prefix.isEmpty() || (type != 0 && type != '0')
+                    || name.contains("/") || name.contains("\\")
                     || !name.toLowerCase(java.util.Locale.ROOT).endsWith(".jar")) {
                 throw new IOException("Dependency classpath layer entry must be a flat regular JAR: "
                         + name);

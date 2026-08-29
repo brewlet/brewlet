@@ -353,7 +353,8 @@ MUST order entries lexicographically by
 `groupId:artifactId:type:classifier:version`; consumers MAY normalize this order
 before comparison. Coordinates and filenames MUST each be unique. `sha256` is
 the digest of the individual JAR bytes and does not include the `sha256:`
-prefix.
+prefix. Scope is part of the version 1 graph identity: consumers MUST reject a
+scope difference even when the artifact coordinate and bytes otherwise match.
 
 The uncompressed dependency layer MUST be a flat USTAR archive containing
 exactly one regular file for every lock entry and no other entries. Directory,
@@ -398,7 +399,7 @@ referrer whose subject is the immutable dependency-bundle manifest:
 | SBOM | `application/vnd.cyclonedx+json` | CycloneDX 1.5 document derived from the dependency lock. |
 | Provenance | `application/vnd.brewlet.attestation.v1+json` / `application/vnd.dsse.envelope.v1+json` | Signed DSSE envelope containing an in-toto Statement v1 with predicate type `https://brewlet.sh/attestations/dependency-bundle/v1`. |
 
-The SBOM referrer is always required. Bundle provenance is optional. If no
+Exactly one discovered and valid SBOM referrer is required. Bundle provenance is optional. If no
 provenance referrer exists, Brewlet treats the bundle as unsigned. If one or
 more provenance referrers exist, consumers MUST require trust credentials and
 MUST validate at least one complete signature, identity, subject, and predicate
@@ -410,10 +411,6 @@ require a CycloneDX service, SDK, or runtime library. The SBOM MUST have
 component with matching group, name, version, SHA-256 hash, and Maven package
 URL. Its package URL is:
 
-Ops admission policy determines whether unsigned bundles are acceptable in a
-deployment environment. Cluster-side enforcement is defined by the separate
-supply-chain admission work.
-
 ```text
 pkg:maven/<percent-encoded-groupId>/<percent-encoded-artifactId>@<percent-encoded-version>[?type=<percent-encoded-type>[&classifier=<percent-encoded-classifier>]]
 ```
@@ -421,6 +418,10 @@ pkg:maven/<percent-encoded-groupId>/<percent-encoded-artifactId>@<percent-encode
 The `type` qualifier is omitted for `jar`; the `classifier` qualifier is omitted
 when empty. Spaces are encoded as `%20`. Consumers compare these semantic fields
 rather than requiring byte-identical JSON.
+
+Ops admission policy determines whether unsigned bundles are acceptable in a
+deployment environment. Cluster-side enforcement is defined by the separate
+supply-chain admission work.
 
 Each referrer MUST be an OCI image manifest with:
 

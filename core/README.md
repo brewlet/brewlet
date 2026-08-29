@@ -28,6 +28,7 @@ classpath tar as a managed OCI bundle:
 
 ```bash
 brewlet dependency-bundle dependencies.tar platform/spring-web:2026.08 \
+  --store target/dependency-bundle-oci \
   --name spring-web \
   --version 2026.08 \
   --source-bom com.example.platform:approved-spring-bom:2026.08 \
@@ -41,6 +42,7 @@ Applications then compose that bundle with a thin JAR:
 
 ```bash
 brewlet push target/orders.jar apps/orders:1.4.2 \
+  --store target/application-oci \
   --dependency-bundle platform/spring-web:2026.08 \
   --dependency-lock target/dependency-lock.json \
   --trusted-public-key platform-builder.pub.pem \
@@ -57,6 +59,12 @@ and blob, rather than repacking it. Brewlet rejects nested dependency JARs in th
 application JAR and records versioned managed-dependency evidence on the final
 image manifest. `brewlet inspect` displays the source BOM, bundle, layer, lock,
 and application JAR digests.
+
+These Go CLI commands read and write OCI layouts through `--store`; they do not
+pull managed bundles directly from a registry. The Go CLI also does not resolve a
+Maven graph: callers must supply the canonical lock with `--lock` or
+`--dependency-lock`. Use the Maven plugin for BOM import, Maven graph resolution,
+and direct registry publication/consumption.
 
 Bundle publication always generates a CycloneDX 1.5 SBOM. Supplying signing
 credentials additionally creates a DSSE/in-toto provenance referrer; when that

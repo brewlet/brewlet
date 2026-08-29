@@ -202,6 +202,31 @@ func TestCanonicalDependencyTarNormalizesMetadataAndOrder(t *testing.T) {
 	}
 }
 
+func TestDependencyLockUsesNormativeCoordinateOrder(t *testing.T) {
+	raw := []byte(`{
+	  "schemaVersion": 1,
+	  "artifacts": [
+	    {
+	      "groupId": "com.example", "artifactId": "library", "version": "10",
+	      "type": "jar", "scope": "runtime", "fileName": "a.jar",
+	      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	    },
+	    {
+	      "groupId": "com.example", "artifactId": "library", "version": "1",
+	      "type": "jar", "scope": "runtime", "fileName": "z.jar",
+	      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	    }
+	  ]
+	}`)
+	lock, err := DecodeDependencyLock(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := lock.Artifacts[0].Version; got != "1" {
+		t.Fatalf("first version = %q, want normative lexical order to put 1 first", got)
+	}
+}
+
 func TestResolveDependencyBundleRejectsTamperedBlob(t *testing.T) {
 	dir := t.TempDir()
 	layerPath := filepath.Join(dir, "deps.tar")
@@ -328,6 +353,11 @@ func TestVerifyDependencyLockRequiresExactGraph(t *testing.T) {
 	actual.Artifacts[0].Version = "2"
 	if err := VerifyDependencyLock(expected, actual); err == nil {
 		t.Fatal("expected graph mismatch")
+	}
+	actual.Artifacts[0] = entry
+	actual.Artifacts[0].Scope = "compile"
+	if err := VerifyDependencyLock(expected, actual); err == nil {
+		t.Fatal("expected scope-only graph mismatch")
 	}
 }
 

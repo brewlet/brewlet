@@ -1,5 +1,6 @@
 package sh.brewlet.maven.plugin.model;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
@@ -26,7 +27,7 @@ public class DependencyLock {
     @JsonPropertyOrder({"groupId", "artifactId", "version", "type", "classifier",
             "scope", "fileName", "sha256"})
     public record Entry(String groupId, String artifactId, String version, String type,
-                        String classifier, String scope,
+                        @JsonInclude(JsonInclude.Include.NON_EMPTY) String classifier, String scope,
                         @JsonProperty("fileName") String filename, String sha256) {
         public String coordinate() {
             return groupId + ":" + artifactId + ":" + type + ":"

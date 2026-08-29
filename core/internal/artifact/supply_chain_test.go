@@ -131,6 +131,8 @@ func TestBundleAndManagedAttestationRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i, descriptor := range index.Manifests {
+		delete(descriptor.Annotations, ReferrerSubjectAnnotation)
+		index.Manifests[i] = descriptor
 		if descriptor.Digest == rejectedDescriptor.Digest {
 			index.Manifests = append([]Descriptor{descriptor},
 				append(index.Manifests[:i], index.Manifests[i+1:]...)...)
@@ -217,6 +219,42 @@ func TestUnsignedBundleConsumption(t *testing.T) {
 	if verified.SBOMDigest != sbomDigest || verified.Signed ||
 		verified.BuilderIdentity != "" {
 		t.Fatalf("unsigned verification = %+v", verified)
+	}
+	if _, err := store.PublishReferrer(desc, CycloneDXMediaType,
+		CycloneDXMediaType, []byte("malformed"), nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.VerifyBundleSupplyChain(bundle, nil, ""); err == nil {
+		t.Fatal("expected a second malformed SBOM descriptor to be rejected")
+	}
+}
+
+func TestCycloneDXValidationAllowsStandardAdditionalMetadata(t *testing.T) {
+	lock := DependencyLock{SchemaVersion: 1, Artifacts: []DependencyLockEntry{{
+		GroupID: "com.example", ArtifactID: "dependency", Version: "1",
+		Type: "jar", Scope: "runtime", FileName: "dependency.jar",
+		SHA256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+	}}}
+	cfg := DependencyBundleConfig{Name: "deps", Version: "1"}
+	raw, err := GenerateCycloneDX(lock, cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(raw, &document); err != nil {
+		t.Fatal(err)
+	}
+	document["serialNumber"] = "urn:uuid:00000000-0000-0000-0000-000000000001"
+	document["metadata"].(map[string]any)["timestamp"] = "2026-01-01T00:00:00Z"
+	document["components"].([]any)[0].(map[string]any)["licenses"] = []any{
+		map[string]any{"license": map[string]any{"id": "Apache-2.0"}},
+	}
+	raw, err = json.Marshal(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validateCycloneDX(raw, lock, cfg); err != nil {
+		t.Fatalf("standard CycloneDX metadata should be tolerated: %v", err)
 	}
 }
 

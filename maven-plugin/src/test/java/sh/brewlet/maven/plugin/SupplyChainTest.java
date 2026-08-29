@@ -112,10 +112,20 @@ class SupplyChainTest {
         store.pushDependencyBundle("example/platform:1", bundle);
         store.pushReferrer(materials.sbomReferrer());
         store.pushReferrer(materials.provenanceReferrer());
+        Path indexPath = temp.resolve("layout/index.json");
+        JsonNode index = CanonicalJson.MAPPER.readTree(indexPath.toFile());
+        index.path("manifests").forEach(descriptor ->
+                ((com.fasterxml.jackson.databind.node.ObjectNode)
+                        descriptor.path("annotations"))
+                        .remove(MediaTypes.REFERRER_SUBJECT_ANNOTATION));
+        CanonicalJson.MAPPER.writeValue(indexPath.toFile(), index);
         assertEquals(1, store.referrers(bundle.manifestDigest(),
                 MediaTypes.CYCLONEDX_ARTIFACT_TYPE).size());
         assertEquals(1, store.referrers(bundle.manifestDigest(),
                 MediaTypes.DSSE_ARTIFACT_TYPE).size());
+        assertArrayEquals(materials.sbom(), store.readReferrerDocument(
+                store.referrers(bundle.manifestDigest(),
+                        MediaTypes.CYCLONEDX_ARTIFACT_TYPE).get(0)));
     }
 
     @Test

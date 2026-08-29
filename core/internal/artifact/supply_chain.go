@@ -343,12 +343,15 @@ func (s Store) Referrers(subjectDigest, artifactType string) ([]Referrer, error)
 	}
 	var out []Referrer
 	for _, desc := range idx.Manifests {
-		if desc.Annotations[ReferrerSubjectAnnotation] != subjectDigest ||
-			(artifactType != "" && desc.ArtifactType != artifactType) {
+		if artifactType != "" && desc.ArtifactType != artifactType {
 			continue
 		}
 		referrer, err := s.readReferrer(desc, subject)
 		if err != nil {
+			continue
+		}
+		if referrer.Manifest.Subject == nil ||
+			referrer.Manifest.Subject.Digest != subjectDigest {
 			continue
 		}
 		out = append(out, referrer)
@@ -361,10 +364,26 @@ func (s Store) referrerDescriptorCount(subjectDigest, artifactType string) (int,
 	if err != nil {
 		return 0, err
 	}
+	var subject Descriptor
+	for _, desc := range idx.Manifests {
+		if desc.Digest == subjectDigest {
+			subject = desc
+			break
+		}
+	}
+	if subject.Digest == "" {
+		return 0, fmt.Errorf("referrer subject %s is not indexed", subjectDigest)
+	}
 	count := 0
 	for _, desc := range idx.Manifests {
-		if desc.Annotations[ReferrerSubjectAnnotation] == subjectDigest &&
-			(artifactType == "" || desc.ArtifactType == artifactType) {
+		if artifactType != "" && desc.ArtifactType != artifactType {
+			continue
+		}
+		if desc.Annotations[ReferrerSubjectAnnotation] == subjectDigest {
+			count++
+			continue
+		}
+		if _, err := s.readReferrer(desc, subject); err == nil {
 			count++
 		}
 	}
@@ -453,12 +472,18 @@ func (s Store) publishBundleSBOM(bundle Descriptor, cfg DependencyBundleConfig, 
 }
 
 func (s Store) VerifyBundleSupplyChain(bundle ResolvedDependencyBundle, key *ecdsa.PublicKey, identity string) (VerifiedBundleSupplyChain, error) {
+	sbomCount, err := s.referrerDescriptorCount(bundle.ManifestDigest, CycloneDXMediaType)
+	if err != nil {
+		return VerifiedBundleSupplyChain{}, err
+	}
 	sboms, err := s.Referrers(bundle.ManifestDigest, CycloneDXMediaType)
 	if err != nil {
 		return VerifiedBundleSupplyChain{}, err
 	}
-	if len(sboms) != 1 {
-		return VerifiedBundleSupplyChain{}, fmt.Errorf("bundle requires exactly one CycloneDX SBOM referrer, got %d", len(sboms))
+	if sbomCount != 1 || len(sboms) != 1 {
+		return VerifiedBundleSupplyChain{}, fmt.Errorf(
+			"bundle requires exactly one valid CycloneDX SBOM referrer, discovered %d descriptor(s) and %d valid document(s)",
+			sbomCount, len(sboms))
 	}
 	if err := validateCycloneDX(sboms[0].Document, bundle.Lock, bundle.Config); err != nil {
 		return VerifiedBundleSupplyChain{}, err
@@ -522,7 +547,7 @@ func (s Store) VerifyBundleSupplyChain(bundle ResolvedDependencyBundle, key *ecd
 
 func validateCycloneDX(raw []byte, lock DependencyLock, cfg DependencyBundleConfig) error {
 	var sbom CycloneDXBOM
-	if err := decodeStrict(raw, &sbom); err != nil {
+	if err := json.Unmarshal(raw, &sbom); err != nil {
 		return fmt.Errorf("decode CycloneDX SBOM: %w", err)
 	}
 	if sbom.BOMFormat != "CycloneDX" || sbom.SpecVersion != "1.5" || sbom.Version != 1 ||

@@ -64,6 +64,7 @@ class DependencyBundleTest {
         JsonNode lockJson = MAPPER.readTree(first.lockBytes());
         assertTrue(lockJson.has("artifacts"));
         assertTrue(lockJson.get("artifacts").get(0).has("fileName"));
+        assertFalse(lockJson.get("artifacts").get(0).has("classifier"));
 
         LocalStore store = new LocalStore(temp.resolve("oci"));
         OciDescriptor descriptor = store.pushDependencyBundle("example/deps:1", first);
@@ -122,6 +123,29 @@ class DependencyBundleTest {
         IOException error = assertThrows(IOException.class,
                 () -> DependencyBundle.verifyGraph(lock("a"), changed));
         assertTrue(error.getMessage().contains("does not match"));
+    }
+
+    @Test
+    void graphComparisonRejectsScopeOnlyDifference() {
+        DependencyLock changed = lock();
+        changed.setDependencies(List.of(new DependencyLock.Entry(
+                "g", "a", "1", "jar", null, "compile", "a.jar", "sha256:a")));
+        assertThrows(IOException.class,
+                () -> DependencyBundle.verifyGraph(lock("a"), changed));
+    }
+
+    @Test
+    void bundleRejectsNonEmptyUstarPrefix() throws IOException {
+        Path dependency = temp.resolve("a.jar");
+        Files.writeString(dependency, "a");
+        ArtifactLayer layer = LayerBuilder.buildBundle(List.of(
+                new LayerBuilder.Dep("a.jar", dependency, false)));
+        byte[] prefixedTar = layer.tar().clone();
+        prefixedTar[345] = 'x';
+
+        assertThrows(IOException.class, () -> DependencyBundle.build(
+                config(), lock("a"), new ArtifactLayer(
+                        layer.name(), prefixedTar, layer.mediaType())));
     }
 
     @Test

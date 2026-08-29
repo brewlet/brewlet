@@ -168,6 +168,8 @@ def validate_bundle(layout, ref, require_signature):
             "fileName", "sha256"
         }
         assert set(artifact) in (required, required | {"classifier"})
+        if "classifier" in artifact:
+            assert artifact["classifier"]
         assert all(artifact[key] for key in required - {"sha256"})
         assert "/" not in artifact["fileName"]
         assert artifact["fileName"].lower().endswith(".jar")

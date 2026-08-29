@@ -362,10 +362,11 @@ tier2_cli() {
          -Dbrewlet.dependencyBundle="$registry_ref/platform/approved:1" \
          -Dbrewlet.mainClass=com.example.Hello \
          -Dbrewlet.trustedPublicKey="$managed_public" \
-         -Dbrewlet.signerIdentity=platform-builder >>"$registry_log" 2>&1 \
+         -Dbrewlet.trustedSignerIdentity=platform-builder >>"$registry_log" 2>&1 \
        && python3 "$E2E_DIR/validate-managed-registry.py" \
          "$registry_ref" platform/approved 1 apps/demo 1 "$maven_bom" \
-         org.apache.commons:commons-lang3:3.17.0 >>"$registry_log" 2>&1; then
+         org.apache.commons:commons-lang3:3.17.0 "$managed_public" \
+         application-builder >>"$registry_log" 2>&1; then
       local bundle_tags app_tags
       bundle_tags="$(curl -fsS \
        "http://$registry_ref/v2/platform/approved/tags/list")"
@@ -377,12 +378,7 @@ tier2_cli() {
        "$bundle_referrer_tags" "2"
       assert_contains "managed registry: publishes final-image attestation fallback ref" \
        "$app_tags" "sha256-"
-      pass "managed registry: Go verifies Maven bundle signatures"
-      pass "managed registry: Maven bundle satisfies the normative wire contract"
-      pass "managed registry: bundle resolves dependency version from imported BOM"
-      pass "managed registry: final image reuses the BOM-derived OCI layer descriptor"
-      pass "managed registry: verifies bundle referrers before remote composition"
-      pass "managed registry: legacy signer identity does not force application signing"
+      pass "managed registry: signed BOM bundle composition and attestations"
     else
       fail "managed registry: publish and consume signed referrers" \
        "see $registry_log"

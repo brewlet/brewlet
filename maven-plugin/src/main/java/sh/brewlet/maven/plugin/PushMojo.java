@@ -74,9 +74,8 @@ public class PushMojo extends AbstractBrewletMojo {
         java.io.File jar = resolveJarFile();
         VerifiedBundle verifiedBundle = null;
         DependencyBundle.Content managedBundle = null;
-        String expectedBundleSigner = valueOrFallback(trustedSignerIdentity, signerIdentity);
-        String applicationBuilder = signingKey == null
-                ? builderIdentity : valueOrFallback(builderIdentity, signerIdentity);
+        String expectedBundleSigner = trustedSignerIdentity;
+        String applicationBuilder = builderIdentity;
         if (dependencyBundle != null && !dependencyBundle.isBlank()) {
             if ((signingKey == null) !=
                     (applicationBuilder == null || applicationBuilder.isBlank())) {
@@ -345,7 +344,4 @@ public class PushMojo extends AbstractBrewletMojo {
         return targetRegistry.equals(parts[0]) ? parts[1] : null;
     }
 
-    private static String valueOrFallback(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : value;
-    }
 }

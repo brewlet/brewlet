@@ -119,10 +119,10 @@ property. Values configured in `<configuration>` and CLI properties can be mixed
 | `splitSnapshotLayers` | `brewlet.splitSnapshotLayers` | `true` | When `layered`, pack released deps and `-SNAPSHOT` deps into separate `deps` / `snapshot-deps` layers (stable→volatile) for finer dedup. |
 | `dependencyBundle` | `brewlet.dependencyBundle` | — | For `push`, a registry reference or local OCI-layout directory containing a managed dependency bundle. The resolved runtime graph must exactly match its lock. Forces thin-JAR classpath launch and requires `mainClass`. |
 | `signingKey` | `brewlet.signingKey` | — | Optional PKCS#8 PEM ECDSA P-256 private key. When present, bundle or final-image provenance is published and must be paired with the corresponding identity. |
-| `trustedPublicKey` | `brewlet.trustedPublicKey` | — | SubjectPublicKeyInfo PEM ECDSA P-256 public key trusted to verify a managed bundle. Required when `dependencyBundle` is set. |
-| `signerIdentity` | `brewlet.signerIdentity` | — | Bundle-publisher identity used by `dependency-bundle`. Retained as a compatibility fallback for the two more specific push identities below. |
-| `trustedSignerIdentity` | `brewlet.trustedSignerIdentity` | — | Expected identity in signed bundle provenance. Required with `dependencyBundle` unless supplied by `signerIdentity`. |
-| `builderIdentity` | `brewlet.builderIdentity` | — | Application publisher identity asserted in optional final-image provenance. Required with `signingKey` when pushing a managed application, unless supplied by `signerIdentity`. |
+| `trustedPublicKey` | `brewlet.trustedPublicKey` | — | SubjectPublicKeyInfo PEM ECDSA P-256 public key trusted to verify a managed bundle. Required when the selected bundle has provenance. |
+| `signerIdentity` | `brewlet.signerIdentity` | — | Bundle-publisher identity used only by `dependency-bundle`; required when that goal uses `signingKey`. |
+| `trustedSignerIdentity` | `brewlet.trustedSignerIdentity` | — | Expected identity in signed bundle provenance. Required when the selected bundle has provenance. |
+| `builderIdentity` | `brewlet.builderIdentity` | — | Application publisher identity asserted in optional final-image provenance. Required with `signingKey` when pushing a managed application. |
 | `cdsArchive` | `brewlet.cdsArchive` | — | Optional prebuilt AppCDS `.jsa` archive to append as a `application/vnd.brewlet.cds.layer.v1+jsa` layer after dependency layers. The archive basename becomes `cds.archive`, is mounted at `/app/<name>`, and launches with `-Xshare:auto -XX:SharedArchiveFile=/app/<name>` as best-effort acceleration. See [AppCDS §4.1](https://github.com/brewlet/site/blob/main/docs/appcds.md#41-build-time-archive-layer-recommended-primary). |
 
 ### Descriptor JDK / launcher requests
@@ -207,6 +207,11 @@ layers after a bundle error. Managed mode rejects every application JAR with an
 embedded `.jar` (including `BOOT-INF/lib` and `WEB-INF/lib`), forces
 `entry.mode=classpath`, and composes the verified bundle layer into a runnable
 image.
+
+Dependency scope is part of the version 1 lock contract and comparison. A
+`compile`/`runtime` scope difference is rejected even when the artifact bytes are
+identical; publish the bundle from the same runtime dependency model used by the
+applications.
 
 The bundle config records both `layerDigest` (the compressed blob digest) and
 `layerDiffId` (the uncompressed tar digest). Runnable images reuse the standard gzip
