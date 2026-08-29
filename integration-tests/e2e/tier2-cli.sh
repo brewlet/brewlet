@@ -311,6 +311,9 @@ tier2_cli() {
   # --- managed dependencies: live OCI registry referrers --------------------
   if have docker && have mvn; then
     local registry_id registry_port registry_ref registry_log="$WORK/t2-registry.log"
+    local maven_bom="com.example.platform:approved-bom:1.0.0"
+    local maven_bundle_pom="$FIXTURES_DIR/managed-dependency-bundle/pom.xml"
+    local maven_bundle_layout="$FIXTURES_DIR/managed-dependency-bundle/target/brewlet/dependency-bundle-oci"
     registry_id="$(docker run -d -P registry:3 2>>"$registry_log")"
     registry_port="$(docker port "$registry_id" 5000/tcp 2>>"$registry_log" \
       | head -1 | sed 's/.*://')"
@@ -326,19 +329,20 @@ tier2_cli() {
     if [[ "$registry_ready" == true ]] \
        && mvn -q -f "$MONOREPO_DIR/maven-plugin/pom.xml" install \
          >>"$registry_log" 2>&1 \
-       && mvn -q -f "$FIXTURES_DIR/demo-app/pom.xml" \
-         -Pmanaged-dependencies package \
+       && mvn -q -f "$FIXTURES_DIR/managed-dependency-bom/pom.xml" install \
+         >>"$registry_log" 2>&1 \
+       && mvn -q -f "$maven_bundle_pom" package \
          sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:dependency-bundle \
          -Dbrewlet.dependencyBundleImage="$registry_ref/platform/approved:1" \
-         -Dbrewlet.sourceBom=com.example.platform:approved-bom:1 \
+         -Dbrewlet.sourceBom="$maven_bom" \
          -Dbrewlet.signingKey="$managed_private" \
          -Dbrewlet.signerIdentity=platform-builder >>"$registry_log" 2>&1 \
        && "$bin" inspect "$registry_ref/platform/approved:1" \
-         --store "$FIXTURES_DIR/demo-app/target/brewlet/dependency-bundle-oci" \
+         --store "$maven_bundle_layout" \
          --trusted-public-key "$managed_public" \
          --trusted-signer-identity=platform-builder >>"$registry_log" 2>&1 \
        && python3 "$E2E_DIR/validate-managed-oci.py" bundle \
-         "$FIXTURES_DIR/demo-app/target/brewlet/dependency-bundle-oci" \
+         "$maven_bundle_layout" \
          "$registry_ref/platform/approved:1" --require-signature \
          >>"$registry_log" 2>&1 \
        && mvn -q -f "$FIXTURES_DIR/demo-app/pom.xml" \
@@ -358,7 +362,10 @@ tier2_cli() {
          -Dbrewlet.dependencyBundle="$registry_ref/platform/approved:1" \
          -Dbrewlet.mainClass=com.example.Hello \
          -Dbrewlet.trustedPublicKey="$managed_public" \
-         -Dbrewlet.signerIdentity=platform-builder >>"$registry_log" 2>&1; then
+         -Dbrewlet.signerIdentity=platform-builder >>"$registry_log" 2>&1 \
+       && python3 "$E2E_DIR/validate-managed-registry.py" \
+         "$registry_ref" platform/approved 1 apps/demo 1 "$maven_bom" \
+         org.apache.commons:commons-lang3:3.17.0 >>"$registry_log" 2>&1; then
       local bundle_tags app_tags
       bundle_tags="$(curl -fsS \
        "http://$registry_ref/v2/platform/approved/tags/list")"
@@ -372,6 +379,8 @@ tier2_cli() {
        "$app_tags" "sha256-"
       pass "managed registry: Go verifies Maven bundle signatures"
       pass "managed registry: Maven bundle satisfies the normative wire contract"
+      pass "managed registry: bundle resolves dependency version from imported BOM"
+      pass "managed registry: final image reuses the BOM-derived OCI layer descriptor"
       pass "managed registry: verifies bundle referrers before remote composition"
       pass "managed registry: legacy signer identity does not force application signing"
     else
@@ -379,12 +388,11 @@ tier2_cli() {
        "see $registry_log"
     fi
     local unsigned_layout="$WORK/t2-unsigned-bundle"
-    if mvn -q -f "$FIXTURES_DIR/demo-app/pom.xml" \
-        -Pmanaged-dependencies package \
+    if mvn -q -f "$maven_bundle_pom" package \
         sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:dependency-bundle \
         -Dbrewlet.dependencyBundleImage="$registry_ref/platform/unsigned:1" \
         -Dbrewlet.dependencyBundleOutputDirectory="$unsigned_layout" \
-        -Dbrewlet.sourceBom=com.example.platform:approved-bom:1 \
+        -Dbrewlet.sourceBom="$maven_bom" \
         >>"$registry_log" 2>&1 \
         && python3 "$E2E_DIR/validate-managed-oci.py" bundle \
           "$unsigned_layout" "$registry_ref/platform/unsigned:1" \
