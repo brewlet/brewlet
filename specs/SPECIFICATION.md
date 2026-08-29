@@ -288,6 +288,82 @@ membership, and publishes:
 | Layer | `application/vnd.oci.image.layer.v1.tar+gzip` with `brewlet.sh/layer=classpath` | Deterministic flat dependency-JAR tar, directly reusable by a runnable image. |
 | Lock | `application/vnd.brewlet.dependencies.lock.v1+json` | Canonical ordered GAV, filename, scope, classifier, and SHA-256 inventory. |
 
+#### Version 1 wire contract
+
+The requirements in this subsection are normative. A version 1 bundle manifest
+MUST be an OCI image manifest with `schemaVersion: 2`,
+`mediaType: application/vnd.oci.image.manifest.v1+json`, and
+`artifactType: application/vnd.brewlet.dependencies.v1+json`. It MUST contain:
+
+1. one config descriptor with media type
+   `application/vnd.brewlet.dependencies.config.v1+json`;
+2. one dependency layer descriptor with media type
+   `application/vnd.oci.image.layer.v1.tar+gzip` and annotation
+   `brewlet.sh/layer=classpath`; and
+3. one lock descriptor with media type
+   `application/vnd.brewlet.dependencies.lock.v1+json`.
+
+Every descriptor digest and size MUST match the referenced bytes. Unknown JSON
+fields, duplicate dependency coordinates, duplicate filenames, additional
+classpath layers, and additional lock documents MUST be rejected.
+
+The config document has this exact field contract:
+
+```json
+{
+  "schemaVersion": 1,
+  "name": "approved",
+  "version": "2026.08",
+  "sourceBom": "com.example.platform:approved-spring-boot-bom:2026.08",
+  "lockDigest": "sha256:<64 lowercase hex characters>",
+  "layerDigest": "sha256:<64 lowercase hex characters>",
+  "layerDiffId": "sha256:<64 lowercase hex characters>",
+  "compatibleJdks": [21, 25]
+}
+```
+
+`name`, `version`, and the `G:A:V` `sourceBom` are required.
+`compatibleJdks` is optional; when present it MUST contain unique positive
+integers. Publishers MUST serialize it in ascending order. `lockDigest`
+identifies the lock document,
+`layerDigest` identifies the compressed layer, and `layerDiffId` identifies the
+uncompressed tar stream.
+
+The lock document has this exact field contract:
+
+```json
+{
+  "schemaVersion": 1,
+  "artifacts": [{
+    "groupId": "org.example",
+    "artifactId": "library",
+    "version": "1.2.3",
+    "type": "jar",
+    "classifier": "tests",
+    "scope": "runtime",
+    "fileName": "library-1.2.3-tests.jar",
+    "sha256": "<64 lowercase hex characters>"
+  }]
+}
+```
+
+`classifier` is omitted when empty. All other artifact fields are required.
+`fileName` MUST be a flat `.jar` filename without path components. Publishers
+MUST order entries lexicographically by
+`groupId:artifactId:type:classifier:version`; consumers MAY normalize this order
+before comparison. Coordinates and filenames MUST each be unique. `sha256` is
+the digest of the individual JAR bytes and does not include the `sha256:`
+prefix.
+
+The uncompressed dependency layer MUST be a flat USTAR archive containing
+exactly one regular file for every lock entry and no other entries. Directory,
+link, device, and path-traversal entries are forbidden. Each file's bytes MUST
+match its lock digest. Canonical publishers order files by `fileName`, use mode
+`0644`, UID/GID `0`, mtime `0`, and omit build-time timestamps from gzip.
+Consumers MUST validate the safe flat-file shape and contents, but MUST NOT
+depend on tar metadata or compressed-byte identity beyond the digests declared
+by that bundle.
+
 The managed layer deliberately uses the standard gzip OCI layer type rather than
 the native artifact's uncompressed
 `application/vnd.brewlet.classpath.layer.v1+tar`. Runnable images require
@@ -319,8 +395,54 @@ dependency-bundle manifest:
 
 | Referrer | Artifact/layer media type | Contents |
 |---|---|---|
-| SBOM | `application/vnd.cyclonedx+json` | Canonical CycloneDX 1.5 document derived from the dependency lock. |
+| SBOM | `application/vnd.cyclonedx+json` | CycloneDX 1.5 document derived from the dependency lock. |
 | Provenance | `application/vnd.brewlet.attestation.v1+json` / `application/vnd.dsse.envelope.v1+json` | Signed DSSE envelope containing an in-toto Statement v1 with predicate type `https://brewlet.sh/attestations/dependency-bundle/v1`. |
+
+Both referrer kinds are required before a version 1 bundle can be consumed in
+managed mode. An explicitly unsigned publication may omit provenance, but it is
+not eligible for managed consumption. CycloneDX is a wire format generated
+directly from the lock; Brewlet does not require a CycloneDX service, SDK, or
+runtime library. The SBOM MUST have `bomFormat: CycloneDX`,
+`specVersion: 1.5`, and `version: 1`. Every lock entry MUST have exactly one
+component with matching group, name, version, SHA-256 hash, and Maven package
+URL. Its package URL is:
+
+```text
+pkg:maven/<percent-encoded-groupId>/<percent-encoded-artifactId>@<percent-encoded-version>[?type=<percent-encoded-type>[&classifier=<percent-encoded-classifier>]]
+```
+
+The `type` qualifier is omitted for `jar`; the `classifier` qualifier is omitted
+when empty. Spaces are encoded as `%20`. Consumers compare these semantic fields
+rather than requiring byte-identical JSON.
+
+Each referrer MUST be an OCI image manifest with:
+
+- `schemaVersion: 2` and
+  `mediaType: application/vnd.oci.image.manifest.v1+json`;
+- a `subject` descriptor exactly matching the subject's media type, digest, and
+  size;
+- one config descriptor for the exact bytes `{}` using media type
+  `application/vnd.oci.empty.v1+json`; and
+- exactly one document layer using the media type from the table above.
+
+Provenance referrer manifests MUST carry
+`brewlet.sh/predicate-type=<predicate type>`. Local OCI indexes additionally use
+`brewlet.sh/referrer-subject=<subject digest>` for discovery. These annotations
+are discovery hints and are never trust evidence.
+
+The dependency-bundle predicate has this exact schema:
+
+```json
+{
+  "schemaVersion": 1,
+  "dependencyBundleDigest": "sha256:<hex>",
+  "dependencyLayerDigest": "sha256:<hex>",
+  "dependencyLockDigest": "sha256:<hex>",
+  "sbomDigest": "sha256:<hex>",
+  "sourceBom": "group:artifact:version",
+  "builderIdentity": "<bundle publisher identity>"
+}
+```
 
 The bundle predicate binds the bundle manifest, dependency layer, lock, SBOM,
 source BOM, and builder identity. Managed application publication must discover
@@ -347,6 +469,28 @@ final image index and its predicate binds:
 - source Maven BOM coordinates; and
 - application builder identity and schema version.
 
+The managed-dependency predicate has this exact schema:
+
+```json
+{
+  "schemaVersion": 1,
+  "finalImageDigest": "sha256:<hex>",
+  "thinJar": true,
+  "applicationJarDigest": "sha256:<hex>",
+  "dependencyBundleDigest": "sha256:<hex>",
+  "dependencyLayerDigest": "sha256:<hex>",
+  "dependencyLockDigest": "sha256:<hex>",
+  "sbomDigest": "sha256:<hex>",
+  "sourceBom": "group:artifact:version",
+  "builderIdentity": "<application publisher identity>"
+}
+```
+
+`thinJar` MUST be `true`. The in-toto statement for either predicate MUST use
+`_type: https://in-toto.io/Statement/v1`, contain exactly one subject whose
+`digest.sha256` value omits the `sha256:` prefix, and use the predicate type
+specified above.
+
 DSSE pre-authentication encoding follows:
 
 ```text
@@ -355,7 +499,9 @@ DSSEv1 <len(payloadType)> <payloadType> <len(payload)> <payload>
 
 The payload type is `application/vnd.in-toto+json`. Signatures use ECDSA P-256
 with SHA-256; keys are PKCS#8 private PEM and SubjectPublicKeyInfo public PEM,
-and `keyid` is the SHA-256 digest of the public-key DER. Informational OCI
+and the envelope MUST contain exactly one ASN.1 DER signature. `keyid` is
+`sha256:` followed by the lowercase SHA-256 digest of the public-key DER.
+Informational OCI
 annotations mirror evidence for discovery but are never accepted as proof.
 The bundle signer identity and final-image builder identity are separate trust
 inputs; deployments must not assume that the platform bundle publisher also
@@ -366,7 +512,21 @@ Local OCI layouts index referrers with
 OCI Referrers API and deterministic per-referrer digest tags when the registry
 does not advertise native subject/referrer support. Per-referrer tags preserve
 multiple signatures during signer rotation instead of overwriting an existing
-candidate.
+candidate. Implementations MUST follow `Link: rel="next"` pagination for native
+referrers and fallback tag listing. The fallback tag is:
+
+```text
+sha256-<subject hex>.<first 12 hex of SHA-256(artifactType UTF-8)>.<first 24 hex of referrer-manifest digest>
+```
+
+Consumers MUST validate descriptor media types, sizes, and digests; the complete
+subject binding; empty config; document-layer type; DSSE signature and key ID;
+expected signer identity; statement and predicate types; schema version; and
+every predicate digest. Malformed or untrusted candidates do not invalidate a
+different fully trusted candidate. Consumption fails closed unless exactly one
+SBOM referrer is discovered and validated, or when no provenance candidate
+satisfies the complete trust contract. No annotation may substitute for signed
+provenance.
 
 This is a key-based Sigstore/in-toto-compatible signing profile. Fulcio keyless
 identity issuance and Rekor transparency-log inclusion are not required by this
