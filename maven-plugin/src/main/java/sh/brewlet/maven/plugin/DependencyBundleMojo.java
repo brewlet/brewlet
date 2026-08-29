@@ -15,10 +15,12 @@ import sh.brewlet.maven.plugin.oci.LocalStore;
 import sh.brewlet.maven.plugin.oci.RegistryClient;
 import sh.brewlet.maven.plugin.util.CredentialResolver;
 import sh.brewlet.maven.plugin.util.LayerBuilder;
+import sh.brewlet.maven.plugin.supplychain.BundleProvenance;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.security.GeneralSecurityException;
 
 /** Creates and publishes the resolved runtime dependency closure as an OCI bundle. */
 @Mojo(name = "dependency-bundle", defaultPhase = LifecyclePhase.PACKAGE,
@@ -36,6 +38,9 @@ public class DependencyBundleMojo extends AbstractBrewletMojo {
 
     @Parameter(defaultValue = "${project.build.directory}/brewlet/dependency-bundle-oci")
     private File dependencyBundleOutputDirectory;
+
+    @Parameter(property = "brewlet.allowUnsigned", defaultValue = "false")
+    private boolean allowUnsigned;
 
     @Override
     protected void doExecute() throws MojoExecutionException, MojoFailureException {
@@ -63,11 +68,18 @@ public class DependencyBundleMojo extends AbstractBrewletMojo {
         config.setCompatibleJdks(compatibleJdks);
 
         DependencyBundle.Content bundle;
+        BundleProvenance.Materials materials;
         try {
             bundle = DependencyBundle.build(config, lock, layer);
-            new LocalStore(dependencyBundleOutputDirectory.toPath())
-                    .pushDependencyBundle(ref, bundle);
-        } catch (IOException e) {
+            materials = BundleProvenance.create(bundle,
+                    signingKey == null ? null : signingKey.toPath(), signerIdentity, allowUnsigned);
+            LocalStore store = new LocalStore(dependencyBundleOutputDirectory.toPath());
+            store.pushDependencyBundle(ref, bundle);
+            store.pushReferrer(materials.sbomReferrer());
+            if (materials.provenanceReferrer() != null) {
+                store.pushReferrer(materials.provenanceReferrer());
+            }
+        } catch (IOException | GeneralSecurityException e) {
             throw new MojoExecutionException("Failed to write dependency bundle OCI layout", e);
         }
         getLog().info("Brewlet: wrote dependency bundle OCI layout -> "
@@ -83,8 +95,12 @@ public class DependencyBundleMojo extends AbstractBrewletMojo {
         String[] parts = RegistryClient.splitRef(ref);
         Credential credential = CredentialResolver.resolve(parts[0], settings);
         try {
-            String digest = new RegistryClient(parts[0], parts[1], credential)
-                    .pushDependencyBundle(RegistryClient.extractTag(ref), bundle);
+            RegistryClient client = new RegistryClient(parts[0], parts[1], credential);
+            String digest = client.pushDependencyBundle(RegistryClient.extractTag(ref), bundle);
+            client.pushReferrer(materials.sbomReferrer());
+            if (materials.provenanceReferrer() != null) {
+                client.pushReferrer(materials.provenanceReferrer());
+            }
             getLog().info("Brewlet: published dependency bundle " + ref + " (" + digest + ")");
         } catch (IOException | InterruptedException e) {
             if (e instanceof InterruptedException) {

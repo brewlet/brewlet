@@ -149,7 +149,7 @@ class DependencyBundleTest {
     }
 
     @Test
-    void evidenceIsCanonicalAndExplicitlyUnsigned() throws IOException {
+    void evidenceIsCanonicalAndContainsOnlyInformationalFields() throws IOException {
         String json = DependencyBundle.canonicalJson(new ManagedDependencyEvidence(
                 true, "sha256:app", "sha256:bundle", "sha256:layer",
                 "sha256:lock", "g:b:1"));

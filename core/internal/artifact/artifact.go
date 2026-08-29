@@ -365,6 +365,7 @@ type Manifest struct {
 	SchemaVersion int          `json:"schemaVersion"`
 	MediaType     string       `json:"mediaType"`
 	ArtifactType  string       `json:"artifactType,omitempty"`
+	Subject       *Descriptor  `json:"subject,omitempty"`
 	Config        Descriptor   `json:"config"`
 	Layers        []Descriptor `json:"layers"`
 	// Annotations carries manifest-level metadata. For a runnable OCI image
@@ -567,6 +568,51 @@ func (s Store) appendTarLayers(layers []Descriptor, tars []string, mediaType, ki
 }
 
 func (s Store) indexPath() string { return filepath.Join(s.Root, "index.json") }
+
+func (s Store) readIndex() (Index, error) {
+	idx := Index{SchemaVersion: 2, MediaType: OCIImageIndexMediaType}
+	b, err := os.ReadFile(s.indexPath())
+	if err != nil {
+		return Index{}, fmt.Errorf("read index: %w", err)
+	}
+	if err := json.Unmarshal(b, &idx); err != nil {
+		return Index{}, fmt.Errorf("decode index: %w", err)
+	}
+	return idx, nil
+}
+
+func (s Store) appendIndex(desc Descriptor) error {
+	idx := Index{SchemaVersion: 2, MediaType: OCIImageIndexMediaType}
+	if b, err := os.ReadFile(s.indexPath()); err == nil {
+		if err := json.Unmarshal(b, &idx); err != nil {
+			return fmt.Errorf("decode index: %w", err)
+		}
+	}
+	for _, existing := range idx.Manifests {
+		if existing.Digest == desc.Digest {
+			return nil
+		}
+	}
+	idx.Manifests = append(idx.Manifests, desc)
+	b, err := json.MarshalIndent(idx, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(s.indexPath(), b, 0o644)
+}
+
+func (s Store) DescriptorByRef(ref string) (Descriptor, error) {
+	idx, err := s.readIndex()
+	if err != nil {
+		return Descriptor{}, err
+	}
+	for _, desc := range idx.Manifests {
+		if desc.Annotations[refNameAnnotation] == ref {
+			return desc, nil
+		}
+	}
+	return Descriptor{}, fmt.Errorf("ref %q not found in store %s", ref, s.Root)
+}
 
 func (s Store) upsertIndex(desc Descriptor) error {
 	idx := Index{SchemaVersion: 2, MediaType: "application/vnd.oci.image.index.v1+json"}

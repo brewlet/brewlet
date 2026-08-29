@@ -21,6 +21,11 @@ func TestManagedDependencyBundleCLIFlow(t *testing.T) {
 	layer := filepath.Join(dir, "dependencies.tar")
 	writeCLITar(t, layer, "approved.jar", dependency)
 	lockPath := filepath.Join(dir, "dependency-lock.json")
+	privateKey := filepath.Join(dir, "signing-key.pem")
+	publicKey := filepath.Join(dir, "signing-key.pub.pem")
+	if err := artifact.GenerateECDSAKeyPair(privateKey, publicKey); err != nil {
+		t.Fatal(err)
+	}
 	lock := artifact.DependencyLock{
 		SchemaVersion: 1,
 		Artifacts: []artifact.DependencyLockEntry{{
@@ -44,6 +49,8 @@ func TestManagedDependencyBundleCLIFlow(t *testing.T) {
 		"--source-bom", "com.example:approved-bom:1",
 		"--lock", lockPath,
 		"--compatible-jdks", "21,25",
+		"--signing-key", privateKey,
+		"--signer-identity", "test-builder",
 	}); err != nil {
 		t.Fatalf("cmdDependencyBundle: %v", err)
 	}
@@ -55,6 +62,10 @@ func TestManagedDependencyBundleCLIFlow(t *testing.T) {
 		"--store", store,
 		"--dependency-bundle", "platform/approved:1",
 		"--dependency-lock", lockPath,
+		"--trusted-public-key", publicKey,
+		"--trusted-signer-identity", "test-builder",
+		"--signing-key", privateKey,
+		"--builder-identity", "test-builder",
 		"--main-class", "com.example.Orders",
 	}); err != nil {
 		t.Fatalf("cmdPush: %v", err)
@@ -70,6 +81,17 @@ func TestManagedDependencyBundleCLIFlow(t *testing.T) {
 	}
 	if evidence.SourceBOM != "com.example:approved-bom:1" {
 		t.Fatalf("sourceBom = %q", evidence.SourceBOM)
+	}
+	imageDesc, err := (artifact.Store{Root: store}).DescriptorByRef("apps/orders:1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	key, err := artifact.LoadECDSAPublicKey(publicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (artifact.Store{Root: store}).VerifyManagedAttestation(imageDesc, key, "test-builder"); err != nil {
+		t.Fatalf("VerifyManagedAttestation: %v", err)
 	}
 }
 

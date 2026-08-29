@@ -312,10 +312,67 @@ The launch config uses `entry.mode=classpath` and
 under `/app/lib`. `JavaApplication` remains unchanged and references only the
 complete application image digest.
 
-The evidence is a versioned predicate for a trusted builder to sign using
-in-toto/Sigstore. Informational OCI annotations are not a signature and must not
-be trusted directly by admission policy. Cluster-side verification is tracked
-separately by the supply-chain admission work.
+#### Supply-chain referrers
+
+Bundle publication creates two OCI referrers whose subject is the immutable
+dependency-bundle manifest:
+
+| Referrer | Artifact/layer media type | Contents |
+|---|---|---|
+| SBOM | `application/vnd.cyclonedx+json` | Canonical CycloneDX 1.5 document derived from the dependency lock. |
+| Provenance | `application/vnd.brewlet.attestation.v1+json` / `application/vnd.dsse.envelope.v1+json` | Signed DSSE envelope containing an in-toto Statement v1 with predicate type `https://brewlet.sh/attestations/dependency-bundle/v1`. |
+
+The bundle predicate binds the bundle manifest, dependency layer, lock, SBOM,
+source BOM, and builder identity. Managed application publication must discover
+these referrers, verify the ECDSA P-256 signature against a configured public
+key, match the expected signer identity, and compare every binding with the
+resolved bundle before composing an image. CycloneDX verification is semantic:
+component coordinates and SHA-256 hashes must exactly match the lock, while
+serialization order and non-contract metadata may differ between publishers.
+When multiple provenance referrers exist, verification succeeds only if at
+least one candidate satisfies the complete trusted-key, identity, subject, and
+predicate contract.
+`sbomDigest` is the SHA-256 digest of the CycloneDX document blob, not the
+digest of its enclosing OCI referrer manifest.
+
+After publishing the final image index and obtaining its immutable digest, the
+publisher attaches a second signed in-toto statement using predicate type
+`https://brewlet.sh/attestations/managed-dependencies/v1`. Its subject is the
+final image index and its predicate binds:
+
+- final application image digest;
+- trusted-builder `thinJar` verdict and application JAR digest;
+- dependency-bundle manifest and classpath-layer digests;
+- dependency-lock and CycloneDX SBOM digests;
+- source Maven BOM coordinates; and
+- application builder identity and schema version.
+
+DSSE pre-authentication encoding follows:
+
+```text
+DSSEv1 <len(payloadType)> <payloadType> <len(payload)> <payload>
+```
+
+The payload type is `application/vnd.in-toto+json`. Signatures use ECDSA P-256
+with SHA-256; keys are PKCS#8 private PEM and SubjectPublicKeyInfo public PEM,
+and `keyid` is the SHA-256 digest of the public-key DER. Informational OCI
+annotations mirror evidence for discovery but are never accepted as proof.
+The bundle signer identity and final-image builder identity are separate trust
+inputs; deployments must not assume that the platform bundle publisher also
+builds each application.
+
+Local OCI layouts index referrers with
+`brewlet.sh/referrer-subject=<subject digest>`. Registry publication uses the
+OCI Referrers API and deterministic per-referrer digest tags when the registry
+does not advertise native subject/referrer support. Per-referrer tags preserve
+multiple signatures during signer rotation instead of overwriting an existing
+candidate.
+
+This is a key-based Sigstore/in-toto-compatible signing profile. Fulcio keyless
+identity issuance and Rekor transparency-log inclusion are not required by this
+version of the Brewlet contract and can be added without changing its predicates.
+Cluster-side enforcement remains tracked separately by the supply-chain
+admission work.
 
 ---
 

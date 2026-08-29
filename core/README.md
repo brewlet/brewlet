@@ -32,6 +32,8 @@ brewlet dependency-bundle dependencies.tar platform/spring-web:2026.08 \
   --version 2026.08 \
   --source-bom com.example.platform:approved-spring-bom:2026.08 \
   --lock dependency-lock.json \
+  --signing-key platform-builder.pem \
+  --signer-identity https://ci.example.com/platform-bundles \
   --compatible-jdks 21,25
 ```
 
@@ -41,6 +43,10 @@ Applications then compose that bundle with a thin JAR:
 brewlet push target/orders.jar apps/orders:1.4.2 \
   --dependency-bundle platform/spring-web:2026.08 \
   --dependency-lock target/dependency-lock.json \
+  --trusted-public-key platform-builder.pub.pem \
+  --trusted-signer-identity https://ci.example.com/platform-bundles \
+  --signing-key application-builder.pem \
+  --builder-identity https://ci.example.com/application-publisher \
   --main-class com.example.OrdersApplication
 ```
 
@@ -52,6 +58,20 @@ application JAR and records versioned managed-dependency evidence on the final
 image manifest. `brewlet inspect` displays the source BOM, bundle, layer, lock,
 and application JAR digests.
 
-The evidence annotation is canonical input for a trusted publisher to sign as
-an in-toto/Sigstore attestation. It is not itself a signature; cluster-side
-verification remains the responsibility of the supply-chain admission feature.
+Bundle publication generates a CycloneDX 1.5 SBOM and a signed DSSE/in-toto
+provenance referrer. Application publication verifies that signature and signer
+identity before composition, then attaches a signed managed-dependency
+attestation whose subject is the final image index digest. Generate a local
+ECDSA P-256 key pair with:
+
+```bash
+brewlet keygen --private builder.pem --public builder.pub.pem
+```
+
+`brewlet inspect` always labels the manifest annotation as informational. Pass
+`--trusted-public-key` and `--trusted-signer-identity` to cryptographically
+verify the signed referrer and display its complete predicate.
+
+The key-based DSSE format is compatible with the in-toto/Sigstore signing model,
+but this implementation does not contact Fulcio or Rekor. Key custody, rotation,
+and public-key distribution belong to the platform's signing policy.

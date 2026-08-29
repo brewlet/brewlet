@@ -183,6 +183,84 @@ public class LocalStore {
         return manifestDesc;
     }
 
+    /** Writes a referrer and indexes it by immutable subject digest. */
+    public OciDescriptor pushReferrer(OciReferrer.Content referrer) throws IOException {
+        writeBlob(OciReferrer.emptyConfig());
+        writeBlob(referrer.document());
+        OciDescriptor manifestDesc = writeBlob(referrer.manifest());
+        manifestDesc.setMediaType(MediaTypes.OCI_MANIFEST_MEDIA_TYPE);
+        manifestDesc.setArtifactType(referrer.model().getArtifactType());
+        Map<String, String> annotations = new java.util.HashMap<>();
+        annotations.put(MediaTypes.REFERRER_SUBJECT_ANNOTATION,
+                referrer.model().getSubject().getDigest());
+        if (referrer.model().getAnnotations() != null) {
+            annotations.putAll(referrer.model().getAnnotations());
+        }
+        manifestDesc.setAnnotations(annotations);
+        upsertIndex(manifestDesc);
+        Files.createDirectories(root);
+        Files.writeString(root.resolve("oci-layout"),
+                "{\"imageLayoutVersion\":\"1.0.0\"}\n");
+        return manifestDesc;
+    }
+
+    /** Returns referrer descriptors for a subject and artifact type. */
+    public List<OciDescriptor> referrers(String subjectDigest, String artifactType)
+            throws IOException {
+        return readIndex().getManifests() == null ? List.of()
+                : readIndex().getManifests().stream()
+                .filter(d -> artifactType.equals(d.getArtifactType()))
+                .filter(d -> d.getAnnotations() != null
+                        && subjectDigest.equals(d.getAnnotations().get(
+                        MediaTypes.REFERRER_SUBJECT_ANNOTATION)))
+                .toList();
+    }
+
+    /** Reads and validates the sole document layer of a local referrer. */
+    public byte[] readReferrerDocument(OciDescriptor descriptor) throws IOException {
+        byte[] manifestBytes = Files.readAllBytes(blobPath(descriptor.getDigest()));
+        if (!MediaTypes.OCI_MANIFEST_MEDIA_TYPE.equals(descriptor.getMediaType())
+                || manifestBytes.length != descriptor.getSize()
+                || !sha256Hex(manifestBytes).equals(descriptor.getDigest())) {
+            throw new IOException("Referrer manifest media type, digest, or size mismatch");
+        }
+        OciManifest manifest = MAPPER.readValue(manifestBytes, OciManifest.class);
+        validateReferrerManifest(manifest, descriptor, descriptor.getAnnotations() == null
+                ? null : descriptor.getAnnotations().get(MediaTypes.REFERRER_SUBJECT_ANNOTATION));
+        if (manifest.getLayers() == null || manifest.getLayers().size() != 1) {
+            throw new IOException("Referrer must contain exactly one layer");
+        }
+        OciDescriptor layer = manifest.getLayers().get(0);
+        String expectedLayerType = MediaTypes.CYCLONEDX_ARTIFACT_TYPE.equals(
+                manifest.getArtifactType()) ? MediaTypes.CYCLONEDX_LAYER_MEDIA_TYPE
+                : MediaTypes.DSSE_LAYER_MEDIA_TYPE;
+        if (!expectedLayerType.equals(layer.getMediaType())) {
+            throw new IOException("Referrer document layer media type mismatch");
+        }
+        byte[] document = Files.readAllBytes(blobPath(layer.getDigest()));
+        if (!sha256Hex(document).equals(layer.getDigest()) || document.length != layer.getSize()) {
+            throw new IOException("Referrer document digest or size mismatch");
+        }
+        return document;
+    }
+
+    private static void validateReferrerManifest(OciManifest manifest, OciDescriptor descriptor,
+                                                  String expectedSubject) throws IOException {
+        if (!descriptor.getArtifactType().equals(manifest.getArtifactType())
+                || manifest.getSubject() == null
+                || (expectedSubject != null
+                && !expectedSubject.equals(manifest.getSubject().getDigest()))) {
+            throw new IOException("Referrer artifact type or subject mismatch");
+        }
+        OciDescriptor config = manifest.getConfig();
+        if (config == null
+                || !MediaTypes.OCI_EMPTY_CONFIG_MEDIA_TYPE.equals(config.getMediaType())
+                || !sha256Hex(OciReferrer.emptyConfig()).equals(config.getDigest())
+                || config.getSize() != OciReferrer.emptyConfig().length) {
+            throw new IOException("Referrer must use the OCI empty config");
+        }
+    }
+
     private void upsertIndex(OciDescriptor newEntry) throws IOException {
         OciIndex idx = readIndex();
         List<OciDescriptor> manifests = idx.getManifests() == null
@@ -193,11 +271,11 @@ public class LocalStore {
                 ? newEntry.getAnnotations().get(MediaTypes.ANNOTATION_REF_NAME)
                 : null;
 
-        // Remove any existing entry for the same ref
-        if (ref != null) {
-            manifests.removeIf(m -> m.getAnnotations() != null
-                    && ref.equals(m.getAnnotations().get(MediaTypes.ANNOTATION_REF_NAME)));
-        }
+        // Repeated publication of identical content is idempotent. A named
+        // artifact also replaces the previous descriptor for that name.
+        manifests.removeIf(m -> newEntry.getDigest().equals(m.getDigest())
+                || (ref != null && m.getAnnotations() != null
+                && ref.equals(m.getAnnotations().get(MediaTypes.ANNOTATION_REF_NAME))));
         manifests.add(newEntry);
         idx.setManifests(manifests);
 
@@ -205,14 +283,10 @@ public class LocalStore {
         Files.writeString(root.resolve("index.json"), MAPPER.writeValueAsString(idx));
     }
 
-    private OciIndex readIndex() {
+    private OciIndex readIndex() throws IOException {
         Path indexFile = root.resolve("index.json");
         if (Files.exists(indexFile)) {
-            try {
-                return MAPPER.readValue(indexFile.toFile(), OciIndex.class);
-            } catch (IOException e) {
-                // Fall through: return empty index
-            }
+            return MAPPER.readValue(indexFile.toFile(), OciIndex.class);
         }
         OciIndex idx = new OciIndex();
         idx.setSchemaVersion(2);

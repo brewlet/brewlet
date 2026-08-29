@@ -7,7 +7,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonPropertyOrder({"schemaVersion", "thinJar", "applicationJarDigest",
         "dependencyBundleDigest", "dependencyLayerDigest",
-        "dependencyLockDigest", "sourceBom"})
+        "dependencyLockDigest", "sbomDigest", "sourceBom", "builderIdentity"})
 public record ManagedDependencyEvidence(
         int schemaVersion,
         boolean thinJar,
@@ -15,12 +15,14 @@ public record ManagedDependencyEvidence(
         String dependencyBundleDigest,
         String dependencyLayerDigest,
         String dependencyLockDigest,
-        String sourceBom) {
+        String sbomDigest,
+        String sourceBom,
+        String builderIdentity) {
 
     public ManagedDependencyEvidence(boolean thinJar, String applicationJarDigest,
                                      String bundleDigest, String dependencyLayerDigest,
                                      String lockDigest, String sourceBom) {
         this(1, thinJar, applicationJarDigest,
-                bundleDigest, dependencyLayerDigest, lockDigest, sourceBom);
+                bundleDigest, dependencyLayerDigest, lockDigest, null, sourceBom, null);
     }
 }

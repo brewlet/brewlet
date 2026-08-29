@@ -15,6 +15,10 @@ import sh.brewlet.maven.plugin.oci.MediaTypes;
 import sh.brewlet.maven.plugin.oci.RegistryClient;
 import sh.brewlet.maven.plugin.util.CredentialResolver;
 import sh.brewlet.maven.plugin.util.JarInspector;
+import sh.brewlet.maven.plugin.supplychain.BundleProvenance;
+import sh.brewlet.maven.plugin.supplychain.ManagedProvenance;
+import sh.brewlet.maven.plugin.oci.OciDescriptor;
+import sh.brewlet.maven.plugin.oci.OciReferrer;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -23,6 +27,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.security.GeneralSecurityException;
 
 /**
  * <strong>brewlet:push</strong> — Build the Brewlet OCI artifact and push it to
@@ -67,8 +72,17 @@ public class PushMojo extends AbstractBrewletMojo {
         }
 
         java.io.File jar = resolveJarFile();
+        VerifiedBundle verifiedBundle = null;
         DependencyBundle.Content managedBundle = null;
+        String expectedBundleSigner = valueOrFallback(trustedSignerIdentity, signerIdentity);
+        String applicationBuilder = valueOrFallback(builderIdentity, signerIdentity);
         if (dependencyBundle != null && !dependencyBundle.isBlank()) {
+            if (signingKey == null || trustedPublicKey == null
+                    || expectedBundleSigner == null || expectedBundleSigner.isBlank()
+                    || applicationBuilder == null || applicationBuilder.isBlank()) {
+                throw new MojoExecutionException("Managed dependency mode requires signingKey, "
+                        + "trustedPublicKey, trustedSignerIdentity, and builderIdentity");
+            }
             if (!"image".equals(format)) {
                 throw new MojoExecutionException("Managed dependency bundles require "
                         + "<format>image</format> so the approved OCI layer is reused unchanged.");
@@ -82,7 +96,9 @@ public class PushMojo extends AbstractBrewletMojo {
                             + "thin application JAR, but found embedded JAR "
                             + embedded.get(0) + ". Disable fat-JAR repackaging.");
                 }
-                managedBundle = resolveDependencyBundle(dependencyBundle);
+                verifiedBundle = resolveDependencyBundle(
+                        dependencyBundle, expectedBundleSigner);
+                managedBundle = verifiedBundle.bundle();
                 DependencyBundle.verifyGraph(managedBundle.lock(),
                         collectRuntimeDependencyLock());
                 List<Integer> compatibleJdks = managedBundle.config().getCompatibleJdks();
@@ -92,7 +108,7 @@ public class PushMojo extends AbstractBrewletMojo {
                             + compatibleJdks + " but this project requests JDK "
                             + resolveJdkFeature());
                 }
-            } catch (IOException e) {
+            } catch (IOException | GeneralSecurityException e) {
                 throw new MojoExecutionException("Invalid dependency bundle "
                         + dependencyBundle + ": " + e.getMessage(), e);
             } catch (InterruptedException e) {
@@ -160,12 +176,13 @@ public class PushMojo extends AbstractBrewletMojo {
         if (managedBundle != null) {
             try {
                 ManagedDependencyEvidence evidence = new ManagedDependencyEvidence(
-                        true,
+                        1, true,
                         LocalStore.sha256Hex(Files.readAllBytes(jar.toPath())),
                         managedBundle.manifestDigest(),
                         managedBundle.config().getLayerDigest(),
                         managedBundle.config().getLockDigest(),
-                        managedBundle.config().getSourceBom());
+                        verifiedBundle.sbomDigest(),
+                        managedBundle.config().getSourceBom(), applicationBuilder);
                 annotations.put(MediaTypes.MANAGED_DEPENDENCY_EVIDENCE_ANNOTATION,
                         DependencyBundle.canonicalJson(evidence));
             } catch (IOException e) {
@@ -192,13 +209,27 @@ public class PushMojo extends AbstractBrewletMojo {
                             resolvedCdsArchive != null ? resolvedCdsArchive.toPath() : null,
                             annotations);
                 }
+                if (managedBundle != null) {
+                    byte[] indexBytes = client.pullManifest(indexDigest);
+                    OciReferrer.Content attestation = ManagedProvenance.create(
+                            image, indexDigest, indexBytes.length,
+                            LocalStore.sha256Hex(Files.readAllBytes(jar.toPath())),
+                            managedBundle.manifestDigest(),
+                            managedBundle.config().getLayerDigest(),
+                            managedBundle.config().getLockDigest(),
+                            verifiedBundle.sbomDigest(), managedBundle.config().getSourceBom(),
+                            applicationBuilder, signingKey.toPath());
+                    client.pushReferrer(attestation);
+                    getLog().info("  managed dependency attestation: "
+                            + attestation.manifestDigest());
+                }
                 getLog().info("Brewlet: pushed " + image + " (runnable OCI image — kubelet-pullable)");
                 getLog().info("  index: " + indexDigest);
                 getLog().info("  platforms: "
                         + sh.brewlet.maven.plugin.oci.RunnableImageBuilder.targetArches(cfg));
                 getLog().info("  a runtimeClassName: brewlet pod can now set image: " + image);
                 getLog().info("  developer shipped ONLY the JAR; no Dockerfile, no base image.");
-            } catch (IOException | InterruptedException e) {
+            } catch (IOException | InterruptedException | GeneralSecurityException e) {
                 if (e instanceof InterruptedException) Thread.currentThread().interrupt();
                 throw new MojoExecutionException("Failed to push runnable image to " + image, e);
             }
@@ -224,20 +255,75 @@ public class PushMojo extends AbstractBrewletMojo {
         }
     }
 
-    private DependencyBundle.Content resolveDependencyBundle(String reference)
-            throws IOException, InterruptedException {
+    private VerifiedBundle resolveDependencyBundle(String reference, String expectedBundleSigner)
+            throws IOException, InterruptedException, GeneralSecurityException {
         try {
             Path path = Path.of(reference);
             if (Files.isDirectory(path)) {
-                return DependencyBundle.loadLayout(path);
+                DependencyBundle.Content bundle = DependencyBundle.loadLayout(path);
+                LocalStore store = new LocalStore(path);
+                List<OciDescriptor> sbomRefs = store.referrers(bundle.manifestDigest(),
+                        MediaTypes.CYCLONEDX_ARTIFACT_TYPE);
+                List<OciDescriptor> provenanceRefs = store.referrers(bundle.manifestDigest(),
+                                MediaTypes.DSSE_ARTIFACT_TYPE).stream()
+                        .filter(d -> d.getAnnotations() != null
+                                && MediaTypes.DEPENDENCY_BUNDLE_PREDICATE_TYPE.equals(
+                                d.getAnnotations().get(MediaTypes.PREDICATE_TYPE_ANNOTATION)))
+                        .toList();
+                return verifyBundleReferrers(bundle, sbomRefs, provenanceRefs,
+                        store::readReferrerDocument, expectedBundleSigner);
             }
         } catch (InvalidPathException ignored) {
             // A registry reference is not required to be a valid local path.
         }
         String[] parts = RegistryClient.splitRef(reference);
         Credential bundleCredential = CredentialResolver.resolve(parts[0], settings);
-        return new RegistryClient(parts[0], parts[1], bundleCredential)
-                .pullDependencyBundle(RegistryClient.extractTag(reference));
+        RegistryClient client = new RegistryClient(parts[0], parts[1], bundleCredential);
+        DependencyBundle.Content bundle =
+                client.pullDependencyBundle(RegistryClient.extractTag(reference));
+        List<OciDescriptor> sbomRefs = client.discoverReferrers(bundle.manifestDigest(),
+                MediaTypes.CYCLONEDX_ARTIFACT_TYPE);
+        List<OciDescriptor> provenanceRefs = client.discoverReferrers(bundle.manifestDigest(),
+                MediaTypes.DSSE_ARTIFACT_TYPE);
+        return verifyBundleReferrers(bundle, sbomRefs, provenanceRefs,
+                descriptor -> client.pullReferrerDocument(
+                        descriptor, bundle.manifestDigest()), expectedBundleSigner);
+    }
+
+    private VerifiedBundle verifyBundleReferrers(DependencyBundle.Content bundle,
+                                                  List<OciDescriptor> sbomRefs,
+                                                  List<OciDescriptor> provenanceRefs,
+                                                  ReferrerReader reader,
+                                                  String expectedBundleSigner)
+            throws IOException, InterruptedException, GeneralSecurityException {
+        if (sbomRefs.size() != 1 || provenanceRefs.isEmpty()) {
+            throw new GeneralSecurityException("Managed bundle requires exactly one SBOM and "
+                    + "at least one signed dependency-bundle provenance referrer");
+        }
+        byte[] sbom = reader.read(sbomRefs.get(0));
+        GeneralSecurityException rejection = null;
+        for (OciDescriptor provenanceRef : provenanceRefs) {
+            try {
+                byte[] envelope = reader.read(provenanceRef);
+                String digest = BundleProvenance.verify(bundle, sbom, envelope,
+                        trustedPublicKey.toPath(), expectedBundleSigner);
+                return new VerifiedBundle(bundle, digest);
+            } catch (GeneralSecurityException | IOException e) {
+                rejection = new GeneralSecurityException(
+                        "Rejected dependency-bundle provenance referrer "
+                                + provenanceRef.getDigest(), e);
+            }
+        }
+        throw new GeneralSecurityException(
+                "No dependency-bundle provenance referrer was signed by the trusted signer",
+                rejection);
+    }
+
+    private record VerifiedBundle(DependencyBundle.Content bundle, String sbomDigest) {}
+
+    @FunctionalInterface
+    private interface ReferrerReader {
+        byte[] read(OciDescriptor descriptor) throws IOException, InterruptedException;
     }
 
     private static String managedBundleSourceRepository(String reference,
@@ -251,5 +337,9 @@ public class PushMojo extends AbstractBrewletMojo {
         }
         String[] parts = RegistryClient.splitRef(reference);
         return targetRegistry.equals(parts[0]) ? parts[1] : null;
+    }
+
+    private static String valueOrFallback(String value, String fallback) {
+        return value == null || value.isBlank() ? fallback : value;
     }
 }

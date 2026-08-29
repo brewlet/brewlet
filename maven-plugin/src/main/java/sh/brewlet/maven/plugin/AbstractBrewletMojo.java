@@ -256,6 +256,26 @@ public abstract class AbstractBrewletMojo extends AbstractMojo {
     @Parameter(property = "brewlet.dependencyBundle")
     protected String dependencyBundle;
 
+    /** PKCS#8 PEM ECDSA P-256 private key used for supply-chain attestations. */
+    @Parameter(property = "brewlet.signingKey")
+    protected File signingKey;
+
+    /** SubjectPublicKeyInfo PEM public key trusted for managed dependency bundles. */
+    @Parameter(property = "brewlet.trustedPublicKey")
+    protected File trustedPublicKey;
+
+    /** Expected and asserted builder identity in signed predicates. */
+    @Parameter(property = "brewlet.signerIdentity")
+    protected String signerIdentity;
+
+    /** Expected identity in signed dependency-bundle provenance. */
+    @Parameter(property = "brewlet.trustedSignerIdentity")
+    protected String trustedSignerIdentity;
+
+    /** Identity asserted by the final application-image publisher. */
+    @Parameter(property = "brewlet.builderIdentity")
+    protected String builderIdentity;
+
     /**
      * Output directory for generated Brewlet files
      * ({@code jvm-config.json}, OCI layout, manifests).

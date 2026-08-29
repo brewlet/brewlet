@@ -10,6 +10,7 @@
 package main
 
 import (
+	"crypto/ecdsa"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -45,6 +46,8 @@ func main() {
 		err = cmdBundle(os.Args[2:])
 	case "dependency-bundle":
 		err = cmdDependencyBundle(os.Args[2:])
+	case "keygen":
+		err = cmdKeygen(os.Args[2:])
 	case "jdks":
 		err = cmdJDKs(os.Args[2:])
 	case "doctor":
@@ -70,9 +73,10 @@ func usage() {
 	fmt.Print(`Brewlet PoC — the JVM analogue to SpinKube
 
 USAGE:
-  brewlet push    <jar> <ref> [--format image|artifact] [--store DIR] [--config FILE] [--arch amd64,arm64] [--no-arch] [--classpath-layer TAR ...] [--dependency-bundle REF --dependency-lock FILE] [--main-class CLASS] [--module-layer TAR ...] [--appcds-archive JSA]
-  brewlet dependency-bundle <classpath-tar> <ref> --name NAME --version VERSION --source-bom G:A:V --lock FILE [--compatible-jdks 21,25] [--store DIR]
-  brewlet inspect <ref>       [--store DIR]
+  brewlet push    <jar> <ref> [--format image|artifact] [--store DIR] [--config FILE] [--arch amd64,arm64] [--no-arch] [--classpath-layer TAR ...] [--dependency-bundle REF --dependency-lock FILE --trusted-public-key PEM --trusted-signer-identity IDENTITY --signing-key PEM --builder-identity IDENTITY] [--main-class CLASS] [--module-layer TAR ...] [--appcds-archive JSA]
+  brewlet dependency-bundle <classpath-tar> <ref> --name NAME --version VERSION --source-bom G:A:V --lock FILE --signing-key PEM --signer-identity IDENTITY [--compatible-jdks 21,25] [--store DIR]
+  brewlet keygen --private FILE --public FILE
+  brewlet inspect <ref>       [--store DIR] [--trusted-public-key PEM --trusted-signer-identity IDENTITY]
   brewlet run     <ref>       [--store DIR] [--jdk-root DIR] [--launcher NAME] [-- <extra jvm args>]
   brewlet bundle  <ref>       [--store DIR] [--cpu N] [--memory M] [--jdk-root DIR] [--launcher NAME] [--launcher-root DIR] [--out DIR]
   brewlet jdks                [--output table|wide|json] [--kubeconfig FILE] [--context CTX] [--selector SEL]
@@ -81,6 +85,23 @@ USAGE:
 
   <ref> is name:tag, e.g. demo/hello:1.0.0
 `)
+}
+
+func cmdKeygen(args []string) error {
+	fs := flag.NewFlagSet("keygen", flag.ExitOnError)
+	privatePath := fs.String("private", "", "output PKCS#8 PEM private key")
+	publicPath := fs.String("public", "", "output SubjectPublicKeyInfo PEM public key")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *privatePath == "" || *publicPath == "" {
+		return fmt.Errorf("usage: keygen --private FILE --public FILE")
+	}
+	if err := artifact.GenerateECDSAKeyPair(*privatePath, *publicPath); err != nil {
+		return err
+	}
+	fmt.Printf("generated ECDSA P-256 signing key pair\n  private: %s\n  public: %s\n", *privatePath, *publicPath)
+	return nil
 }
 
 // splitDoubleDash separates everything after a literal "--" (extra JVM args).
@@ -130,6 +151,10 @@ func cmdPush(args []string) error {
 	fs.Var(&cpLayers, "classpath-layer", "optional dependency-layer tar to attach (repeatable); see https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md")
 	dependencyBundle := fs.String("dependency-bundle", "", "approved managed dependency bundle ref in the same OCI layout; mutually exclusive with --classpath-layer/--module-layer")
 	dependencyLock := fs.String("dependency-lock", "", "canonical lock for the application's resolved Maven runtime graph; required with --dependency-bundle")
+	trustedPublicKey := fs.String("trusted-public-key", "", "PEM ECDSA P-256 public key trusted to sign the selected bundle")
+	trustedSignerIdentity := fs.String("trusted-signer-identity", "", "expected identity in the signed bundle provenance")
+	signingKey := fs.String("signing-key", "", "PEM PKCS#8 ECDSA P-256 key used to sign final-image managed-dependency evidence")
+	builderIdentity := fs.String("builder-identity", "", "final-image builder identity recorded in signed evidence")
 	mainClass := fs.String("main-class", "", "application main class; required with --dependency-bundle unless supplied by a classpath-mode --config")
 	var mpLayers stringSlice
 	fs.Var(&mpLayers, "module-layer", "optional library-module tar for a modular (JPMS) app, unpacked to /app/mods (repeatable); see https://github.com/brewlet/site/blob/main/docs/jpms-support.md")
@@ -191,6 +216,9 @@ func cmdPush(args []string) error {
 	}
 
 	var managedBundle *artifact.ResolvedDependencyBundle
+	var managedSupply artifact.VerifiedBundleSupplyChain
+	var managedEvidence *artifact.ManagedDependencyEvidence
+	var managedSigningKey *ecdsa.PrivateKey
 	if *dependencyBundle != "" {
 		if *format != "" && *format != "image" {
 			return fmt.Errorf("--dependency-bundle requires --format=image so its standard OCI layer can be reused unchanged")
@@ -222,6 +250,22 @@ func cmdPush(args []string) error {
 		if err := artifact.VerifyDependencyLock(bundle.Lock, applicationLock); err != nil {
 			return err
 		}
+		if strings.TrimSpace(*trustedPublicKey) == "" || strings.TrimSpace(*trustedSignerIdentity) == "" ||
+			strings.TrimSpace(*signingKey) == "" || strings.TrimSpace(*builderIdentity) == "" {
+			return fmt.Errorf("--dependency-bundle requires --trusted-public-key, --trusted-signer-identity, --signing-key, and --builder-identity")
+		}
+		trustedKey, err := artifact.LoadECDSAPublicKey(*trustedPublicKey)
+		if err != nil {
+			return err
+		}
+		managedSupply, err = (artifact.Store{Root: *store}).VerifyBundleSupplyChain(bundle, trustedKey, *trustedSignerIdentity)
+		if err != nil {
+			return fmt.Errorf("verify managed dependency bundle trust: %w", err)
+		}
+		managedSigningKey, err = artifact.LoadECDSAPrivateKey(*signingKey)
+		if err != nil {
+			return err
+		}
 		entryMain := strings.TrimSpace(*mainClass)
 		if entryMain == "" && cfg.Entry.Mode == "classpath" {
 			entryMain = cfg.Entry.MainClass
@@ -238,6 +282,13 @@ func cmdPush(args []string) error {
 			ClassPath: []string{cfg.MainJar, "lib/*"},
 		}
 		managedBundle = &bundle
+		evidence, err := bundle.Evidence(jarPath)
+		if err != nil {
+			return err
+		}
+		evidence.SBOMDigest = managedSupply.SBOMDigest
+		evidence.BuilderIdentity = *builderIdentity
+		managedEvidence = &evidence
 	}
 
 	// Resolve the optional arch constraint (§ https://github.com/brewlet/site/blob/main/docs/multi-arch.md). An explicit
@@ -312,9 +363,26 @@ func cmdPush(args []string) error {
 		fmt.Printf("pushed %s\n  manifest: %s (%d bytes)\n  artifactType: %s\n  store: %s\n",
 			ref, desc.Digest, desc.Size, artifact.ArtifactType, *store)
 	case "image", "":
-		desc, err := s.PushRunnableImageWithOptions(ref, cfg, jarPath, cpLayers, mpLayers, *cdsArchive, artifact.RunnableImageOptions{ManagedDependency: managedBundle})
+		desc, err := s.PushRunnableImageWithOptions(ref, cfg, jarPath, cpLayers, mpLayers, *cdsArchive, artifact.RunnableImageOptions{
+			ManagedDependency: managedBundle,
+			ManagedEvidence:   managedEvidence,
+		})
 		if err != nil {
 			return err
+		}
+		if managedBundle != nil {
+			predicate := artifact.ManagedDependencyPredicate{
+				SchemaVersion: 1, FinalImageDigest: desc.Digest, ThinJar: true,
+				ApplicationJarDigest:   managedEvidence.ApplicationJarDigest,
+				DependencyBundleDigest: managedBundle.ManifestDigest,
+				DependencyLayerDigest:  managedBundle.Config.LayerDigest,
+				DependencyLockDigest:   managedBundle.Config.LockDigest,
+				SBOMDigest:             managedSupply.SBOMDigest, SourceBOM: managedBundle.Config.SourceBOM,
+				BuilderIdentity: *builderIdentity,
+			}
+			if _, err := s.PublishManagedAttestation(desc, predicate, managedSigningKey); err != nil {
+				return fmt.Errorf("publish final-image managed-dependency attestation: %w", err)
+			}
 		}
 		fmt.Printf("pushed %s (runnable OCI image — kubelet-pullable)\n  index: %s (%d bytes)\n  platforms: %v\n  store: %s\n",
 			ref, desc.Digest, desc.Size, artifact.RunnableArches(cfg), *store)
@@ -333,6 +401,8 @@ func cmdPush(args []string) error {
 	if managedBundle != nil {
 		fmt.Printf("  managed dependency bundle: %s@%s\n", managedBundle.Config.Name, managedBundle.ManifestDigest)
 		fmt.Printf("  source BOM: %s\n", managedBundle.Config.SourceBOM)
+		fmt.Printf("  bundle signer: %s\n", managedSupply.BuilderIdentity)
+		fmt.Printf("  final-image attestation: signed by %s\n", *builderIdentity)
 	}
 	if len(mpLayers) > 0 {
 		fmt.Printf("  modulepath layers: %d (deduped by digest)\n", len(mpLayers))
@@ -393,6 +463,8 @@ func resolveJavaBinary(hint string) (string, error) {
 func cmdInspect(args []string) error {
 	fs := flag.NewFlagSet("inspect", flag.ExitOnError)
 	store := fs.String("store", "./oci", "OCI layout directory")
+	trustedPublicKey := fs.String("trusted-public-key", "", "optional trusted ECDSA P-256 public key for attestation verification")
+	trustedSignerIdentity := fs.String("trusted-signer-identity", "", "expected attestation builder identity")
 	pos, err := parseInterspersed(fs, args)
 	if err != nil {
 		return err
@@ -414,6 +486,21 @@ func cmdInspect(args []string) error {
 		cfg, _ := json.MarshalIndent(bundle.Config, "", "  ")
 		lock, _ := json.MarshalIndent(bundle.Lock, "", "  ")
 		fmt.Printf("== kind ==\nmanaged dependency bundle\n\n== manifest ==\n%s\n\n== bundle config ==\n%s\n\n== dependency lock ==\n%s\n", mb, cfg, lock)
+		if *trustedPublicKey != "" || *trustedSignerIdentity != "" {
+			if *trustedPublicKey == "" || *trustedSignerIdentity == "" {
+				return fmt.Errorf("bundle verification requires both --trusted-public-key and --trusted-signer-identity")
+			}
+			key, err := artifact.LoadECDSAPublicKey(*trustedPublicKey)
+			if err != nil {
+				return err
+			}
+			verified, err := s.VerifyBundleSupplyChain(bundle, key, *trustedSignerIdentity)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("\n== bundle supply chain (signed, verified) ==\n  signer: %s\n  sbom: %s\n",
+				verified.BuilderIdentity, verified.SBOMDigest)
+		}
 		return nil
 	}
 	var cfg artifact.JVMConfig
@@ -439,6 +526,25 @@ func cmdInspect(args []string) error {
 		raw, _ := json.MarshalIndent(evidence, "", "  ")
 		fmt.Printf("\n== managed dependency evidence (unsigned) ==\n%s\n", raw)
 	}
+	if *trustedPublicKey != "" || *trustedSignerIdentity != "" {
+		if *trustedPublicKey == "" || *trustedSignerIdentity == "" {
+			return fmt.Errorf("attestation verification requires both --trusted-public-key and --trusted-signer-identity")
+		}
+		key, err := artifact.LoadECDSAPublicKey(*trustedPublicKey)
+		if err != nil {
+			return err
+		}
+		desc, err := s.DescriptorByRef(pos[0])
+		if err != nil {
+			return err
+		}
+		predicate, err := s.VerifyManagedAttestation(desc, key, *trustedSignerIdentity)
+		if err != nil {
+			return err
+		}
+		raw, _ := json.MarshalIndent(predicate, "", "  ")
+		fmt.Printf("\n== managed dependency attestation (signed, verified) ==\n%s\n", raw)
+	}
 	return nil
 }
 
@@ -450,12 +556,14 @@ func cmdDependencyBundle(args []string) error {
 	sourceBOM := fs.String("source-bom", "", "source Maven BOM in groupId:artifactId:version syntax")
 	lockFile := fs.String("lock", "", "canonical dependency-lock JSON file")
 	compatibleJDKs := fs.String("compatible-jdks", "", "optional comma-separated compatible JDK feature versions")
+	signingKey := fs.String("signing-key", "", "PEM PKCS#8 ECDSA P-256 key used to sign bundle provenance")
+	signerIdentity := fs.String("signer-identity", "", "bundle builder identity recorded in signed provenance")
 	pos, err := parseInterspersed(fs, args)
 	if err != nil {
 		return err
 	}
-	if len(pos) < 2 || *lockFile == "" {
-		return fmt.Errorf("usage: dependency-bundle <classpath-tar> <ref> --name NAME --version VERSION --source-bom G:A:V --lock FILE")
+	if len(pos) < 2 || *lockFile == "" || *signingKey == "" || strings.TrimSpace(*signerIdentity) == "" {
+		return fmt.Errorf("usage: dependency-bundle <classpath-tar> <ref> --name NAME --version VERSION --source-bom G:A:V --lock FILE --signing-key PEM --signer-identity IDENTITY")
 	}
 	lockRaw, err := os.ReadFile(*lockFile)
 	if err != nil {
@@ -479,8 +587,21 @@ func cmdDependencyBundle(args []string) error {
 	if err != nil {
 		return err
 	}
+	key, err := artifact.LoadECDSAPrivateKey(*signingKey)
+	if err != nil {
+		return err
+	}
+	bundle, err := store.ResolveDependencyBundle(pos[1])
+	if err != nil {
+		return err
+	}
+	sbomDigest, err := store.PublishBundleSupplyChain(desc, bundle.Config, bundle.Lock, key, *signerIdentity)
+	if err != nil {
+		return fmt.Errorf("publish bundle supply chain: %w", err)
+	}
 	fmt.Printf("pushed managed dependency bundle %s\n  manifest: %s\n  artifactType: %s\n  store: %s\n",
 		pos[1], desc.Digest, artifact.DependencyBundleArtifactType, *storeRoot)
+	fmt.Printf("  sbom: %s\n  provenance: signed by %s\n", sbomDigest, *signerIdentity)
 	return nil
 }
 

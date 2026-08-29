@@ -64,7 +64,9 @@ type ManagedDependencyEvidence struct {
 	DependencyBundleDigest string `json:"dependencyBundleDigest"`
 	DependencyLayerDigest  string `json:"dependencyLayerDigest"`
 	DependencyLockDigest   string `json:"dependencyLockDigest"`
+	SBOMDigest             string `json:"sbomDigest,omitempty"`
 	SourceBOM              string `json:"sourceBom"`
+	BuilderIdentity        string `json:"builderIdentity,omitempty"`
 }
 
 type ResolvedDependencyBundle struct {

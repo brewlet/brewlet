@@ -144,6 +144,8 @@ tier2_cli() {
   local managed_ref="platform/approved:2026.08"
   local managed_app1="demo/managed-one:1.0.0"
   local managed_app2="demo/managed-two:1.0.0"
+  local managed_private="$managed_dir/signing-key.pem"
+  local managed_public="$managed_dir/signing-key.pub.pem"
   if "$FIXTURES_DIR/managed-dependency-app/build.sh" \
       >"$WORK/t2-managed-build.log" 2>&1; then
     pass "managed: build thin app and real dependency JAR"
@@ -153,6 +155,13 @@ tier2_cli() {
     return 0
   fi
   mkdir -p "$managed_dir/lib"
+  if "$bin" keygen --private "$managed_private" --public "$managed_public" \
+      >"$WORK/t2-managed-keygen.log" 2>&1; then
+    pass "managed: generate signing key pair"
+  else
+    fail "managed: generate signing key pair" "see $WORK/t2-managed-keygen.log"
+    return 0
+  fi
   cp "$FIXTURES_DIR/managed-dependency-app/target/approved.jar" \
     "$managed_dir/lib/approved.jar"
   COPYFILE_DISABLE=1 tar -cf "$managed_tar" -C "$managed_dir/lib" approved.jar
@@ -171,6 +180,8 @@ tier2_cli() {
       --version 2026.08 \
       --source-bom com.example.platform:approved-spring-boot-bom:2026.08 \
       --lock "$managed_lock" \
+      --signing-key "$managed_private" \
+      --signer-identity e2e-builder \
       --compatible-jdks 21,25 2>&1)"; then
     assert_contains "managed: publish approved dependency bundle" "$out" "pushed managed dependency bundle"
   else
@@ -180,10 +191,14 @@ tier2_cli() {
   local managed_jar="$FIXTURES_DIR/managed-dependency-app/target/app.jar"
   if "$bin" push "$managed_jar" "$managed_app1" --store "$store" \
       --dependency-bundle "$managed_ref" --dependency-lock "$managed_lock" \
+      --trusted-public-key "$managed_public" --signing-key "$managed_private" \
+      --trusted-signer-identity e2e-builder --builder-identity e2e-builder \
       --main-class com.example.ManagedApp \
       >"$WORK/t2-managed-one.log" 2>&1 \
       && "$bin" push "$managed_jar" "$managed_app2" --store "$store" \
       --dependency-bundle "$managed_ref" --dependency-lock "$managed_lock" \
+      --trusted-public-key "$managed_public" --signing-key "$managed_private" \
+      --trusted-signer-identity e2e-builder --builder-identity e2e-builder \
       --main-class com.example.ManagedApp \
       >"$WORK/t2-managed-two.log" 2>&1; then
     pass "managed: compose two applications from one bundle"
@@ -203,12 +218,82 @@ tier2_cli() {
   else
     fail "managed: applications reuse exact dependency layer digest" "evidence did not expose a layer digest"
   fi
+  if out="$("$bin" inspect "$managed_app1" --store "$store" \
+      --trusted-public-key "$managed_public" \
+      --trusted-signer-identity e2e-builder 2>&1)"; then
+    assert_contains "managed: inspect verifies signed final-image attestation" \
+      "$out" "managed dependency attestation (signed, verified)"
+  else
+    fail "managed: inspect verifies signed final-image attestation" \
+      "$(printf '%s' "$out" | tail -1)"
+  fi
   if out="$("$bin" run "$managed_app1" --store "$store" 2>&1)"; then
     assert_contains "managed: JVM loads class from approved dependency layer" \
       "$out" "MANAGED DEPENDENCY OK"
   else
     fail "managed: JVM loads class from approved dependency layer" \
       "$(printf '%s' "$out" | tail -1)"
+  fi
+
+  # --- managed dependencies: live OCI registry referrers --------------------
+  if have docker && have mvn; then
+    local registry_id registry_port registry_ref registry_log="$WORK/t2-registry.log"
+    registry_id="$(docker run -d -P registry:3 2>>"$registry_log")"
+    registry_port="$(docker port "$registry_id" 5000/tcp 2>>"$registry_log" \
+      | head -1 | sed 's/.*://')"
+    registry_ref="localhost:$registry_port"
+    local registry_ready=false
+    for _ in {1..50}; do
+      if curl -fsS "http://$registry_ref/v2/" >/dev/null 2>&1; then
+       registry_ready=true
+       break
+      fi
+      sleep 0.2
+    done
+    if [[ "$registry_ready" == true ]] \
+       && mvn -q -f "$MONOREPO_DIR/maven-plugin/pom.xml" install \
+         >>"$registry_log" 2>&1 \
+       && mvn -q -f "$FIXTURES_DIR/demo-app/pom.xml" \
+         -Pmanaged-dependencies package \
+         sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:dependency-bundle \
+         -Dbrewlet.dependencyBundleImage="$registry_ref/platform/approved:1" \
+         -Dbrewlet.sourceBom=com.example.platform:approved-bom:1 \
+         -Dbrewlet.signingKey="$managed_private" \
+         -Dbrewlet.signerIdentity=platform-builder >>"$registry_log" 2>&1 \
+       && "$bin" inspect "$registry_ref/platform/approved:1" \
+         --store "$FIXTURES_DIR/demo-app/target/brewlet/dependency-bundle-oci" \
+         --trusted-public-key "$managed_public" \
+         --trusted-signer-identity=platform-builder >>"$registry_log" 2>&1 \
+       && mvn -q -f "$FIXTURES_DIR/demo-app/pom.xml" \
+         -Pmanaged-dependencies package \
+         sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:push \
+         -Dbrewlet.image="$registry_ref/apps/demo:1" \
+         -Dbrewlet.dependencyBundle="$registry_ref/platform/approved:1" \
+         -Dbrewlet.mainClass=com.example.Hello \
+         -Dbrewlet.signingKey="$managed_private" \
+         -Dbrewlet.trustedPublicKey="$managed_public" \
+         -Dbrewlet.trustedSignerIdentity=platform-builder \
+         -Dbrewlet.builderIdentity=application-builder >>"$registry_log" 2>&1; then
+      local bundle_tags app_tags
+      bundle_tags="$(curl -fsS \
+       "http://$registry_ref/v2/platform/approved/tags/list")"
+      app_tags="$(curl -fsS "http://$registry_ref/v2/apps/demo/tags/list")"
+      local bundle_referrer_tags
+      bundle_referrer_tags="$(printf '%s' "$bundle_tags" | grep -o 'sha256-' | wc -l \
+       | tr -d ' ')"
+      assert_eq "managed registry: publishes SBOM and provenance fallback refs" \
+       "$bundle_referrer_tags" "2"
+      assert_contains "managed registry: publishes final-image attestation fallback ref" \
+       "$app_tags" "sha256-"
+      pass "managed registry: Go verifies Maven bundle signatures"
+      pass "managed registry: verifies bundle referrers before remote composition"
+    else
+      fail "managed registry: publish and consume signed referrers" \
+       "see $registry_log"
+    fi
+    docker rm -f "$registry_id" >/dev/null 2>&1 || true
+  else
+    skip "managed registry referrers" "docker and mvn are required"
   fi
 
   # --- modular (JPMS) app: entry.mode=module + module layer -----------------

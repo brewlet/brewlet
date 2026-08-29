@@ -118,6 +118,7 @@ type runnableLayer struct {
 // so the final image reuses its descriptor without repacking the bytes.
 type RunnableImageOptions struct {
 	ManagedDependency *ResolvedDependencyBundle
+	ManagedEvidence   *ManagedDependencyEvidence
 }
 
 // PushRunnableImage publishes cfg + jarPath (and any classpath/module/CDS
@@ -202,9 +203,15 @@ func (s Store) PushRunnableImageWithOptions(ref string, cfg JVMConfig, jarPath s
 			return Descriptor{}, fmt.Errorf("managed dependency layer %s is unavailable in the OCI store: %w", bundle.Layer.Digest, err)
 		}
 		layers = append(layers, runnableLayer{Desc: bundle.Layer, DiffID: bundle.Config.LayerDiffID})
-		evidence, err := bundle.Evidence(jarPath)
-		if err != nil {
-			return Descriptor{}, err
+		var evidence ManagedDependencyEvidence
+		if opts.ManagedEvidence != nil {
+			evidence = *opts.ManagedEvidence
+		} else {
+			var err error
+			evidence, err = bundle.Evidence(jarPath)
+			if err != nil {
+				return Descriptor{}, err
+			}
 		}
 		raw, err := json.Marshal(evidence)
 		if err != nil {

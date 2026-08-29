@@ -18,6 +18,10 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.logging.Logger;
 
 /**
@@ -302,6 +306,219 @@ public class RegistryClient {
         return bundle.manifestDigest();
     }
 
+    /** Pushes an OCI referrer by digest, with a deterministic tag fallback. */
+    public String pushReferrer(OciReferrer.Content referrer)
+            throws IOException, InterruptedException {
+        for (byte[] blob : List.of(OciReferrer.emptyConfig(), referrer.document())) {
+            String digest = LocalStore.sha256Hex(blob);
+            if (!blobExists(digest)) {
+                pushBlob(digest, blob);
+            }
+        }
+        try {
+            pushManifest(referrer.manifestDigest(), referrer.manifest());
+        } catch (IOException unsupportedDigestPut) {
+            LOG.fine("Registry rejected digest-addressed referrer PUT; using tag fallback");
+        }
+        // Also publish a per-referrer deterministic tag: a registry may accept
+        // digest PUTs while not implementing the OCI 1.1 referrers endpoint.
+        pushManifest(fallbackReferrerTag(
+                referrer.model().getSubject().getDigest(),
+                referrer.model().getArtifactType(), referrer.manifestDigest()),
+                referrer.manifest());
+        return referrer.manifestDigest();
+    }
+
+    /**
+     * Discovers OCI 1.1 referrers. Registries without the API use Brewlet's
+     * deterministic subject/artifact-type tag convention.
+     */
+    public List<OciDescriptor> discoverReferrers(String subjectDigest, String artifactType)
+            throws IOException, InterruptedException {
+        URI next = registryUri("/v2/" + repository + "/referrers/" + subjectDigest
+                + "?artifactType=" + URLEncoder.encode(artifactType, StandardCharsets.UTF_8));
+        Set<URI> visited = new HashSet<>();
+        List<OciDescriptor> nativeReferrers = new ArrayList<>();
+        boolean firstPage = true;
+        while (next != null) {
+            if (!visited.add(next)) {
+                throw new IOException("Registry referrer pagination contains a cycle");
+            }
+            HttpRequest request = authedRequest(HttpRequest.newBuilder(next).GET()
+                    .header("Accept", MediaTypes.OCI_INDEX_MEDIA_TYPE));
+            HttpResponse<byte[]> response = httpClient.send(
+                    request, HttpResponse.BodyHandlers.ofByteArray());
+            if (response.statusCode() == 401) {
+                negotiate(response);
+                response = httpClient.send(authedRequest(HttpRequest.newBuilder(next).GET()
+                                .header("Accept", MediaTypes.OCI_INDEX_MEDIA_TYPE)),
+                        HttpResponse.BodyHandlers.ofByteArray());
+            }
+            if (response.statusCode() != 200) {
+                if (firstPage && (response.statusCode() == 400
+                        || response.statusCode() == 404
+                        || response.statusCode() == 405
+                        || response.statusCode() == 406)) {
+                    return discoverFallbackReferrers(subjectDigest, artifactType);
+                }
+                throw new IOException("Registry referrers discovery failed: HTTP "
+                        + response.statusCode());
+            }
+            OciIndex index = MAPPER.readValue(response.body(), OciIndex.class);
+            if (index.getManifests() != null) {
+                index.getManifests().stream()
+                        .filter(d -> artifactType.equals(d.getArtifactType()))
+                        .forEach(nativeReferrers::add);
+            }
+            String link = response.headers().firstValue("Link").orElse(null);
+            next = link == null ? null : next.resolve(linkTarget(link));
+            firstPage = false;
+        }
+        if (!nativeReferrers.isEmpty()) {
+            return nativeReferrers;
+        }
+        return discoverFallbackReferrers(subjectDigest, artifactType);
+    }
+
+    private List<OciDescriptor> discoverFallbackReferrers(
+            String subjectDigest, String artifactType)
+            throws IOException, InterruptedException {
+        String prefix = fallbackTag(subjectDigest, artifactType);
+        List<OciDescriptor> descriptors = new ArrayList<>();
+        for (String tag : listAllTags()) {
+            if (!tag.startsWith(prefix + ".")) {
+                continue;
+            }
+            try {
+                byte[] manifest = get("/v2/" + repository + "/manifests/" + tag,
+                        MediaTypes.OCI_MANIFEST_MEDIA_TYPE);
+                OciManifest model = MAPPER.readValue(manifest, OciManifest.class);
+                if (!artifactType.equals(model.getArtifactType())
+                        || model.getSubject() == null
+                        || !subjectDigest.equals(model.getSubject().getDigest())) {
+                    continue;
+                }
+                OciDescriptor descriptor = new OciDescriptor(
+                        MediaTypes.OCI_MANIFEST_MEDIA_TYPE,
+                        LocalStore.sha256Hex(manifest), manifest.length);
+                descriptor.setArtifactType(artifactType);
+                descriptors.add(descriptor);
+            } catch (IOException invalidCandidate) {
+                LOG.fine("Ignoring invalid referrer fallback tag " + tag + ": "
+                        + invalidCandidate.getMessage());
+            }
+        }
+        if (!descriptors.isEmpty()) {
+            return descriptors;
+        }
+        return List.of();
+    }
+
+    private List<String> listAllTags() throws IOException, InterruptedException {
+        URI next = registryUri("/v2/" + repository + "/tags/list?n=100");
+        LinkedHashSet<String> tags = new LinkedHashSet<>();
+        Set<URI> visited = new HashSet<>();
+        while (next != null) {
+            if (!visited.add(next)) {
+                throw new IOException("Registry tag pagination contains a cycle");
+            }
+            HttpRequest request = authedRequest(HttpRequest.newBuilder(next).GET()
+                    .header("Accept", "application/json"));
+            HttpResponse<byte[]> response = httpClient.send(
+                    request, HttpResponse.BodyHandlers.ofByteArray());
+            if (response.statusCode() == 401) {
+                negotiate(response);
+                response = httpClient.send(authedRequest(HttpRequest.newBuilder(next).GET()
+                                .header("Accept", "application/json")),
+                        HttpResponse.BodyHandlers.ofByteArray());
+            }
+            if (response.statusCode() != 200) {
+                throw new IOException("Registry tag discovery failed: HTTP "
+                        + response.statusCode());
+            }
+            JsonNode values = MAPPER.readTree(response.body()).path("tags");
+            if (values.isArray()) {
+                values.forEach(value -> tags.add(value.asText()));
+            }
+            String link = response.headers().firstValue("Link").orElse(null);
+            next = link == null ? null : next.resolve(linkTarget(link));
+        }
+        return List.copyOf(tags);
+    }
+
+    private static String linkTarget(String link) throws IOException {
+        int start = link.indexOf('<');
+        int end = link.indexOf('>', start + 1);
+        if (start < 0 || end < 0) {
+            throw new IOException("Registry returned an invalid pagination Link header");
+        }
+        return link.substring(start + 1, end);
+    }
+
+    /** Pulls the verified, single document layer from a referrer descriptor. */
+    public byte[] pullReferrerDocument(OciDescriptor descriptor)
+            throws IOException, InterruptedException {
+        return pullReferrerDocument(descriptor, null);
+    }
+
+    public byte[] pullReferrerDocument(OciDescriptor descriptor, String expectedSubject)
+            throws IOException, InterruptedException {
+        byte[] manifestBytes = get("/v2/" + repository + "/manifests/"
+                + descriptor.getDigest(), MediaTypes.OCI_MANIFEST_MEDIA_TYPE);
+        if (!MediaTypes.OCI_MANIFEST_MEDIA_TYPE.equals(descriptor.getMediaType())
+                || manifestBytes.length != descriptor.getSize()
+                || !LocalStore.sha256Hex(manifestBytes).equals(descriptor.getDigest())) {
+            throw new IOException("Referrer manifest media type, digest, or size mismatch");
+        }
+        OciManifest manifest = MAPPER.readValue(manifestBytes, OciManifest.class);
+        if (!descriptor.getArtifactType().equals(manifest.getArtifactType())
+                || manifest.getSubject() == null
+                || (expectedSubject != null
+                && !expectedSubject.equals(manifest.getSubject().getDigest()))) {
+            throw new IOException("Referrer artifact type or subject mismatch");
+        }
+        OciDescriptor config = manifest.getConfig();
+        if (config == null
+                || !MediaTypes.OCI_EMPTY_CONFIG_MEDIA_TYPE.equals(config.getMediaType())
+                || !LocalStore.sha256Hex(OciReferrer.emptyConfig()).equals(config.getDigest())
+                || config.getSize() != OciReferrer.emptyConfig().length) {
+            throw new IOException("Referrer must use the OCI empty config");
+        }
+        if (manifest.getLayers() == null || manifest.getLayers().size() != 1) {
+            throw new IOException("Referrer must contain exactly one layer");
+        }
+        OciDescriptor layer = manifest.getLayers().get(0);
+        String expectedLayerType = MediaTypes.CYCLONEDX_ARTIFACT_TYPE.equals(
+                manifest.getArtifactType()) ? MediaTypes.CYCLONEDX_LAYER_MEDIA_TYPE
+                : MediaTypes.DSSE_LAYER_MEDIA_TYPE;
+        if (!expectedLayerType.equals(layer.getMediaType())) {
+            throw new IOException("Referrer document layer media type mismatch");
+        }
+        byte[] document = get("/v2/" + repository + "/blobs/" + layer.getDigest(), null);
+        if (!LocalStore.sha256Hex(document).equals(layer.getDigest())
+                || document.length != layer.getSize()) {
+            throw new IOException("Referrer document digest or size mismatch");
+        }
+        return document;
+    }
+
+    public byte[] pullManifest(String reference) throws IOException, InterruptedException {
+        return get("/v2/" + repository + "/manifests/" + reference,
+                MediaTypes.OCI_MANIFEST_MEDIA_TYPE + ", " + MediaTypes.OCI_INDEX_MEDIA_TYPE);
+    }
+
+    static String fallbackTag(String subjectDigest, String artifactType) {
+        String typeHash = LocalStore.sha256Hex(
+                artifactType.getBytes(StandardCharsets.UTF_8)).substring(7, 19);
+        return subjectDigest.replace(':', '-') + "." + typeHash;
+    }
+
+    static String fallbackReferrerTag(
+            String subjectDigest, String artifactType, String referrerDigest) {
+        return fallbackTag(subjectDigest, artifactType) + "."
+                + referrerDigest.substring(7, 31);
+    }
+
     /** Pulls and cryptographically verifies a managed dependency bundle. */
     public DependencyBundle.Content pullDependencyBundle(String reference)
             throws IOException, InterruptedException {
@@ -357,15 +574,13 @@ public class RegistryClient {
         URI initiateUri = registryUri("/v2/" + repository + "/blobs/uploads/");
         HttpRequest initReq = authedRequest(
                 HttpRequest.newBuilder(initiateUri)
-                        .POST(HttpRequest.BodyPublishers.noBody())
-                        .header("Content-Length", "0"));
+                        .POST(HttpRequest.BodyPublishers.noBody()));
         HttpResponse<String> initResp = httpClient.send(initReq, HttpResponse.BodyHandlers.ofString());
         if (initResp.statusCode() == 401) {
             negotiate(initResp);
             initResp = httpClient.send(
                     authedRequest(HttpRequest.newBuilder(initiateUri)
-                            .POST(HttpRequest.BodyPublishers.noBody())
-                            .header("Content-Length", "0")),
+                            .POST(HttpRequest.BodyPublishers.noBody())),
                     HttpResponse.BodyHandlers.ofString());
         }
 
@@ -383,8 +598,7 @@ public class RegistryClient {
         HttpRequest putReq = authedRequest(
                 HttpRequest.newBuilder(uploadUri)
                         .PUT(HttpRequest.BodyPublishers.ofByteArray(content))
-                        .header("Content-Type", "application/octet-stream")
-                        .header("Content-Length", String.valueOf(content.length)));
+                        .header("Content-Type", "application/octet-stream"));
         HttpResponse<String> putResp = httpClient.send(putReq, HttpResponse.BodyHandlers.ofString());
         if (putResp.statusCode() != 201) {
             throw new IOException("Failed to push blob " + digest + ": HTTP " + putResp.statusCode()
@@ -434,16 +648,14 @@ public class RegistryClient {
         HttpRequest req = authedRequest(
                 HttpRequest.newBuilder(uri)
                         .PUT(HttpRequest.BodyPublishers.ofByteArray(manifestBytes))
-                        .header("Content-Type", contentType)
-                        .header("Content-Length", String.valueOf(manifestBytes.length)));
+                        .header("Content-Type", contentType));
         HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
         if (resp.statusCode() == 401) {
             negotiate(resp);
             resp = httpClient.send(
                     authedRequest(HttpRequest.newBuilder(uri)
                             .PUT(HttpRequest.BodyPublishers.ofByteArray(manifestBytes))
-                            .header("Content-Type", contentType)
-                            .header("Content-Length", String.valueOf(manifestBytes.length))),
+                            .header("Content-Type", contentType)),
                     HttpResponse.BodyHandlers.ofString());
         }
         if (resp.statusCode() != 201) {
