@@ -58,11 +58,12 @@ application JAR and records versioned managed-dependency evidence on the final
 image manifest. `brewlet inspect` displays the source BOM, bundle, layer, lock,
 and application JAR digests.
 
-Bundle publication generates a CycloneDX 1.5 SBOM and a signed DSSE/in-toto
-provenance referrer. Application publication verifies that signature and signer
-identity before composition, then attaches a signed managed-dependency
-attestation whose subject is the final image index digest. Generate a local
-ECDSA P-256 key pair with:
+Bundle publication always generates a CycloneDX 1.5 SBOM. Supplying signing
+credentials additionally creates a DSSE/in-toto provenance referrer; when that
+referrer exists, application publication requires trust credentials and validates
+it before composition. Application signing is also optional and, when enabled,
+attaches a managed-dependency attestation whose subject is the final image index
+digest. Generate a local ECDSA P-256 key pair with:
 
 ```bash
 brewlet keygen --private builder.pem --public builder.pub.pem

@@ -73,8 +73,8 @@ func usage() {
 	fmt.Print(`Brewlet PoC — the JVM analogue to SpinKube
 
 USAGE:
-  brewlet push    <jar> <ref> [--format image|artifact] [--store DIR] [--config FILE] [--arch amd64,arm64] [--no-arch] [--classpath-layer TAR ...] [--dependency-bundle REF --dependency-lock FILE --trusted-public-key PEM --trusted-signer-identity IDENTITY --signing-key PEM --builder-identity IDENTITY] [--main-class CLASS] [--module-layer TAR ...] [--appcds-archive JSA]
-  brewlet dependency-bundle <classpath-tar> <ref> --name NAME --version VERSION --source-bom G:A:V --lock FILE [--signing-key PEM --signer-identity IDENTITY | --allow-unsigned] [--compatible-jdks 21,25] [--store DIR]
+  brewlet push    <jar> <ref> [--format image|artifact] [--store DIR] [--config FILE] [--arch amd64,arm64] [--no-arch] [--classpath-layer TAR ...] [--dependency-bundle REF --dependency-lock FILE [--trusted-public-key PEM --trusted-signer-identity IDENTITY] [--signing-key PEM --builder-identity IDENTITY]] [--main-class CLASS] [--module-layer TAR ...] [--appcds-archive JSA]
+  brewlet dependency-bundle <classpath-tar> <ref> --name NAME --version VERSION --source-bom G:A:V --lock FILE [--signing-key PEM --signer-identity IDENTITY] [--compatible-jdks 21,25] [--store DIR]
   brewlet keygen --private FILE --public FILE
   brewlet inspect <ref>       [--store DIR] [--trusted-public-key PEM --trusted-signer-identity IDENTITY]
   brewlet run     <ref>       [--store DIR] [--jdk-root DIR] [--launcher NAME] [-- <extra jvm args>]
@@ -250,8 +250,8 @@ func cmdPush(args []string) error {
 		if err := artifact.VerifyDependencyLock(bundle.Lock, applicationLock); err != nil {
 			return err
 		}
-		if strings.TrimSpace(*signingKey) == "" || strings.TrimSpace(*builderIdentity) == "" {
-			return fmt.Errorf("--dependency-bundle requires --signing-key and --builder-identity for final-image provenance")
+		if (strings.TrimSpace(*signingKey) == "") != (strings.TrimSpace(*builderIdentity) == "") {
+			return fmt.Errorf("--signing-key and --builder-identity must be supplied together")
 		}
 		var trustedKey *ecdsa.PublicKey
 		if strings.TrimSpace(*trustedPublicKey) != "" || strings.TrimSpace(*trustedSignerIdentity) != "" {
@@ -262,16 +262,16 @@ func cmdPush(args []string) error {
 			if err != nil {
 				return err
 			}
-		} else if !bundle.Config.AllowUnsigned {
-			return fmt.Errorf("bundle policy requires --trusted-public-key and --trusted-signer-identity")
 		}
 		managedSupply, err = (artifact.Store{Root: *store}).VerifyBundleSupplyChain(bundle, trustedKey, *trustedSignerIdentity)
 		if err != nil {
 			return fmt.Errorf("verify managed dependency bundle trust: %w", err)
 		}
-		managedSigningKey, err = artifact.LoadECDSAPrivateKey(*signingKey)
-		if err != nil {
-			return err
+		if strings.TrimSpace(*signingKey) != "" {
+			managedSigningKey, err = artifact.LoadECDSAPrivateKey(*signingKey)
+			if err != nil {
+				return err
+			}
 		}
 		entryMain := strings.TrimSpace(*mainClass)
 		if entryMain == "" && cfg.Entry.Mode == "classpath" {
@@ -294,7 +294,7 @@ func cmdPush(args []string) error {
 			return err
 		}
 		evidence.SBOMDigest = managedSupply.SBOMDigest
-		evidence.BuilderIdentity = *builderIdentity
+		evidence.BuilderIdentity = strings.TrimSpace(*builderIdentity)
 		managedEvidence = &evidence
 	}
 
@@ -377,7 +377,7 @@ func cmdPush(args []string) error {
 		if err != nil {
 			return err
 		}
-		if managedBundle != nil {
+		if managedBundle != nil && managedSigningKey != nil {
 			predicate := artifact.ManagedDependencyPredicate{
 				SchemaVersion: 1, FinalImageDigest: desc.Digest, ThinJar: true,
 				ApplicationJarDigest:   managedEvidence.ApplicationJarDigest,
@@ -408,8 +408,16 @@ func cmdPush(args []string) error {
 	if managedBundle != nil {
 		fmt.Printf("  managed dependency bundle: %s@%s\n", managedBundle.Config.Name, managedBundle.ManifestDigest)
 		fmt.Printf("  source BOM: %s\n", managedBundle.Config.SourceBOM)
-		fmt.Printf("  bundle signer: %s\n", managedSupply.BuilderIdentity)
-		fmt.Printf("  final-image attestation: signed by %s\n", *builderIdentity)
+		if managedSupply.Signed {
+			fmt.Printf("  bundle provenance: signed by %s\n", managedSupply.BuilderIdentity)
+		} else {
+			fmt.Printf("  bundle provenance: unsigned\n")
+		}
+		if managedSigningKey != nil {
+			fmt.Printf("  final-image provenance: signed by %s\n", *builderIdentity)
+		} else {
+			fmt.Printf("  final-image provenance: unsigned\n")
+		}
 	}
 	if len(mpLayers) > 0 {
 		fmt.Printf("  modulepath layers: %d (deduped by digest)\n", len(mpLayers))
@@ -505,8 +513,13 @@ func cmdInspect(args []string) error {
 			if err != nil {
 				return err
 			}
-			fmt.Printf("\n== bundle supply chain (signed, verified) ==\n  signer: %s\n  sbom: %s\n",
-				verified.BuilderIdentity, verified.SBOMDigest)
+			if verified.Signed {
+				fmt.Printf("\n== bundle supply chain (signed, verified) ==\n  signer: %s\n  sbom: %s\n",
+					verified.BuilderIdentity, verified.SBOMDigest)
+			} else {
+				fmt.Printf("\n== bundle supply chain (unsigned) ==\n  sbom: %s\n",
+					verified.SBOMDigest)
+			}
 		}
 		return nil
 	}
@@ -565,15 +578,13 @@ func cmdDependencyBundle(args []string) error {
 	compatibleJDKs := fs.String("compatible-jdks", "", "optional comma-separated compatible JDK feature versions")
 	signingKey := fs.String("signing-key", "", "PEM PKCS#8 ECDSA P-256 key used to sign bundle provenance")
 	signerIdentity := fs.String("signer-identity", "", "bundle builder identity recorded in signed provenance")
-	allowUnsigned := fs.Bool("allow-unsigned", false, "Ops policy: permit managed consumption without signed bundle provenance")
 	pos, err := parseInterspersed(fs, args)
 	if err != nil {
 		return err
 	}
 	if len(pos) < 2 || *lockFile == "" ||
-		(!*allowUnsigned && (*signingKey == "" || strings.TrimSpace(*signerIdentity) == "")) ||
-		(*signingKey != "" && strings.TrimSpace(*signerIdentity) == "") {
-		return fmt.Errorf("usage: dependency-bundle <classpath-tar> <ref> --name NAME --version VERSION --source-bom G:A:V --lock FILE [--signing-key PEM --signer-identity IDENTITY | --allow-unsigned]")
+		((*signingKey == "") != (strings.TrimSpace(*signerIdentity) == "")) {
+		return fmt.Errorf("usage: dependency-bundle <classpath-tar> <ref> --name NAME --version VERSION --source-bom G:A:V --lock FILE [--signing-key PEM --signer-identity IDENTITY]")
 	}
 	lockRaw, err := os.ReadFile(*lockFile)
 	if err != nil {
@@ -593,7 +604,6 @@ func cmdDependencyBundle(args []string) error {
 		Version:        *bundleVersion,
 		SourceBOM:      *sourceBOM,
 		CompatibleJDKs: jdks,
-		AllowUnsigned:  *allowUnsigned,
 	}, lock, pos[0])
 	if err != nil {
 		return err
@@ -604,7 +614,7 @@ func cmdDependencyBundle(args []string) error {
 	}
 	var sbomDigest string
 	if *signingKey == "" {
-		sbomDigest, err = store.PublishUnsignedBundleSupplyChain(desc, bundle.Config, bundle.Lock)
+		sbomDigest, err = store.PublishBundleSBOM(desc, bundle.Config, bundle.Lock)
 	} else {
 		key, keyErr := artifact.LoadECDSAPrivateKey(*signingKey)
 		if keyErr != nil {
@@ -619,7 +629,7 @@ func cmdDependencyBundle(args []string) error {
 		pos[1], desc.Digest, artifact.DependencyBundleArtifactType, *storeRoot)
 	fmt.Printf("  sbom: %s\n", sbomDigest)
 	if *signingKey == "" {
-		fmt.Printf("  provenance: unsigned (allowed by Ops bundle policy)\n")
+		fmt.Printf("  provenance: unsigned\n")
 	} else {
 		fmt.Printf("  provenance: signed by %s\n", *signerIdentity)
 	}

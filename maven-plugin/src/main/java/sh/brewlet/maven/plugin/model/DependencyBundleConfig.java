@@ -8,7 +8,7 @@ import java.util.List;
 /** Versioned config blob for an OCI dependency bundle. */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @JsonPropertyOrder({"schemaVersion", "name", "version", "sourceBom", "lockDigest",
-        "layerDigest", "layerDiffId", "compatibleJdks", "allowUnsigned"})
+        "layerDigest", "layerDiffId", "compatibleJdks"})
 public class DependencyBundleConfig {
     private int schemaVersion = 1;
     private String name;
@@ -18,7 +18,6 @@ public class DependencyBundleConfig {
     private String layerDigest;
     private String layerDiffId;
     private List<Integer> compatibleJdks;
-    private Boolean allowUnsigned;
 
     public int getSchemaVersion() { return schemaVersion; }
     public void setSchemaVersion(int schemaVersion) { this.schemaVersion = schemaVersion; }
@@ -43,7 +42,4 @@ public class DependencyBundleConfig {
             compatibleJdks = compatibleJdks.stream().sorted().distinct().toList();
         }
     }
-    public Boolean getAllowUnsigned() { return allowUnsigned; }
-    public void setAllowUnsigned(Boolean allowUnsigned) { this.allowUnsigned = allowUnsigned; }
-    public boolean allowsUnsigned() { return Boolean.TRUE.equals(allowUnsigned); }
 }

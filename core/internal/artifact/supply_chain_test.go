@@ -185,7 +185,7 @@ func TestBundleAndManagedAttestationRoundTrip(t *testing.T) {
 	}
 }
 
-func TestOpsPolicyAllowsUnsignedBundleConsumption(t *testing.T) {
+func TestUnsignedBundleConsumption(t *testing.T) {
 	dir := t.TempDir()
 	content := []byte("dependency")
 	layerPath := filepath.Join(dir, "dependencies.tar")
@@ -197,7 +197,6 @@ func TestOpsPolicyAllowsUnsignedBundleConsumption(t *testing.T) {
 	store := Store{Root: filepath.Join(dir, "oci")}
 	desc, err := store.PushDependencyBundle("platform/deps:unsigned", DependencyBundleConfig{
 		Name: "deps", Version: "1", SourceBOM: "com.example:platform-bom:1",
-		AllowUnsigned: true,
 	}, lock, layerPath)
 	if err != nil {
 		t.Fatal(err)
@@ -206,7 +205,7 @@ func TestOpsPolicyAllowsUnsignedBundleConsumption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sbomDigest, err := store.PublishUnsignedBundleSupplyChain(
+	sbomDigest, err := store.PublishBundleSBOM(
 		desc, bundle.Config, bundle.Lock)
 	if err != nil {
 		t.Fatal(err)
@@ -215,8 +214,41 @@ func TestOpsPolicyAllowsUnsignedBundleConsumption(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if verified.SBOMDigest != sbomDigest ||
-		verified.BuilderIdentity != "unsigned (allowed by bundle policy)" {
+	if verified.SBOMDigest != sbomDigest || verified.Signed ||
+		verified.BuilderIdentity != "" {
 		t.Fatalf("unsigned verification = %+v", verified)
+	}
+}
+
+func TestMalformedBundleProvenanceCannotDowngradeToUnsigned(t *testing.T) {
+	dir := t.TempDir()
+	content := []byte("dependency")
+	layerPath := filepath.Join(dir, "dependencies.tar")
+	writeOrderedTar(t, layerPath, []tarFile{{name: "dependency.jar", content: content}})
+	lock := DependencyLock{SchemaVersion: 1, Artifacts: []DependencyLockEntry{{
+		GroupID: "com.example", ArtifactID: "dependency", Version: "1",
+		Type: "jar", Scope: "runtime", FileName: "dependency.jar", SHA256: hexDigest(content),
+	}}}
+	store := Store{Root: filepath.Join(dir, "oci")}
+	desc, err := store.PushDependencyBundle("platform/deps:malformed", DependencyBundleConfig{
+		Name: "deps", Version: "1", SourceBOM: "com.example:platform-bom:1",
+	}, lock, layerPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := store.ResolveDependencyBundle("platform/deps:malformed")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.PublishBundleSBOM(desc, bundle.Config, bundle.Lock); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.PublishReferrer(desc, AttestationArtifactType,
+		CycloneDXMediaType, []byte("malformed"),
+		map[string]string{PredicateTypeAnnotation: BundlePredicateType}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.VerifyBundleSupplyChain(bundle, nil, ""); err == nil {
+		t.Fatal("expected malformed provenance to prevent unsigned downgrade")
 	}
 }

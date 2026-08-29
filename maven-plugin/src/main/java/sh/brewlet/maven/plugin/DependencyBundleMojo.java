@@ -40,9 +40,6 @@ public class DependencyBundleMojo extends AbstractBrewletMojo {
             defaultValue = "${project.build.directory}/brewlet/dependency-bundle-oci")
     private File dependencyBundleOutputDirectory;
 
-    @Parameter(property = "brewlet.allowUnsigned", defaultValue = "false")
-    private boolean allowUnsigned;
-
     @Override
     protected void doExecute() throws MojoExecutionException, MojoFailureException {
         String ref = dependencyBundleImage;
@@ -54,6 +51,10 @@ public class DependencyBundleMojo extends AbstractBrewletMojo {
                     + "<dependencyBundleImage> (or <image>) with an OCI reference.");
         }
         validateSourceBom(sourceBom);
+        if ((signingKey == null) != (signerIdentity == null || signerIdentity.isBlank())) {
+            throw new MojoExecutionException(
+                    "signingKey and signerIdentity must be configured together");
+        }
 
         DependencyLock lock = collectRuntimeDependencyLock();
         ArtifactLayer layer;
@@ -67,14 +68,13 @@ public class DependencyBundleMojo extends AbstractBrewletMojo {
         config.setVersion(project.getVersion());
         config.setSourceBom(sourceBom);
         config.setCompatibleJdks(compatibleJdks);
-        config.setAllowUnsigned(allowUnsigned ? Boolean.TRUE : null);
 
         DependencyBundle.Content bundle;
         BundleProvenance.Materials materials;
         try {
             bundle = DependencyBundle.build(config, lock, layer);
             materials = BundleProvenance.create(bundle,
-                    signingKey == null ? null : signingKey.toPath(), signerIdentity, allowUnsigned);
+                    signingKey == null ? null : signingKey.toPath(), signerIdentity);
             LocalStore store = new LocalStore(dependencyBundleOutputDirectory.toPath());
             store.pushDependencyBundle(ref, bundle);
             store.pushReferrer(materials.sbomReferrer());

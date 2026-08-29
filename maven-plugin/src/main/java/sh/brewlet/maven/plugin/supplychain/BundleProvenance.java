@@ -19,7 +19,7 @@ public final class BundleProvenance {
                             byte[] envelope, OciReferrer.Content provenanceReferrer) {}
 
     public static Materials create(DependencyBundle.Content bundle, Path signingKey,
-                                   String signerIdentity, boolean allowUnsigned)
+                                   String signerIdentity)
             throws IOException, GeneralSecurityException {
         byte[] sbom = CycloneDx.generate(bundle.lock(), bundle.config().getName(),
                 bundle.config().getVersion());
@@ -29,10 +29,6 @@ public final class BundleProvenance {
                 MediaTypes.OCI_MANIFEST_MEDIA_TYPE, MediaTypes.CYCLONEDX_ARTIFACT_TYPE,
                 MediaTypes.CYCLONEDX_LAYER_MEDIA_TYPE, sbom, null);
         if (signingKey == null) {
-            if (!allowUnsigned || !bundle.config().allowsUnsigned()) {
-                throw new GeneralSecurityException(
-                        "A signingKey is required unless the Ops bundle policy allows unsigned provenance");
-            }
             return new Materials(sbom, sbomDigest, sbomReferrer, null, null);
         }
         requireIdentity(signerIdentity);

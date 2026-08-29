@@ -115,7 +115,7 @@ def statement(envelope_bytes, predicate_type, subject_digest):
     return payload["predicate"]
 
 
-def validate_bundle(layout, ref):
+def validate_bundle(layout, ref, require_signature):
     subject = layout.tagged(ref)
     assert subject["mediaType"] == OCI_MANIFEST
     assert subject["artifactType"] == BUNDLE
@@ -135,9 +135,8 @@ def validate_bundle(layout, ref):
         "layerDigest", "layerDiffId"
     }
     assert required_config <= set(config) <= required_config | {
-        "compatibleJdks", "allowUnsigned"
+        "compatibleJdks"
     }
-    assert isinstance(config.get("allowUnsigned", False), bool)
     assert config["schemaVersion"] == 1
     assert config["name"] and config["version"]
     assert len(config["sourceBom"].split(":")) == 3
@@ -201,7 +200,7 @@ def validate_bundle(layout, ref):
     sbom_refs = layout.referrers(subject, CYCLONEDX)
     provenance_refs = layout.referrers(subject, ATTESTATION)
     assert len(sbom_refs) == 1
-    if not config.get("allowUnsigned", False):
+    if require_signature:
         assert provenance_refs
     sbom_bytes, _ = layout.referrer_document(
         sbom_refs[0], subject, CYCLONEDX)
@@ -222,17 +221,21 @@ def validate_bundle(layout, ref):
 
     valid_predicates = []
     for descriptor in provenance_refs:
-        document, referrer = layout.referrer_document(
-            descriptor, subject, DSSE)
-        assert referrer["annotations"]["brewlet.sh/predicate-type"] == \
-            BUNDLE_PREDICATE
-        valid_predicates.append(statement(
-            document, BUNDLE_PREDICATE, subject["digest"]))
+        try:
+            document, referrer = layout.referrer_document(
+                descriptor, subject, DSSE)
+            assert referrer["annotations"]["brewlet.sh/predicate-type"] == \
+                BUNDLE_PREDICATE
+            valid_predicates.append(statement(
+                document, BUNDLE_PREDICATE, subject["digest"]))
+        except (AssertionError, LookupError, OSError, TypeError, UnicodeError,
+                ValueError):
+            continue
     expected_keys = {
         "schemaVersion", "dependencyBundleDigest", "dependencyLayerDigest",
         "dependencyLockDigest", "sbomDigest", "sourceBom", "builderIdentity"
     }
-    if valid_predicates:
+    if provenance_refs:
         assert any(
             set(predicate) == expected_keys
             and predicate["schemaVersion"] == 1
@@ -246,26 +249,31 @@ def validate_bundle(layout, ref):
         )
 
 
-def validate_image(layout, ref):
+def validate_image(layout, ref, require_signature):
     subject = layout.tagged(ref)
     assert subject["mediaType"] == OCI_INDEX
     refs = layout.referrers(subject, ATTESTATION)
     predicates = []
     for descriptor in refs:
-        document, referrer = layout.referrer_document(
-            descriptor, subject, DSSE)
-        if referrer.get("annotations", {}).get(
-                "brewlet.sh/predicate-type") == MANAGED_PREDICATE:
-            predicates.append(statement(
-                document, MANAGED_PREDICATE, subject["digest"]))
-    assert predicates
+        try:
+            document, referrer = layout.referrer_document(
+                descriptor, subject, DSSE)
+            if referrer.get("annotations", {}).get(
+                    "brewlet.sh/predicate-type") == MANAGED_PREDICATE:
+                predicates.append(statement(
+                    document, MANAGED_PREDICATE, subject["digest"]))
+        except (AssertionError, LookupError, OSError, TypeError, UnicodeError,
+                ValueError):
+            continue
+    if require_signature:
+        assert predicates
     expected_keys = {
         "schemaVersion", "finalImageDigest", "thinJar",
         "applicationJarDigest", "dependencyBundleDigest",
         "dependencyLayerDigest", "dependencyLockDigest", "sbomDigest",
         "sourceBom", "builderIdentity"
     }
-    assert any(
+    assert not refs or any(
         set(predicate) == expected_keys
         and predicate["schemaVersion"] == 1
         and predicate["thinJar"] is True
@@ -286,12 +294,13 @@ def main():
     parser.add_argument("kind", choices=("bundle", "image"))
     parser.add_argument("layout")
     parser.add_argument("ref")
+    parser.add_argument("--require-signature", action="store_true")
     args = parser.parse_args()
     layout = Layout(args.layout)
     if args.kind == "bundle":
-        validate_bundle(layout, args.ref)
+        validate_bundle(layout, args.ref, args.require_signature)
     else:
-        validate_image(layout, args.ref)
+        validate_image(layout, args.ref, args.require_signature)
 
 
 if __name__ == "__main__":

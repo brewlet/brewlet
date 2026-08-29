@@ -35,7 +35,6 @@ type DependencyBundleConfig struct {
 	LayerDigest    string `json:"layerDigest"`
 	LayerDiffID    string `json:"layerDiffId"`
 	CompatibleJDKs []int  `json:"compatibleJdks,omitempty"`
-	AllowUnsigned  bool   `json:"allowUnsigned,omitempty"`
 }
 
 // DependencyLock is the canonical inventory used to compare an application's

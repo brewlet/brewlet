@@ -318,8 +318,7 @@ The config document has this exact field contract:
   "lockDigest": "sha256:<64 lowercase hex characters>",
   "layerDigest": "sha256:<64 lowercase hex characters>",
   "layerDiffId": "sha256:<64 lowercase hex characters>",
-  "compatibleJdks": [21, 25],
-  "allowUnsigned": true
+  "compatibleJdks": [21, 25]
 }
 ```
 
@@ -328,11 +327,7 @@ The config document has this exact field contract:
 integers. Publishers MUST serialize it in ascending order. `lockDigest`
 identifies the lock document,
 `layerDigest` identifies the compressed layer, and `layerDiffId` identifies the
-uncompressed tar stream. `allowUnsigned` is an optional Ops-authored policy and
-defaults to `false`. When `true`, applications MAY consume the bundle without a
-provenance signature, but MUST still validate the bundle, lock, dependency
-layer, and CycloneDX SBOM. Application publication has no flag that can override
-this policy.
+uncompressed tar stream.
 
 The lock document has this exact field contract:
 
@@ -395,29 +390,29 @@ complete application image digest.
 
 #### Supply-chain referrers
 
-Bundle publication creates two OCI referrers whose subject is the immutable
-dependency-bundle manifest:
+Bundle publication always creates an SBOM referrer and may create a provenance
+referrer whose subject is the immutable dependency-bundle manifest:
 
 | Referrer | Artifact/layer media type | Contents |
 |---|---|---|
 | SBOM | `application/vnd.cyclonedx+json` | CycloneDX 1.5 document derived from the dependency lock. |
 | Provenance | `application/vnd.brewlet.attestation.v1+json` / `application/vnd.dsse.envelope.v1+json` | Signed DSSE envelope containing an in-toto Statement v1 with predicate type `https://brewlet.sh/attestations/dependency-bundle/v1`. |
 
-The SBOM referrer is always required. Provenance is required before managed
-consumption unless the Ops publisher set `allowUnsigned: true` in the bundle
-config. An unsigned-allowed publication may omit provenance; this is a bundle
-publication policy, not an application-controlled bypass. CycloneDX is a wire format generated
-directly from the lock; Brewlet does not require a CycloneDX service, SDK, or
-runtime library. The SBOM MUST have `bomFormat: CycloneDX`,
+The SBOM referrer is always required. Bundle provenance is optional. If no
+provenance referrer exists, Brewlet treats the bundle as unsigned. If one or
+more provenance referrers exist, consumers MUST require trust credentials and
+MUST validate at least one complete signature, identity, subject, and predicate
+contract; they MUST NOT silently treat invalid signed provenance as unsigned.
+CycloneDX is a wire format generated directly from the lock; Brewlet does not
+require a CycloneDX service, SDK, or runtime library. The SBOM MUST have
+`bomFormat: CycloneDX`,
 `specVersion: 1.5`, and `version: 1`. Every lock entry MUST have exactly one
 component with matching group, name, version, SHA-256 hash, and Maven package
 URL. Its package URL is:
 
-Because an unsigned artifact cannot cryptographically prove who authored its
-embedded policy, Ops MUST restrict write access to approved bundle repositories
-and admission policy MUST restrict unsigned bundle references to those
-repositories or approved digests. Cluster-side enforcement is defined by the
-separate supply-chain admission work.
+Ops admission policy determines whether unsigned bundles are acceptable in a
+deployment environment. Cluster-side enforcement is defined by the separate
+supply-chain admission work.
 
 ```text
 pkg:maven/<percent-encoded-groupId>/<percent-encoded-artifactId>@<percent-encoded-version>[?type=<percent-encoded-type>[&classifier=<percent-encoded-classifier>]]
@@ -457,8 +452,8 @@ The dependency-bundle predicate has this exact schema:
 ```
 
 The bundle predicate binds the bundle manifest, dependency layer, lock, SBOM,
-source BOM, and builder identity. Managed application publication must discover
-these referrers, verify the ECDSA P-256 signature against a configured public
+source BOM, and builder identity. When provenance exists, managed application
+publication must verify the ECDSA P-256 signature against a configured public
 key, match the expected signer identity, and compare every binding with the
 resolved bundle before composing an image. CycloneDX verification is semantic:
 component coordinates and SHA-256 hashes must exactly match the lock, while
@@ -470,9 +465,9 @@ predicate contract.
 digest of its enclosing OCI referrer manifest.
 
 After publishing the final image index and obtaining its immutable digest, the
-publisher attaches a second signed in-toto statement using predicate type
-`https://brewlet.sh/attestations/managed-dependencies/v1`. Its subject is the
-final image index and its predicate binds:
+publisher may attach a signed in-toto statement using predicate type
+`https://brewlet.sh/attestations/managed-dependencies/v1`. When present, its
+subject is the final image index and its predicate binds:
 
 - final application image digest;
 - trusted-builder `thinJar` verdict and application JAR digest;
@@ -534,13 +529,14 @@ sha256-<subject hex>.<first 12 hex of SHA-256(artifactType UTF-8)>.<first 24 hex
 Consumers MUST validate descriptor media types, sizes, and digests; the complete
 subject binding; empty config; document-layer type; DSSE signature and key ID;
 expected signer identity; statement and predicate types; schema version; and
-every predicate digest when provenance is required or supplied for verification.
+every predicate digest whenever provenance exists.
 Malformed or untrusted candidates do not invalidate a
 different fully trusted candidate. Consumption fails closed unless exactly one
-SBOM referrer is discovered and validated. When `allowUnsigned` is absent or
-false, consumption also fails when no provenance candidate satisfies the
-complete trust contract. No application option or annotation may substitute
-for the Ops-authored policy or required signed provenance.
+SBOM referrer is discovered and validated. Absence of provenance means the
+artifact is unsigned; presence of provenance means at least one candidate must
+satisfy the complete trust contract. Brewlet permits both states. Production
+admission policy decides whether unsigned dependency bundles or application
+images may run.
 
 This is a key-based Sigstore/in-toto-compatible signing profile. Fulcio keyless
 identity issuance and Rekor transparency-log inclusion are not required by this

@@ -75,11 +75,13 @@ public class PushMojo extends AbstractBrewletMojo {
         VerifiedBundle verifiedBundle = null;
         DependencyBundle.Content managedBundle = null;
         String expectedBundleSigner = valueOrFallback(trustedSignerIdentity, signerIdentity);
-        String applicationBuilder = valueOrFallback(builderIdentity, signerIdentity);
+        String applicationBuilder = signingKey == null
+                ? builderIdentity : valueOrFallback(builderIdentity, signerIdentity);
         if (dependencyBundle != null && !dependencyBundle.isBlank()) {
-            if (signingKey == null || applicationBuilder == null || applicationBuilder.isBlank()) {
-                throw new MojoExecutionException("Managed dependency mode requires signingKey "
-                        + "and builderIdentity for final-image provenance");
+            if ((signingKey == null) !=
+                    (applicationBuilder == null || applicationBuilder.isBlank())) {
+                throw new MojoExecutionException(
+                        "signingKey and builderIdentity must be configured together");
             }
             if (!"image".equals(format)) {
                 throw new MojoExecutionException("Managed dependency bundles require "
@@ -180,7 +182,8 @@ public class PushMojo extends AbstractBrewletMojo {
                         managedBundle.config().getLayerDigest(),
                         managedBundle.config().getLockDigest(),
                         verifiedBundle.sbomDigest(),
-                        managedBundle.config().getSourceBom(), applicationBuilder);
+                        managedBundle.config().getSourceBom(),
+                        signingKey == null ? null : applicationBuilder);
                 annotations.put(MediaTypes.MANAGED_DEPENDENCY_EVIDENCE_ANNOTATION,
                         DependencyBundle.canonicalJson(evidence));
             } catch (IOException e) {
@@ -207,7 +210,7 @@ public class PushMojo extends AbstractBrewletMojo {
                             resolvedCdsArchive != null ? resolvedCdsArchive.toPath() : null,
                             annotations);
                 }
-                if (managedBundle != null) {
+                if (managedBundle != null && signingKey != null) {
                     byte[] indexBytes = client.pullManifest(indexDigest);
                     OciReferrer.Content attestation = ManagedProvenance.create(
                             image, indexDigest, indexBytes.length,
@@ -263,11 +266,7 @@ public class PushMojo extends AbstractBrewletMojo {
                 List<OciDescriptor> sbomRefs = store.referrers(bundle.manifestDigest(),
                         MediaTypes.CYCLONEDX_ARTIFACT_TYPE);
                 List<OciDescriptor> provenanceRefs = store.referrers(bundle.manifestDigest(),
-                                MediaTypes.DSSE_ARTIFACT_TYPE).stream()
-                        .filter(d -> d.getAnnotations() != null
-                                && MediaTypes.DEPENDENCY_BUNDLE_PREDICATE_TYPE.equals(
-                                d.getAnnotations().get(MediaTypes.PREDICATE_TYPE_ANNOTATION)))
-                        .toList();
+                        MediaTypes.DSSE_ARTIFACT_TYPE);
                 return verifyBundleReferrers(bundle, sbomRefs, provenanceRefs,
                         store::readReferrerDocument, expectedBundleSigner);
             }
@@ -300,13 +299,13 @@ public class PushMojo extends AbstractBrewletMojo {
                     "Managed bundle requires exactly one SBOM referrer");
         }
         byte[] sbom = reader.read(sbomRefs.get(0));
+        if (provenanceRefs.isEmpty()) {
+            return new VerifiedBundle(bundle, BundleProvenance.validateSbom(bundle, sbom));
+        }
         if (trustedPublicKey == null || expectedBundleSigner == null
                 || expectedBundleSigner.isBlank()) {
-            if (!bundle.config().allowsUnsigned()) {
-                throw new GeneralSecurityException(
-                        "Bundle policy requires trustedPublicKey and trustedSignerIdentity");
-            }
-            return new VerifiedBundle(bundle, BundleProvenance.validateSbom(bundle, sbom));
+            throw new GeneralSecurityException("Bundle provenance is present; "
+                    + "trustedPublicKey and trustedSignerIdentity are required");
         }
         GeneralSecurityException rejection = null;
         for (OciDescriptor provenanceRef : provenanceRefs) {
@@ -320,9 +319,6 @@ public class PushMojo extends AbstractBrewletMojo {
                         "Rejected dependency-bundle provenance referrer "
                                 + provenanceRef.getDigest(), e);
             }
-        }
-        if (provenanceRefs.isEmpty() && bundle.config().allowsUnsigned()) {
-            return new VerifiedBundle(bundle, BundleProvenance.validateSbom(bundle, sbom));
         }
         throw new GeneralSecurityException(
                 "No dependency-bundle provenance referrer was signed by the trusted signer",

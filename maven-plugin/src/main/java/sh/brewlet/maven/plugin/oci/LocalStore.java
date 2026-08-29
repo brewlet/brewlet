@@ -209,7 +209,7 @@ public class LocalStore {
             throws IOException {
         return readIndex().getManifests() == null ? List.of()
                 : readIndex().getManifests().stream()
-                .filter(d -> artifactType.equals(d.getArtifactType()))
+                .filter(d -> d != null && artifactType.equals(d.getArtifactType()))
                 .filter(d -> d.getAnnotations() != null
                         && subjectDigest.equals(d.getAnnotations().get(
                         MediaTypes.REFERRER_SUBJECT_ANNOTATION)))
@@ -218,6 +218,9 @@ public class LocalStore {
 
     /** Reads and validates the sole document layer of a local referrer. */
     public byte[] readReferrerDocument(OciDescriptor descriptor) throws IOException {
+        if (descriptor == null || !isDigest(descriptor.getDigest())) {
+            throw new IOException("Referrer manifest descriptor has an invalid digest");
+        }
         byte[] manifestBytes = Files.readAllBytes(blobPath(descriptor.getDigest()));
         if (!MediaTypes.OCI_MANIFEST_MEDIA_TYPE.equals(descriptor.getMediaType())
                 || manifestBytes.length != descriptor.getSize()
@@ -228,7 +231,8 @@ public class LocalStore {
         String subjectDigest = descriptor.getAnnotations() == null ? null
                 : descriptor.getAnnotations().get(MediaTypes.REFERRER_SUBJECT_ANNOTATION);
         OciDescriptor subject = readIndex().getManifests().stream()
-                .filter(candidate -> candidate.getDigest().equals(subjectDigest))
+                .filter(candidate -> candidate != null
+                        && java.util.Objects.equals(candidate.getDigest(), subjectDigest))
                 .findFirst()
                 .orElseThrow(() -> new IOException(
                         "Referrer subject is not indexed in the OCI layout"));
@@ -237,6 +241,9 @@ public class LocalStore {
             throw new IOException("Referrer must contain exactly one layer");
         }
         OciDescriptor layer = manifest.getLayers().get(0);
+        if (layer == null || !isDigest(layer.getDigest())) {
+            throw new IOException("Referrer document layer has an invalid digest");
+        }
         String expectedLayerType = MediaTypes.CYCLONEDX_ARTIFACT_TYPE.equals(
                 manifest.getArtifactType()) ? MediaTypes.CYCLONEDX_LAYER_MEDIA_TYPE
                 : MediaTypes.DSSE_LAYER_MEDIA_TYPE;
@@ -252,12 +259,16 @@ public class LocalStore {
 
     private static void validateReferrerManifest(OciManifest manifest, OciDescriptor descriptor,
                                                   OciDescriptor expectedSubject) throws IOException {
-        if (manifest.getSchemaVersion() != 2
+        if (manifest == null
+                || manifest.getSchemaVersion() != 2
                 || !MediaTypes.OCI_MANIFEST_MEDIA_TYPE.equals(manifest.getMediaType())
-                || !descriptor.getArtifactType().equals(manifest.getArtifactType())
+                || !java.util.Objects.equals(
+                        descriptor.getArtifactType(), manifest.getArtifactType())
                 || manifest.getSubject() == null
-                || !expectedSubject.getMediaType().equals(manifest.getSubject().getMediaType())
-                || !expectedSubject.getDigest().equals(manifest.getSubject().getDigest())
+                || !java.util.Objects.equals(
+                        expectedSubject.getMediaType(), manifest.getSubject().getMediaType())
+                || !java.util.Objects.equals(
+                        expectedSubject.getDigest(), manifest.getSubject().getDigest())
                 || expectedSubject.getSize() != manifest.getSubject().getSize()) {
             throw new IOException("Referrer manifest contract or subject mismatch");
         }
@@ -268,6 +279,10 @@ public class LocalStore {
                 || config.getSize() != OciReferrer.emptyConfig().length) {
             throw new IOException("Referrer must use the OCI empty config");
         }
+    }
+
+    private static boolean isDigest(String value) {
+        return value != null && value.matches("sha256:[0-9a-f]{64}");
     }
 
     private void upsertIndex(OciDescriptor newEntry) throws IOException {

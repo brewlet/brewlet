@@ -189,7 +189,8 @@ tier2_cli() {
     fail "managed: publish approved dependency bundle" "$(printf '%s' "$out" | tail -1)"
   fi
   if python3 "$E2E_DIR/validate-managed-oci.py" bundle \
-        "$store" "$managed_ref" >"$WORK/t2-managed-wire.log" 2>&1; then
+        "$store" "$managed_ref" --require-signature \
+        >"$WORK/t2-managed-wire.log" 2>&1; then
     pass "managed: bundle satisfies the normative OCI wire contract"
   else
     fail "managed: bundle satisfies the normative OCI wire contract" \
@@ -219,11 +220,11 @@ tier2_cli() {
       >"$WORK/t2-managed-one.log" 2>&1 \
       && "$bin" push "$managed_jar" "$managed_app2" --store "$store" \
       --dependency-bundle "$managed_ref" --dependency-lock "$managed_lock" \
-      --trusted-public-key "$managed_public" --signing-key "$managed_private" \
-      --trusted-signer-identity e2e-builder --builder-identity e2e-builder \
+      --trusted-public-key "$managed_public" \
+      --trusted-signer-identity e2e-builder \
       --main-class com.example.ManagedApp \
       >"$WORK/t2-managed-two.log" 2>&1; then
-    pass "managed: compose two applications from one bundle"
+    pass "managed: compose signed and unsigned applications from one bundle"
   else
     fail "managed: compose two applications from one bundle" "see $WORK/t2-managed-*.log"
   fi
@@ -259,8 +260,12 @@ tier2_cli() {
     pass "managed: reject incorrect attestation identity"
   fi
   if python3 "$E2E_DIR/validate-managed-oci.py" image \
-      "$store" "$managed_app1" >"$WORK/t2-managed-image-wire.log" 2>&1; then
+      "$store" "$managed_app1" --require-signature \
+      >"$WORK/t2-managed-image-wire.log" 2>&1 \
+      && python3 "$E2E_DIR/validate-managed-oci.py" image \
+      "$store" "$managed_app2" >"$WORK/t2-managed-unsigned-image-wire.log" 2>&1; then
     pass "managed: final image attestation satisfies the normative wire contract"
+    pass "managed: unsigned final image satisfies the normative wire contract"
   else
     fail "managed: final image attestation satisfies the normative wire contract" \
       "see $WORK/t2-managed-image-wire.log"
@@ -334,7 +339,8 @@ tier2_cli() {
          --trusted-signer-identity=platform-builder >>"$registry_log" 2>&1 \
        && python3 "$E2E_DIR/validate-managed-oci.py" bundle \
          "$FIXTURES_DIR/demo-app/target/brewlet/dependency-bundle-oci" \
-         "$registry_ref/platform/approved:1" >>"$registry_log" 2>&1 \
+         "$registry_ref/platform/approved:1" --require-signature \
+         >>"$registry_log" 2>&1 \
        && mvn -q -f "$FIXTURES_DIR/demo-app/pom.xml" \
          -Pmanaged-dependencies package \
          sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:push \
@@ -344,7 +350,15 @@ tier2_cli() {
          -Dbrewlet.signingKey="$managed_private" \
          -Dbrewlet.trustedPublicKey="$managed_public" \
          -Dbrewlet.trustedSignerIdentity=platform-builder \
-         -Dbrewlet.builderIdentity=application-builder >>"$registry_log" 2>&1; then
+         -Dbrewlet.builderIdentity=application-builder >>"$registry_log" 2>&1 \
+       && mvn -q -f "$FIXTURES_DIR/demo-app/pom.xml" \
+         -Pmanaged-dependencies package \
+         sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:push \
+         -Dbrewlet.image="$registry_ref/apps/signed-bundle-unsigned-app:1" \
+         -Dbrewlet.dependencyBundle="$registry_ref/platform/approved:1" \
+         -Dbrewlet.mainClass=com.example.Hello \
+         -Dbrewlet.trustedPublicKey="$managed_public" \
+         -Dbrewlet.signerIdentity=platform-builder >>"$registry_log" 2>&1; then
       local bundle_tags app_tags
       bundle_tags="$(curl -fsS \
        "http://$registry_ref/v2/platform/approved/tags/list")"
@@ -359,6 +373,7 @@ tier2_cli() {
       pass "managed registry: Go verifies Maven bundle signatures"
       pass "managed registry: Maven bundle satisfies the normative wire contract"
       pass "managed registry: verifies bundle referrers before remote composition"
+      pass "managed registry: legacy signer identity does not force application signing"
     else
       fail "managed registry: publish and consume signed referrers" \
        "see $registry_log"
@@ -370,7 +385,7 @@ tier2_cli() {
         -Dbrewlet.dependencyBundleImage="$registry_ref/platform/unsigned:1" \
         -Dbrewlet.dependencyBundleOutputDirectory="$unsigned_layout" \
         -Dbrewlet.sourceBom=com.example.platform:approved-bom:1 \
-        -Dbrewlet.allowUnsigned=true >>"$registry_log" 2>&1 \
+        >>"$registry_log" 2>&1 \
         && python3 "$E2E_DIR/validate-managed-oci.py" bundle \
           "$unsigned_layout" "$registry_ref/platform/unsigned:1" \
           >>"$registry_log" 2>&1 \
@@ -379,12 +394,19 @@ tier2_cli() {
           sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:push \
           -Dbrewlet.image="$registry_ref/apps/unsigned:1" \
           -Dbrewlet.dependencyBundle="$registry_ref/platform/unsigned:1" \
+          -Dbrewlet.mainClass=com.example.Hello >>"$registry_log" 2>&1 \
+        && mvn -q -f "$FIXTURES_DIR/demo-app/pom.xml" \
+          -Pmanaged-dependencies package \
+          sh.brewlet:brewlet-maven-plugin:0.1.0-SNAPSHOT:push \
+          -Dbrewlet.image="$registry_ref/apps/unsigned-bundle-signed-app:1" \
+          -Dbrewlet.dependencyBundle="$registry_ref/platform/unsigned:1" \
           -Dbrewlet.mainClass=com.example.Hello \
           -Dbrewlet.signingKey="$managed_private" \
           -Dbrewlet.builderIdentity=application-builder >>"$registry_log" 2>&1; then
-      pass "managed registry: Ops-authorized unsigned bundle is consumable"
+      pass "managed registry: unsigned bundle and application are consumable"
+      pass "managed registry: unsigned bundle can produce a signed application"
     else
-      fail "managed registry: consume Ops-authorized unsigned bundle" \
+      fail "managed registry: consume unsigned bundle" \
         "see $registry_log"
     fi
     docker rm -f "$registry_id" >/dev/null 2>&1 || true

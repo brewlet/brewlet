@@ -113,6 +113,7 @@ type ManagedDependencyPredicate struct {
 type VerifiedBundleSupplyChain struct {
 	SBOMDigest      string
 	BuilderIdentity string
+	Signed          bool
 }
 
 type Referrer struct {
@@ -355,6 +356,21 @@ func (s Store) Referrers(subjectDigest, artifactType string) ([]Referrer, error)
 	return out, nil
 }
 
+func (s Store) referrerDescriptorCount(subjectDigest, artifactType string) (int, error) {
+	idx, err := s.readIndex()
+	if err != nil {
+		return 0, err
+	}
+	count := 0
+	for _, desc := range idx.Manifests {
+		if desc.Annotations[ReferrerSubjectAnnotation] == subjectDigest &&
+			(artifactType == "" || desc.ArtifactType == artifactType) {
+			count++
+		}
+	}
+	return count, nil
+}
+
 func (s Store) readReferrer(desc, subject Descriptor) (Referrer, error) {
 	if desc.MediaType != ociManifestMediaType {
 		return Referrer{}, fmt.Errorf("invalid referrer manifest descriptor media type")
@@ -419,10 +435,7 @@ func (s Store) PublishBundleSupplyChain(bundle Descriptor, cfg DependencyBundleC
 	return digestDocument(sbom), err
 }
 
-func (s Store) PublishUnsignedBundleSupplyChain(bundle Descriptor, cfg DependencyBundleConfig, lock DependencyLock) (string, error) {
-	if !cfg.AllowUnsigned {
-		return "", fmt.Errorf("bundle config does not allow unsigned provenance")
-	}
+func (s Store) PublishBundleSBOM(bundle Descriptor, cfg DependencyBundleConfig, lock DependencyLock) (string, error) {
 	_, sbomDigest, err := s.publishBundleSBOM(bundle, cfg, lock)
 	return sbomDigest, err
 }
@@ -456,13 +469,18 @@ func (s Store) VerifyBundleSupplyChain(bundle ResolvedDependencyBundle, key *ecd
 	if err != nil {
 		return VerifiedBundleSupplyChain{}, err
 	}
-	if key == nil || strings.TrimSpace(identity) == "" {
-		if bundle.Config.AllowUnsigned {
-			return VerifiedBundleSupplyChain{
-				SBOMDigest: sbomDigest, BuilderIdentity: "unsigned (allowed by bundle policy)",
-			}, nil
+	if len(attestations) == 0 {
+		count, err := s.referrerDescriptorCount(bundle.ManifestDigest, AttestationArtifactType)
+		if err != nil {
+			return VerifiedBundleSupplyChain{}, err
 		}
-		return VerifiedBundleSupplyChain{}, fmt.Errorf("trusted public key and signer identity are required by bundle policy")
+		if count != 0 {
+			return VerifiedBundleSupplyChain{}, fmt.Errorf("bundle provenance is present but all %d referrer manifest(s) are invalid", count)
+		}
+		return VerifiedBundleSupplyChain{SBOMDigest: sbomDigest}, nil
+	}
+	if key == nil || strings.TrimSpace(identity) == "" {
+		return VerifiedBundleSupplyChain{}, fmt.Errorf("bundle provenance is present; trusted public key and signer identity are required")
 	}
 	var verificationErr error
 	for _, attestation := range attestations {
@@ -492,17 +510,14 @@ func (s Store) VerifyBundleSupplyChain(bundle ResolvedDependencyBundle, key *ecd
 			verificationErr = fmt.Errorf("bundle provenance bindings or signer identity do not match")
 			continue
 		}
-		return VerifiedBundleSupplyChain{SBOMDigest: predicate.SBOMDigest, BuilderIdentity: identity}, nil
+		return VerifiedBundleSupplyChain{
+			SBOMDigest: predicate.SBOMDigest, BuilderIdentity: identity, Signed: true,
+		}, nil
 	}
 	if verificationErr != nil {
 		return VerifiedBundleSupplyChain{}, fmt.Errorf("no trusted bundle provenance attestation: %w", verificationErr)
 	}
-	if bundle.Config.AllowUnsigned {
-		return VerifiedBundleSupplyChain{
-			SBOMDigest: sbomDigest, BuilderIdentity: "unsigned (allowed by bundle policy)",
-		}, nil
-	}
-	return VerifiedBundleSupplyChain{}, fmt.Errorf("signed bundle provenance attestation is missing")
+	return VerifiedBundleSupplyChain{}, fmt.Errorf("bundle provenance is present but no trusted attestation satisfies the contract")
 }
 
 func validateCycloneDX(raw []byte, lock DependencyLock, cfg DependencyBundleConfig) error {

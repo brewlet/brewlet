@@ -339,6 +339,7 @@ public class RegistryClient {
                 + "?artifactType=" + URLEncoder.encode(artifactType, StandardCharsets.UTF_8));
         Set<URI> visited = new HashSet<>();
         List<OciDescriptor> nativeReferrers = new ArrayList<>();
+        int nativeEntries = 0;
         boolean firstPage = true;
         while (next != null) {
             if (!visited.add(next)) {
@@ -364,12 +365,20 @@ public class RegistryClient {
                 throw new IOException("Registry referrers discovery failed: HTTP "
                         + response.statusCode());
             }
-            OciIndex index = MAPPER.readValue(response.body(), OciIndex.class);
-            if (index.getManifests() != null) {
-                index.getManifests().stream()
-                        .filter(d -> artifactType.equals(d.getArtifactType()))
-                        .forEach(nativeReferrers::add);
+            JsonNode indexNode = MAPPER.readTree(response.body());
+            if (!indexNode.isObject()
+                    || !indexNode.path("schemaVersion").isIntegralNumber()
+                    || indexNode.path("schemaVersion").asInt(-1) != 2
+                    || !MediaTypes.OCI_INDEX_MEDIA_TYPE.equals(
+                            indexNode.path("mediaType").asText())
+                    || !indexNode.path("manifests").isArray()) {
+                throw new IOException("Registry returned an invalid OCI referrer index");
             }
+            OciIndex index = MAPPER.treeToValue(indexNode, OciIndex.class);
+            nativeEntries += index.getManifests().size();
+            index.getManifests().stream()
+                    .filter(d -> d != null && artifactType.equals(d.getArtifactType()))
+                    .forEach(nativeReferrers::add);
             String link = nextLinkTarget(response.headers().allValues("Link"));
             next = link == null ? null : resolvePaginationLink(next, link);
             firstPage = false;
@@ -377,7 +386,17 @@ public class RegistryClient {
         if (!nativeReferrers.isEmpty()) {
             return nativeReferrers;
         }
-        return discoverFallbackReferrers(subjectDigest, artifactType);
+        List<OciDescriptor> fallbackReferrers =
+                discoverFallbackReferrers(subjectDigest, artifactType);
+        if (!fallbackReferrers.isEmpty()) {
+            return fallbackReferrers;
+        }
+        if (nativeEntries != 0) {
+            throw new IOException("Registry returned " + nativeEntries
+                    + " native referrer descriptor(s), but none matched "
+                    + artifactType);
+        }
+        return List.of();
     }
 
     private List<OciDescriptor> discoverFallbackReferrers(
@@ -385,10 +404,12 @@ public class RegistryClient {
             throws IOException, InterruptedException {
         String prefix = fallbackTag(subjectDigest, artifactType);
         List<OciDescriptor> descriptors = new ArrayList<>();
+        int matchingTags = 0;
         for (String tag : listAllTags()) {
             if (!tag.startsWith(prefix + ".")) {
                 continue;
             }
+            matchingTags++;
             try {
                 byte[] manifest = get("/v2/" + repository + "/manifests/" + tag,
                         MediaTypes.OCI_MANIFEST_MEDIA_TYPE);
@@ -410,6 +431,10 @@ public class RegistryClient {
         }
         if (!descriptors.isEmpty()) {
             return descriptors;
+        }
+        if (matchingTags != 0) {
+            throw new IOException("Found " + matchingTags + " referrer fallback tag(s) for "
+                    + artifactType + ", but none contained a valid manifest");
         }
         return List.of();
     }
@@ -499,6 +524,9 @@ public class RegistryClient {
     public byte[] pullReferrerDocument(OciDescriptor descriptor, String expectedSubject,
                                        long expectedSubjectSize)
             throws IOException, InterruptedException {
+        if (descriptor == null || !isDigest(descriptor.getDigest())) {
+            throw new IOException("Referrer manifest descriptor has an invalid digest");
+        }
         byte[] manifestBytes = get("/v2/" + repository + "/manifests/"
                 + descriptor.getDigest(), MediaTypes.OCI_MANIFEST_MEDIA_TYPE);
         if (!MediaTypes.OCI_MANIFEST_MEDIA_TYPE.equals(descriptor.getMediaType())
@@ -507,9 +535,11 @@ public class RegistryClient {
             throw new IOException("Referrer manifest media type, digest, or size mismatch");
         }
         OciManifest manifest = OciReferrer.parseManifest(manifestBytes);
-        if (manifest.getSchemaVersion() != 2
+        if (manifest == null
+                || manifest.getSchemaVersion() != 2
                 || !MediaTypes.OCI_MANIFEST_MEDIA_TYPE.equals(manifest.getMediaType())
-                || !descriptor.getArtifactType().equals(manifest.getArtifactType())
+                || !java.util.Objects.equals(
+                        descriptor.getArtifactType(), manifest.getArtifactType())
                 || manifest.getSubject() == null
                 || (expectedSubject != null
                 && (!expectedSubject.equals(manifest.getSubject().getDigest())
@@ -529,6 +559,9 @@ public class RegistryClient {
             throw new IOException("Referrer must contain exactly one layer");
         }
         OciDescriptor layer = manifest.getLayers().get(0);
+        if (layer == null || !isDigest(layer.getDigest())) {
+            throw new IOException("Referrer document layer has an invalid digest");
+        }
         String expectedLayerType = MediaTypes.CYCLONEDX_ARTIFACT_TYPE.equals(
                 manifest.getArtifactType()) ? MediaTypes.CYCLONEDX_LAYER_MEDIA_TYPE
                 : MediaTypes.DSSE_LAYER_MEDIA_TYPE;
@@ -541,6 +574,10 @@ public class RegistryClient {
             throw new IOException("Referrer document digest or size mismatch");
         }
         return document;
+    }
+
+    private static boolean isDigest(String value) {
+        return value != null && value.matches("sha256:[0-9a-f]{64}");
     }
 
     public byte[] pullManifest(String reference) throws IOException, InterruptedException {

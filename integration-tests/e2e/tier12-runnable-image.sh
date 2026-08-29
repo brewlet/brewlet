@@ -177,7 +177,7 @@ tier12_runnable_image() {
   fi
   local jar="$FIXTURES_DIR/demo-app/target/app.jar"
 
-  # --- publish signed and explicitly Ops-authorized unsigned bundles --------
+  # --- publish signed and unsigned bundles -----------------------------------
   local store="$WORK/t12-oci"; rm -rf "$store"
   local managed_dir="$WORK/t12-managed" managed_tar="$WORK/t12-managed/dependencies.tar"
   local managed_lock="$WORK/t12-managed/dependency-lock.json"
@@ -211,28 +211,27 @@ tier12_runnable_image() {
       --dependency-lock "$managed_lock" --signing-key "$private_key" \
       --builder-identity application-builder --main-class com.example.Hello \
       >>"$WORK/t12-build.log" 2>&1; then
-    fail "tier12: application cannot bypass signed bundle policy" \
+    fail "tier12: signed bundle requires trust credentials" \
       "managed image publication unexpectedly succeeded without bundle trust"
     return 0
   else
-    pass "tier12: application cannot opt a signed-policy bundle into unsigned mode"
+    pass "tier12: signed bundle cannot be consumed without trust credentials"
   fi
 
   local unsigned_bundle_ref="platform/t12-unsigned:1"
   if ! "$WORK/t12-brewlet" dependency-bundle "$managed_tar" "$unsigned_bundle_ref" \
       --store "$store" --name approved-unsigned --version 1 \
       --source-bom com.example.platform:approved-bom:1 --lock "$managed_lock" \
-      --allow-unsigned >>"$WORK/t12-build.log" 2>&1 \
+      >>"$WORK/t12-build.log" 2>&1 \
       || ! "$WORK/t12-brewlet" push "$jar" "$T12_UNSIGNED_REF" \
       --store "$store" --dependency-bundle "$unsigned_bundle_ref" \
-      --dependency-lock "$managed_lock" --signing-key "$private_key" \
-      --builder-identity application-builder --main-class com.example.Hello \
+      --dependency-lock "$managed_lock" --main-class com.example.Hello \
       >>"$WORK/t12-build.log" 2>&1; then
-    fail "tier12: compose Ops-authorized unsigned bundle" \
+    fail "tier12: compose unsigned bundle and application" \
       "see $WORK/t12-build.log"
     return 0
   fi
-  pass "tier12: Ops-authorized unsigned bundle produces a runnable image"
+  pass "tier12: unsigned bundle and application produce a runnable image"
 
   # --- push signed bundle composition as a RUNNABLE OCI IMAGE ----------------
   if ! "$WORK/t12-brewlet" push "$jar" "$T12_REF" --store "$store" \
@@ -372,7 +371,7 @@ YAML
     return 0
   fi
 
-  # Roll the same Kubernetes workload to the Ops-authorized unsigned bundle.
+  # Roll the same Kubernetes workload to the unsigned bundle and application.
   T12_REF="$T12_UNSIGNED_REF"
   _t12_apply_deploy "$unsigned_digest" 1
   if kubectl rollout status -n "$T12_NS" deploy/"$T12_APP" \
@@ -380,12 +379,12 @@ YAML
       && hello="$(_t12_curl_retry /hello)"; then
     podimg="$(kubectl get deployment -n "$T12_NS" "$T12_APP" \
       -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null)"
-    assert_contains "tier12: unsigned-policy workload uses its managed image" \
+    assert_contains "tier12: unsigned workload uses its managed image" \
       "$podimg" "$T12_UNSIGNED_REF"
-    assert_contains "tier12: Kubernetes JVM loads the Ops-authorized unsigned bundle" \
+    assert_contains "tier12: Kubernetes JVM loads the unsigned managed bundle" \
       "$hello" "MANAGED DEPENDENCY OK"
   else
-    fail "tier12: deploy Ops-authorized unsigned managed bundle" \
+    fail "tier12: deploy unsigned application and managed bundle" \
       "see $WORK/t12-deploy.log"
     return 0
   fi

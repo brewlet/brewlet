@@ -75,6 +75,48 @@ class RegistryClientPaginationTest {
     }
 
     @Test
+    void rejectsMalformedFallbackReferrersInsteadOfTreatingThemAsAbsent() throws Exception {
+        String malformed = "{\"schemaVersion\":1}";
+        String tag = RegistryClient.fallbackReferrerTag(
+                SUBJECT, TYPE, LocalStore.sha256Hex(malformed.getBytes(StandardCharsets.UTF_8)));
+        server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/v2/repo/referrers/" + SUBJECT, exchange ->
+                respond(exchange, 404, "{}", null));
+        server.createContext("/v2/repo/tags/list", exchange ->
+                respond(exchange, 200, "{\"name\":\"repo\",\"tags\":[\"" + tag + "\"]}", null));
+        server.createContext("/v2/repo/manifests/" + tag, exchange ->
+                respond(exchange, 200, malformed, null));
+        server.start();
+
+        assertThrows(IOException.class, () -> client().discoverReferrers(SUBJECT, TYPE));
+    }
+
+    @Test
+    void rejectsMalformedNativeReferrersInsteadOfTreatingThemAsAbsent() throws Exception {
+        server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/v2/repo/referrers/" + SUBJECT, exchange ->
+                respond(exchange, 200,
+                        "{\"schemaVersion\":2,\"mediaType\":"
+                                + "\"application/vnd.oci.image.index.v1+json\","
+                                + "\"manifests\":[null]}", null));
+        server.createContext("/v2/repo/tags/list", exchange ->
+                respond(exchange, 200, "{\"name\":\"repo\",\"tags\":[]}", null));
+        server.start();
+
+        assertThrows(IOException.class, () -> client().discoverReferrers(SUBJECT, TYPE));
+    }
+
+    @Test
+    void rejectsNativeResponseWithoutAnExplicitReferrerIndex() throws Exception {
+        server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
+        server.createContext("/v2/repo/referrers/" + SUBJECT, exchange ->
+                respond(exchange, 200, "{}", null));
+        server.start();
+
+        assertThrows(IOException.class, () -> client().discoverReferrers(SUBJECT, TYPE));
+    }
+
+    @Test
     void rejectsCrossOriginPagination() throws Exception {
         server = HttpServer.create(new InetSocketAddress("localhost", 0), 0);
         server.createContext("/v2/repo/referrers/" + SUBJECT, exchange ->

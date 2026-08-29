@@ -100,7 +100,7 @@ class SupplyChainTest {
         Keys keys = keys();
         DependencyBundle.Content bundle = bundle();
         BundleProvenance.Materials materials = BundleProvenance.create(
-                bundle, keys.privatePem(), "builder", false);
+                bundle, keys.privatePem(), "builder");
         assertEquals(materials.sbomDigest(), BundleProvenance.verify(bundle,
                 materials.sbom(), materials.envelope(), keys.publicPem(), "builder"));
         byte[] tampered = materials.sbom().clone();
@@ -119,23 +119,10 @@ class SupplyChainTest {
     }
 
     @Test
-    void unsignedPublicationRequiresOpsBundlePolicy() throws Exception {
-        DependencyBundle.Content required = bundle();
-        assertThrows(GeneralSecurityException.class,
-                () -> BundleProvenance.create(required, null, null, true));
-
-        DependencyBundleConfig config = new DependencyBundleConfig();
-        config.setName("platform");
-        config.setVersion("1");
-        config.setSourceBom("g:b:1");
-        config.setAllowUnsigned(true);
-        Path jar = temp.resolve("unsigned-library.jar");
-        Files.writeString(jar, "library");
-        DependencyBundle.Content optional = DependencyBundle.build(config, lock(),
-                LayerBuilder.buildBundle(List.of(
-                        new LayerBuilder.Dep("library.jar", jar, false))));
+    void unsignedPublicationStillProducesValidatedSbom() throws Exception {
+        DependencyBundle.Content optional = bundle();
         BundleProvenance.Materials materials =
-                BundleProvenance.create(optional, null, null, true);
+                BundleProvenance.create(optional, null, null);
         assertNull(materials.provenanceReferrer());
         assertEquals(materials.sbomDigest(),
                 BundleProvenance.validateSbom(optional, materials.sbom()));
