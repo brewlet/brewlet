@@ -57,6 +57,25 @@ Because the JAR is a first-class OCI artifact, standard supply-chain controls ap
   `brewlet.sh/artifact-digest`, and the shim resolves the JAR straight from
   containerd's content store by digest. See [Building & publishing](building-and-publishing.md#4-pin-to-a-digest-recommended).
 
+### Supply-chain attestations
+
+[Managed dependency bundles](managed-dependency-bundles.md) can carry optional
+bundle-publisher provenance. A final thin-JAR image can independently carry a
+DSSE envelope containing an in-toto Statement v1 whose managed-dependency
+predicate binds the image digest, thin-JAR verdict, application JAR, bundle,
+dependency layer, lock, SBOM, source BOM, and application-builder identity.
+Signatures use ECDSA P-256 and a `keyid` derived from the public key.
+
+The two identities are separate trust roles. Bundle-publisher trust is verified
+upstream while composing the image; the final-image predicate exposes only the
+application-builder identity. Identity values are free-form signed strings
+trusted through the configured key, not OIDC- or Fulcio-issued identities.
+
+Deploy [Ratify/Gatekeeper admission enforcement](admission-enforcement.md) to
+require the final-image attestation for `runtimeClassName: brewlet` pods. It
+requires an OCI 1.1 Referrers-API registry and digest-pinned images and fails
+closed when trusted evidence cannot be discovered or verified.
+
 ---
 
 ## Centralized JDK CVE management
@@ -108,6 +127,9 @@ Mitigations and guardrails:
 - [ ] Run workloads `runAsNonRoot`, drop capabilities, `readOnlyRootFilesystem`.
 - [ ] Use **cert-manager** for the admission webhook serving cert in production
       (not the Helm self-signed cert). See [Configuration](configuration.md#admission-webhook).
+- [ ] Require trusted final-image managed-dependency attestations with
+      [admission enforcement](admission-enforcement.md); pin images and the
+      verifier plugin to digests.
 - [ ] Plan JDK patch cadence — it's now a single centralized lever.
 
 Future security capabilities are tracked in the [roadmap](https://github.com/brewlet/brewlet/blob/main/ROADMAP.md#security-and-isolation).

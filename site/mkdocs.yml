@@ -78,10 +78,12 @@ nav:
       - Launchers: launchers.md
   - Ship workloads:
       - Building & publishing: building-and-publishing.md
+      - Managed dependency bundles: managed-dependency-bundles.md
       - Deploying workloads: deploying-workloads.md
       - Resource requests, limits & JVM tuning: resource-tuning.md
   - Operate:
       - Security: security.md
+      - Admission enforcement: admission-enforcement.md
       - Observability: observability.md
       - Multi-architecture fleets: multi-arch.md
       - Troubleshooting: troubleshooting.md
