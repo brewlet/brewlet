@@ -1,0 +1,78 @@
+####################################################################
+# Gatekeeper ConstraintTemplate: enforce Brewlet managed-dependency
+# verification through Ratify's external-data provider, but ONLY for
+# pods that run on the Brewlet runtime (spec.runtimeClassName: brewlet).
+#
+# This adapts Ratify's canonical `ratifyverification` template
+# (notaryproject/ratify library/default/template.yaml) by gating every
+# image collection on the Brewlet runtime class, so non-Brewlet
+# workloads are never subject to Brewlet attestation checks. Pods that
+# set runtimeClassName: brewlet — including raw workloads, not just
+# JavaApplication-managed pods — are required to carry a valid, trusted
+# managed-dependency attestation.
+####################################################################
+apiVersion: templates.gatekeeper.sh/v1
+kind: ConstraintTemplate
+metadata:
+  name: brewletmanageddependencies
+spec:
+  crd:
+    spec:
+      names:
+        kind: BrewletManagedDependencies
+  targets:
+    - target: admission.k8s.gatekeeper.sh
+      rego: |
+        package brewletmanageddependencies
+
+        # is_brewlet is true only for pods scheduled onto the Brewlet runtime.
+        is_brewlet {
+          input.review.object.spec.runtimeClassName == "brewlet"
+        }
+
+        # Collect every container image on a Brewlet pod (regular, init, and
+        # ephemeral). For non-Brewlet pods this yields the empty set, so no
+        # external-data call is made and no violation is produced.
+        brewlet_images[img] {
+          is_brewlet
+          img := input.review.object.spec.containers[_].image
+        }
+
+        brewlet_images[img] {
+          is_brewlet
+          img := input.review.object.spec.initContainers[_].image
+        }
+
+        brewlet_images[img] {
+          is_brewlet
+          img := input.review.object.spec.ephemeralContainers[_].image
+        }
+
+        remote_data := response {
+          images := [img | brewlet_images[img]]
+          count(images) > 0
+          response := external_data({"provider": "ratify-provider", "keys": images})
+        }
+
+        violation[{"msg": msg}] {
+          general_violation[{"result": msg}]
+        }
+
+        # Fail closed if the provider itself errored.
+        general_violation[{"result": result}] {
+          err := remote_data.system_error
+          err != ""
+          result := sprintf("Brewlet admission: system error calling Ratify: %s", [err])
+        }
+
+        general_violation[{"result": result}] {
+          count(remote_data.errors) > 0
+          result := sprintf("Brewlet admission: error verifying one or more images: %s", [remote_data.errors])
+        }
+
+        # Deny when any Brewlet image fails managed-dependency verification.
+        general_violation[{"result": result}] {
+          subject_validation := remote_data.responses[_]
+          subject_validation[1].isSuccess == false
+          result := sprintf("Brewlet admission: image %s has no valid managed-dependency attestation: %v", [subject_validation[0], subject_validation[1]])
+        }

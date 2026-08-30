@@ -1,0 +1,26 @@
+####################################################################
+# Gatekeeper Constraint: apply the Brewlet managed-dependency check to
+# pods on CREATE and UPDATE. The template itself restricts enforcement
+# to spec.runtimeClassName: brewlet pods, so this constraint can safely
+# match all Pods.
+#
+# enforcementAction: deny fails closed. Use `warn` or `dryrun` first to
+# observe results without blocking, then switch to `deny`.
+####################################################################
+apiVersion: constraints.gatekeeper.sh/v1beta1
+kind: BrewletManagedDependencies
+metadata:
+  name: brewlet-managed-dependencies
+spec:
+  enforcementAction: deny
+  match:
+    kinds:
+      - apiGroups: [""]
+        kinds: ["Pod"]
+    # Optionally scope to the namespaces where Brewlet workloads run:
+    # namespaces: ["apps", "payments"]
+    excludedNamespaces:
+      - kube-system
+      - gatekeeper-system
+      - ratify-service
+      - brewlet

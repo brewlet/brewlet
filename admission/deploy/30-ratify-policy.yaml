@@ -1,0 +1,54 @@
+####################################################################
+# Ratify verification policy (Rego).
+#
+# WHY REGO, NOT config-policy: Ratify's `config-policy` only checks that
+# SOME verifier succeeded for an artifact type, and its JSON-policy
+# executor runs only the FIRST verifier whose CanVerify matches a
+# referrer (nondeterministic map order), then stops. A cluster that also
+# has a wildcard/overlapping verifier could therefore "verify" a Brewlet
+# attestation referrer WITHOUT running this plugin — a verification
+# bypass. This Rego policy instead runs every matching verifier and
+# admits a subject only when the Brewlet verifier *itself*
+# (verifierName == "brewlet-managed-dependencies") reported success for a
+# Brewlet attestation referrer.
+#
+# Properties:
+#   * Fail closed on missing evidence: a subject with no Brewlet
+#     attestation report is denied (no matching report -> valid is false).
+#   * Signer-rotation tolerant: at least one valid Brewlet attestation is
+#     sufficient, matching Brewlet spec §4.5 ("at least one candidate must
+#     satisfy the complete trust contract"). An additional old-key or
+#     otherwise-invalid Brewlet referrer does not block admission and can
+#     never grant it.
+#   * Bypass resistant: only this verifier's success counts; a success
+#     from any other verifier for the same artifact type is ignored.
+#
+# metadata.name MUST be ratify-policy in v1beta1. Ratify permits exactly
+# one cluster Policy with this name — applying this REPLACES any existing
+# cluster policy. In a shared Ratify install, merge these rules into your
+# existing Rego policy instead of overwriting it.
+####################################################################
+apiVersion: config.ratify.deislabs.io/v1beta1
+kind: Policy
+metadata:
+  name: ratify-policy
+spec:
+  type: rego-policy
+  parameters:
+    passthroughEnabled: false
+    policy: |
+      package ratify.policy
+
+      default valid := false
+
+      # Admit the subject only when the Brewlet managed-dependency verifier
+      # reported success for a Brewlet attestation referrer on that subject.
+      valid {
+        some i
+        report := input.verifierReports[i]
+        report.artifactType == "application/vnd.brewlet.attestation.v1+json"
+        some j
+        vr := report.verifierReports[j]
+        vr.verifierName == "brewlet-managed-dependencies"
+        vr.isSuccess == true
+      }

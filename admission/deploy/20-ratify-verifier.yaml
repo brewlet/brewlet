@@ -1,0 +1,57 @@
+####################################################################
+# Ratify verifier: the Brewlet managed-dependency external plugin.
+#
+# The plugin (admission/ratify-verifier) verifies Brewlet's native
+# managed-dependency attestation referrer
+# (artifactType application/vnd.brewlet.attestation.v1+json) using
+# Brewlet's exact DSSE/in-toto verification. It admits an image only
+# when the final-image attestation:
+#   * is signed by `trustedPublicKey` (ECDSA P-256, SPKI PEM);
+#   * carries predicate type
+#     https://brewlet.sh/attestations/managed-dependencies/v1;
+#   * binds finalImageDigest to the resolved subject digest and all
+#     predicate digests are well formed; and
+#   * names `expectedBuilderIdentity` verbatim.
+# Any missing, malformed, wrong-key, wrong-identity, or wrong-subject
+# evidence yields IsSuccess=false (fail closed).
+#
+# PLUGIN DELIVERY: the plugin binary must be discoverable by Ratify in
+# its plugin directory. Two supported options:
+#   1. `source.artifact` (shown): Ratify downloads the plugin from an
+#      OCI registry at startup (the "dynamic plugin" pattern). Ratify
+#      does NOT verify this artifact's signature before executing it, so
+#      you MUST pin it by immutable digest (a mutable tag lets anyone who
+#      can push replace the verifier with an always-allow binary). Replace
+#      the placeholder digest with your published plugin image.
+#   2. Bake the compiled binary into a custom Ratify image at
+#      /home/nonroot/.ratify/plugins/brewlet-managed-dependencies and
+#      drop the `source` field.
+####################################################################
+apiVersion: config.ratify.deislabs.io/v1beta1
+kind: Verifier
+metadata:
+  name: verifier-brewlet-managed-dependencies
+spec:
+  name: brewlet-managed-dependencies
+  type: brewlet-managed-dependencies
+  version: 1.0.0
+  artifactTypes: application/vnd.brewlet.attestation.v1+json
+  # Option 1: download the plugin binary from a registry at startup. Pin by
+  # digest — Ratify executes this artifact without verifying it.
+  source:
+    artifact: registry.example.com/brewlet/ratify-verifier@sha256:REPLACE_WITH_PLUGIN_IMAGE_DIGEST
+  parameters:
+    # Trust anchor: the Brewlet application-builder public key (SPKI PEM,
+    # ECDSA P-256). This is public, non-secret material and may be inlined.
+    # Distribute and rotate it out of band; see admission/README.md.
+    trustedPublicKey: |
+      -----BEGIN PUBLIC KEY-----
+      REPLACE_WITH_YOUR_TRUSTED_APPLICATION_BUILDER_PUBLIC_KEY
+      -----END PUBLIC KEY-----
+    # Alternatively, mount the key into the Ratify pod and reference it:
+    # trustedPublicKeyPath: /etc/brewlet/trusted-builder.pub
+    #
+    # The application-builder identity that must appear, verbatim, in the
+    # signed managed-dependency predicate (a free-form string trusted only
+    # through the configured key — see the trust-model notes in the README).
+    expectedBuilderIdentity: https://ci.example.com/application-publisher
