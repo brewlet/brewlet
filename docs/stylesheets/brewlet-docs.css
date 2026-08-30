@@ -79,6 +79,11 @@ body {
 
 /* Keep both navigation rails quiet so the article remains the focal point. */
 @media screen and (min-width: 76.25em) {
+  .md-nav__list {
+    display: grid;
+    gap: 0.12rem;
+  }
+
   .md-grid {
     max-width: 78rem;
   }
@@ -131,11 +136,6 @@ body {
   line-height: 1.3;
   padding: 0 0.6rem 0.75rem;
   text-transform: uppercase;
-}
-
-.md-nav__list {
-  display: grid;
-  gap: 0.12rem;
 }
 
 .md-nav__item {
@@ -256,6 +256,32 @@ body {
 }
 
 @media screen and (max-width: 76.234375em) {
+  .md-nav--primary .md-nav__list {
+    display: block;
+  }
+
+  /* Keep the full information architecture visible instead of using
+     Material's intermediate-width drill-down pages. */
+  .md-nav--primary > .md-nav__list > .md-nav__item > .md-nav {
+    background: transparent;
+    display: block;
+    height: auto;
+    opacity: 1;
+    position: static;
+    transform: none;
+    visibility: visible;
+  }
+
+  .md-nav--primary > .md-nav__list > .md-nav__item > .md-nav > .md-nav__title {
+    display: none;
+  }
+
+  .md-nav--primary .md-nav__title[for="__drawer"] {
+    background: var(--brewlet-cream-soft);
+    border-bottom: 1px solid var(--brewlet-line);
+    color: var(--brewlet-coffee-deep);
+  }
+
   .md-nav__title {
     padding: 1rem 0.8rem;
   }
@@ -273,9 +299,21 @@ body {
   }
 
   .md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link {
+    border-top: 1px solid var(--brewlet-line);
     min-height: 2.4rem;
     padding-bottom: 0.55rem;
     padding-top: 0.55rem;
+  }
+
+  .md-nav--primary > .md-nav__list > .md-nav__item:first-child > .md-nav__link {
+    border-top: 0;
+  }
+
+  .md-nav--primary .md-nav__item .md-nav__item .md-nav__link {
+    min-height: 2.2rem;
+    padding-bottom: 0.45rem;
+    padding-left: 1.2rem;
+    padding-top: 0.45rem;
   }
 }
 
