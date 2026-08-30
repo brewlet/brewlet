@@ -109,7 +109,7 @@ annotation). See [Launchers](launchers.md#installing-jaz-on-nodes).
 
 - The heap likely has no non-heap headroom. Set
   `-XX:MaxRAMPercentage=75.0` (not 100%) so Metaspace/threads/code-cache/direct
-  buffers fit under `limits.memory`. See [Resource tuning](resource-tuning.md#memory-leave-headroom-for-non-heap).
+  buffers fit under `limits.memory`. See [Resource requests, limits & JVM tuning](resource-tuning.md#memory-leave-headroom-for-non-heap).
 - Add `-XX:+ExitOnOutOfMemoryError` so an OOM is a clean restart, not a hang.
 - Or switch to `jaz`, which sizes the heap from the cgroup automatically.
 - Raise `limits.memory` if the workload genuinely needs more.
@@ -173,7 +173,7 @@ grep -A2 runtimes.brewlet /etc/containerd/config.toml
 
 - Re-read the relevant guide: [Installation](installation.md),
   [Configuration](configuration.md), [JDK management](jdk-management.md),
-  [Launchers](launchers.md), [Resource tuning](resource-tuning.md).
+  [Launchers](launchers.md), [Resource requests, limits & JVM tuning](resource-tuning.md).
 - The provisioner entrypoint is **idempotent** — safe to let it re-run after you fix
   node state.
 - Component logs: `kubectl logs -n brewlet <operator|admission|provisioner pod>`.

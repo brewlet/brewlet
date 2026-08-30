@@ -133,7 +133,12 @@ metadata: { name: hello }
 spec:
   artifact: { image: registry.example.com/demo/hello:1.0.0 }
   resources:
-    limits: { cpu: "1", memory: "512Mi" }
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+    limits:
+      cpu: "1"
+      memory: "1Gi"
   ports: [{ name: http, containerPort: 8080 }]
 ```
 
@@ -187,7 +192,7 @@ spec:
 |---|---|
 | `artifact` | The OCI artifact ref + pull policy/secrets. |
 | `replicas` / `autoscaling` | Deployment replica count / HPA. |
-| `resources` | Requests/limits → sandbox cgroup ([Resource tuning](resource-tuning.md)). |
+| `resources` | Requests → scheduling/HPA; limits → sandbox cgroup ceilings ([Resource requests, limits & JVM tuning](resource-tuning.md)). |
 | `jvm.version` | JDK feature version to run on (e.g. `21`); must match a node-installed JDK. |
 | `jvm.distribution` | Optional JDK distribution (`temurin`, `microsoft`). With `jvm.version` pins an exact `<distribution>-<feature>` node JDK; omit to accept any distribution of that feature. |
 | `jvm.launcher` | `java` (default) or `jaz` ([Launchers](launchers.md)). |
@@ -234,7 +239,7 @@ Brewlet workloads and ordinary containers in the same namespace and cluster.
 
 ## Next steps
 
-- **[Resource tuning](resource-tuning.md)** — get heap/GC/CPU right.
+- **[Resource requests, limits & JVM tuning](resource-tuning.md)** — get heap/GC/CPU right.
 - **[Launchers](launchers.md)** — `java` vs `jaz`.
 - **[Observability & day‑2](observability.md)** — logs, metrics, probes, upgrades.
 - **[Troubleshooting](troubleshooting.md)** — when a pod won't schedule/start.

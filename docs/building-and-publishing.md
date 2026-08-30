@@ -76,7 +76,7 @@ and `spec.jvm.launcher` for `JavaApplication`, or pod annotations
 
 > **Tuning is yours, not Brewlet's.** The container-aware JVM reads the sandbox
 > cgroup limits directly; set heap/GC in descriptor `jvm.args` (or let `jaz` derive
-> them). The artifact only carries app-intrinsic launch knobs. See [Resource tuning](resource-tuning.md).
+> them). The artifact only carries app-intrinsic launch knobs. See [Resource requests, limits & JVM tuning](resource-tuning.md).
 
 ### Class-path / non-`-jar` entry
 
@@ -351,4 +351,4 @@ basis for cosign/SLSA supply-chain policy. See [Security](security.md).
 
 - **[Deploying workloads](deploying-workloads.md)** — run the artifact on a cluster.
 - **[Launchers](launchers.md)** — pick `java` vs `jaz`.
-- **[Resource tuning](resource-tuning.md)** — set the right JVM flags.
+- **[Resource requests, limits & JVM tuning](resource-tuning.md)** — set the right JVM flags.

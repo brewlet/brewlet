@@ -175,7 +175,7 @@ takes for Wasm). The only novel code is *artifact → bundle → args*. Conseque
   `runtimeClassName: brewlet`; everything else runs normally.
 - It does **not** build your application (that's CI's job) — it only *runs* it.
 - It is **not** a polyglot runtime — JVM only for v1.
-- It injects **no** JVM tuning flags of its own. See [Resource tuning](resource-tuning.md).
+- It injects **no** JVM tuning flags of its own. See [Resource requests, limits & JVM tuning](resource-tuning.md).
 
 ---
 

@@ -1,20 +1,31 @@
-# Resource limits & JVM tuning
+# Resource requests, limits & JVM tuning
 
-Brewlet maps Kubernetes CPU/memory limits to the sandbox cgroup and lets the
+Brewlet maps Kubernetes resource requests and limits to the workload and lets the
 **container-aware JVM** react — it injects **no** `-XX` flags of its own. This page
-explains exactly what the limits do and how to tune the JVM correctly.
+explains their distinct effects and how to tune the JVM correctly.
 
 Related: [Launchers](launchers.md) · [Deploying workloads](deploying-workloads.md).
 
 ---
 
+## Requests versus limits
+
+**Requests** influence scheduling, CPU shares, capacity planning, and the
+utilization denominator used by the HPA. **Limits** define the cgroup ceilings
+observed by the container-aware JVM: the CPU quota and maximum memory available
+to the container. A memory request is not a JVM heap-sizing input; heap sizing
+follows the memory limit (for example, through `MaxRAMPercentage`).
+
 ## The mapping
 
-The deployment descriptor's CPU/memory drive the **sandbox cgroup only**. Modern
-JDKs are cgroup-v2 aware and read those limits directly.
+The deployment descriptor's requests influence Kubernetes scheduling and resource
+accounting, while limits drive the **sandbox cgroup ceilings**. Modern JDKs are
+cgroup-v2 aware and read those limits directly.
 
-| Descriptor field | Cgroup effect (via runc) | JVM effect |
+| Descriptor field | Kubernetes/cgroup effect | JVM effect |
 |---|---|---|
+| `resources.requests.memory` | Scheduling and capacity planning reservation. | No direct heap-sizing effect. |
+| `resources.requests.cpu` | Scheduling reservation and CPU shares; CPU HPA utilization is calculated relative to this request. | No fixed processor count; without a CPU limit, the JVM sees the node's available CPU count. |
 | `resources.limits.memory` | `memory.max` | `-XX:+UseContainerSupport` (default on) reads the cgroup and sizes the heap. |
 | `resources.limits.cpu` | `cpu.max` (quota/period) | The cgroup-aware JDK auto-detects available processors from the quota; GC/JIT thread counts scale accordingly. |
 
@@ -154,7 +165,8 @@ See [SPECIFICATION §13](https://github.com/brewlet/brewlet/blob/main/specs/SPEC
 
 ## Checklist
 
-- [ ] Set `resources.limits.memory` **and** `limits.cpu`.
+- [ ] Set resource **requests** for schedulability and capacity planning.
+- [ ] Set resource **limits** for deterministic JVM sizing and cgroup ceilings.
 - [ ] Vanilla `java`: set `-XX:MaxRAMPercentage` (reserve non-heap headroom) and
       `-XX:+ExitOnOutOfMemoryError`; pick a GC. **Or** use `jaz` and set nothing.
 - [ ] Don't expect Brewlet to add flags — it doesn't.

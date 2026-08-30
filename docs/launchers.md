@@ -9,7 +9,7 @@ that auto-tunes the JVM for you.
 Crucially, **Brewlet injects no `-XX` tuning flags in either case**. The difference
 between launchers is *who does the tuning*.
 
-Related: [Resource tuning](resource-tuning.md) · [JDK management](jdk-management.md).
+Related: [Resource requests, limits & JVM tuning](resource-tuning.md) · [JDK management](jdk-management.md).
 
 ---
 
@@ -177,5 +177,5 @@ The deployment descriptor is authoritative; launchers are not recorded in
 - Use **vanilla `java`** when you need precise, explicit control over GC and heap, or
   can't install a launcher layer on your nodes.
 
-Either way, see [Resource tuning](resource-tuning.md) for what the limits actually do
+Either way, see [Resource requests, limits & JVM tuning](resource-tuning.md) for how requests and limits work
 to the JVM.
