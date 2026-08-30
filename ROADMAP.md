@@ -30,12 +30,13 @@ accepted and implemented.
 
 ## Workload delivery
 
-- **Supply-chain admission.** Verify cosign signatures and SLSA provenance before
-  workloads are admitted. A Brewlet-native example already ships in
+- **Broader supply-chain admission.** A Brewlet-native example already ships in
   [`admission/`](admission/): a Ratify external verifier plugin plus Gatekeeper
-  policy that admit `runtimeClassName: brewlet` pods only when their image
-  carries a valid managed-dependency attestation. Broader cosign/SLSA coverage
-  remains future work.
+  policy that admits digest-pinned `runtimeClassName: brewlet` pods only when
+  their image carries a valid managed-dependency DSSE/in-toto attestation.
+  Ecosystem-compatible cosign signatures, standard SLSA provenance, keyless
+  identity, and admission policy for ordinary Brewlet runnable images remain
+  future work; track that scope in [issue #3](https://github.com/brewlet/brewlet/issues/3).
 - **Replica coalescing.** Allow an opt-in `JavaApplication` capacity model that
   can realize logical replicas as fewer, larger JVMs. See
   [proposal 0005](specs/proposals/0005-replica-coalescing.md).
