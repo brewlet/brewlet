@@ -1,0 +1,14 @@
+instructions: |
+  This repository contains the Brewlet static landing page and MkDocs documentation.
+  Use the existing GitHub Pages workflow as the source of truth for local builds.
+
+scripts:
+  - name: Setup
+    command: python3 -m venv .venv && .venv/bin/python -m pip install --quiet mkdocs mkdocs-material
+    triggers:
+      - session.create
+  - name: Run site
+    command: .venv/bin/python -m mkdocs build --strict && mkdir -p _site && rsync -a --exclude='.git' --exclude='.github' --exclude='.venv' --exclude='docs' --exclude='_site' ./ _site/ && .venv/bin/python -m http.server 8099 --directory _site
+
+server_ready_pattern: 'Serving HTTP on .* port (8099)'
+auto_open_in_browser: true
