@@ -28,6 +28,9 @@ theme:
 plugins:
   - search
 
+hooks:
+  - scripts/version_docs_assets.py
+
 extra:
   homepage: https://brewlet.sh/
 
