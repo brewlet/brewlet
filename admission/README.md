@@ -5,9 +5,9 @@ signatures and identities** before a workload runs. It admits a pod on the
 Brewlet runtime only when its image carries a valid, trusted final-image
 managed-dependency attestation.
 
-This closes the last open acceptance item of the managed-dependency-bundles
-work (issue #10): *"Provide production admission-policy examples/integration for
-enforcing required signatures and identities."*
+It provides the cluster-side enforcement that the managed-dependency-bundles
+design (specification §4.5) leaves to admission policy: requiring a valid,
+trusted managed-dependency attestation for pods that run on the Brewlet runtime.
 
 ## What it enforces
 
