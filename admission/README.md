@@ -101,10 +101,10 @@ OCI 1.1 Referrers API.
 
 ```bash
 # 1. Edit deploy/20-ratify-verifier.yaml: set trustedPublicKey and
-#    expectedBuilderIdentity (and the plugin source image).
+#    expectedBuilderIdentity, and pin the plugin source by digest.
 kubectl apply -f deploy/10-ratify-store.yaml
 kubectl apply -f deploy/20-ratify-verifier.yaml
-kubectl apply -f deploy/30-ratify-policy.yaml
+kubectl apply -f deploy/30-ratify-policy.yaml   # Rego policy; replaces the singleton ratify-policy
 kubectl apply -f deploy/40-gatekeeper-constrainttemplate.yaml
 kubectl apply -f deploy/50-gatekeeper-constraint.yaml
 ```
@@ -113,7 +113,9 @@ Start the Gatekeeper constraint with `enforcementAction: warn` or `dryrun`,
 confirm results, then switch to `deny`.
 
 For non-Kubernetes verification (CI), `deploy/config.json` drives
-`ratify verify -s <image@sha256:...> -c deploy/config.json`.
+`ratify verify -s <image@sha256:...> -c deploy/config.json`. It uses
+`config-policy` because the CLI run registers only this one verifier; in a
+cluster use the Rego policy (`deploy/30`) — see "Verifier selection" below.
 
 ## Production requirements and limitations
 
@@ -140,10 +142,38 @@ The trust anchor is a bare ECDSA P-256 public key (`trustedPublicKey` inline, or
 `trustedPublicKeyPath` mounted). There is no Fulcio/keyless issuance and no Rekor
 transparency log in this Brewlet contract. You must distribute and rotate the
 public key yourself. During rotation, publish attestations under both the old and
-new keys (Brewlet's per-referrer tags preserve multiple signatures); configure
-the verifier with the currently trusted key(s). Use the Ratify verification
-policy (`any` vs `all`) to decide whether one or all discovered attestations must
-verify — for signer rotation prefer `any` at the verifier layer.
+new keys (Brewlet's per-referrer tags preserve multiple signatures) and configure
+the verifier with the currently trusted key. The shipped Rego policy is
+rotation-tolerant: it admits when **at least one** Brewlet attestation verifies
+(matching spec §4.5's "at least one candidate" rule), so a still-present old-key
+attestation neither blocks nor grants admission. (Do **not** use Ratify's
+`config-policy` with `all` for this — it would deny as soon as any old-key
+attestation fails; see the verifier-selection note below.)
+
+### Verifier selection: use the Rego policy, ban overlapping verifiers
+`deploy/30-ratify-policy.yaml` is a **Rego** policy that admits a subject only
+when the verifier named `brewlet-managed-dependencies` reported success for the
+Brewlet attestation artifact type. This is deliberate and security-relevant:
+Ratify's alternative `config-policy` only asks "did *some* verifier succeed for
+this artifact type?", and its executor runs only the **first** verifier whose
+`CanVerify` matches a referrer (nondeterministic map order) and then stops. If
+the cluster also has a wildcard/overlapping verifier, it could "verify" a Brewlet
+referrer **without running this plugin** — a bypass. The Rego policy runs every
+matching verifier and binds success to *this* verifier by name, closing that
+gap. Regardless, do not register a wildcard (`artifactTypes: "*"`) verifier that
+also claims `application/vnd.brewlet.attestation.v1+json`.
+
+### Plugin delivery integrity
+Ratify executes the external verifier binary it loads (via `source.artifact` or a
+baked-in image) **without verifying it**. Pin `source.artifact` by immutable
+digest, or bake the binary into a digest-pinned Ratify image. A mutable plugin
+tag lets anyone who can push replace the verifier with an always-allow binary and
+defeat the entire control.
+
+### The cluster Ratify policy is a singleton
+Ratify allows exactly one cluster `Policy` named `ratify-policy`. Applying
+`deploy/30` **replaces** any existing cluster policy. In a shared Ratify install,
+merge the Brewlet rule into your existing Rego policy rather than overwriting it.
 
 ### Identity is a free-form string trusted only through the key
 `expectedBuilderIdentity` is compared verbatim against the `builderIdentity` in
@@ -164,20 +194,28 @@ time (`brewlet:push` with `trustedPublicKey`/`trustedSignerIdentity`), which
 refuses to compose an image from a bundle whose provenance does not match. Do not
 represent this admission control as bundle-signer admission enforcement.
 
-### Fail-closed on missing attestation is a policy-layer property
-The plugin is only invoked once a matching referrer exists; it cannot deny an
-image that has *no* Brewlet referrer at all. Denial of unattested images is
-enforced by the Ratify verification policy plus the Gatekeeper constraint
-(`deploy/30`/`50`). Ratify's exact aggregation semantics vary by version, so
-**validate on your Ratify version** that an unattested image is denied (see the
-smoke test) before depending on it.
+### Fail-closed on missing attestation
+An image with no Brewlet attestation referrer is denied. The plugin itself is
+only invoked once a matching referrer exists, so missing-evidence denial is
+enforced by the policy layer: the Rego policy's `valid` rule requires a
+successful `brewlet-managed-dependencies` report to exist, so a subject with zero
+(or only non-Brewlet) referrers yields `valid == false`. Verified against Ratify
+v1.4.5: a subject with no verifier reports fails closed. Still run the smoke test
+on your Ratify version.
 
-### Scope
-The Gatekeeper template only enforces on pods with
-`spec.runtimeClassName: brewlet` (including raw workloads, not just
-`JavaApplication`-managed pods). Non-Brewlet workloads are never subject to these
-checks. Pin images by digest (`repo@sha256:...`) — a tag is resolved by Ratify,
-but digest pinning removes the resolve step and the mutable-tag race.
+### Scope and required image pinning
+The Gatekeeper template enforces on pods with `spec.runtimeClassName: brewlet`
+(including raw workloads, not just `JavaApplication`-managed pods). Pods in the
+constraint's `excludedNamespaces` (control-plane/infra namespaces, to avoid
+bootstrap deadlock) are **not** checked — keep Brewlet workloads out of those
+namespaces and restrict who can create pods there.
+
+**Images must be digest-pinned** (`repo@sha256:...`). Ratify passes the pod's
+original image reference to the plugin; a tag is not resolved to a digest in that
+hand-off, so the plugin cannot bind the attestation subject and **denies
+tag-based images (fail closed)**. This matches Brewlet's model — the admission
+webhook stamps `brewlet.sh/artifact-digest` and the managed attestation binds the
+image index digest. Enforce digest pinning at the source (CI/GitOps).
 
 ## Fail-closed behavior
 
@@ -193,8 +231,9 @@ The plugin returns `isSuccess: false` for every one of:
 | `thinJar != true` or malformed predicate digests | deny |
 | Manifest not exactly one DSSE layer | deny |
 | Registry manifest/blob fetch error | deny |
-| Non-digest / unresolved subject | deny |
-| No Brewlet attestation referrer at all | deny (policy + constraint) |
+| Non-digest / unresolved (tag-based) subject | deny |
+| No Brewlet attestation referrer at all | deny (Rego policy) |
+| A different/wildcard verifier claims the artifact type | not admitted on its behalf (Rego binds this verifier by name) |
 
 ## Smoke test
 

@@ -104,7 +104,7 @@ func verifyManaged(
 	expectedIdentity string,
 ) *verifier.VerifierResult {
 	if !strings.HasPrefix(subjectDigest, "sha256:") || len(subjectDigest) != len("sha256:")+64 {
-		return deny(fmt.Sprintf("subject is not resolved to a sha256 digest: %q", subjectDigest))
+		return deny(fmt.Sprintf("subject is not a sha256-digest reference (%q); Brewlet admission requires digest-pinned images (repo@sha256:...)", subjectDigest))
 	}
 	if referenceDescriptor.ArtifactType != attest.AttestationArtifactType {
 		return deny(fmt.Sprintf("referrer artifactType %q is not a Brewlet attestation", referenceDescriptor.ArtifactType))

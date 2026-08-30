@@ -18,8 +18,11 @@
 # PLUGIN DELIVERY: the plugin binary must be discoverable by Ratify in
 # its plugin directory. Two supported options:
 #   1. `source.artifact` (shown): Ratify downloads the plugin from an
-#      OCI registry at startup (the "dynamic plugin" pattern). Replace
-#      the placeholder with your published plugin image.
+#      OCI registry at startup (the "dynamic plugin" pattern). Ratify
+#      does NOT verify this artifact's signature before executing it, so
+#      you MUST pin it by immutable digest (a mutable tag lets anyone who
+#      can push replace the verifier with an always-allow binary). Replace
+#      the placeholder digest with your published plugin image.
 #   2. Bake the compiled binary into a custom Ratify image at
 #      /home/nonroot/.ratify/plugins/brewlet-managed-dependencies and
 #      drop the `source` field.
@@ -33,9 +36,10 @@ spec:
   type: brewlet-managed-dependencies
   version: 1.0.0
   artifactTypes: application/vnd.brewlet.attestation.v1+json
-  # Option 1: download the plugin binary from a registry at startup.
+  # Option 1: download the plugin binary from a registry at startup. Pin by
+  # digest — Ratify executes this artifact without verifying it.
   source:
-    artifact: registry.example.com/brewlet/ratify-verifier:v1.0.0
+    artifact: registry.example.com/brewlet/ratify-verifier@sha256:REPLACE_WITH_PLUGIN_IMAGE_DIGEST
   parameters:
     # Trust anchor: the Brewlet application-builder public key (SPKI PEM,
     # ECDSA P-256). This is public, non-secret material and may be inlined.

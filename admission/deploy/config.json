@@ -3,7 +3,10 @@
     "Ratify CLI (non-Kubernetes) config for verifying Brewlet managed-dependency",
     "attestations, e.g. in CI: `ratify verify -s <image@sha256:...> -c config.json`.",
     "The plugin binary must be installed at ~/.ratify/plugins/brewlet-managed-dependencies.",
-    "The registry must expose the OCI 1.1 Referrers API."
+    "The registry must expose the OCI 1.1 Referrers API, and the image must be digest-pinned.",
+    "This uses config-policy, which is safe HERE only because exactly one verifier is",
+    "registered; in a cluster use the Rego policy in deploy/30-ratify-policy.yaml, which",
+    "binds success to this verifier by name (see admission/README.md, Verifier selection)."
   ],
   "store": {
     "version": "1.0.0",
