@@ -17,6 +17,8 @@ You can instead build the CLI with `make binaries` (producing `./bin/brewlet`).
 
 ```
 brewlet push    <jar> <ref> [flags]   publish a JAR as an OCI artifact
+brewlet dependency-bundle <tar> <ref> publish an approved dependency bundle
+brewlet keygen              [flags]   generate an ECDSA P-256 key pair
 brewlet inspect <ref>       [flags]   show the artifact manifest + config
 brewlet run     <ref>       [flags]   pull + launch java -jar on this node
 brewlet bundle  <ref>       [flags]   emit an OCI runc bundle (the shim path)
@@ -36,6 +38,72 @@ after a literal `--` is passed as **extra JVM args**.
 
 ---
 
+## `brewlet keygen`
+
+Generate the ECDSA P-256 key pair used to sign managed dependency bundle
+provenance or final-image managed-dependency attestations.
+
+```bash
+brewlet keygen --private FILE --public FILE
+```
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--private` | *(required)* | Output path for the PKCS#8 PEM private key. |
+| `--public` | *(required)* | Output path for the SubjectPublicKeyInfo PEM public key. |
+
+```bash
+brewlet keygen --private platform-private.pem --public platform-public.pem
+```
+
+Keep the private key in a CI secret store. Public-key distribution and rotation
+are out of band.
+
+---
+
+## `brewlet dependency-bundle`
+
+Publish an approved dependency classpath to a local OCI layout. The command
+expects the caller to provide a deterministic flat classpath tar and canonical
+dependency lock.
+
+```bash
+brewlet dependency-bundle <classpath-tar> <ref> \
+  --name NAME --version VERSION --source-bom G:A:V --lock FILE \
+  [--compatible-jdks LIST] [--signing-key PEM --signer-identity IDENTITY] \
+  [--store DIR]
+```
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--name` | *(required)* | Stable bundle name. |
+| `--version` | *(required)* | Bundle version. |
+| `--source-bom` | *(required)* | Approved Maven BOM in `groupId:artifactId:version` form. |
+| `--lock` | *(required)* | Canonical dependency-lock JSON corresponding to the classpath tar. |
+| `--compatible-jdks` | *(none)* | Comma-separated compatible JDK feature versions, such as `21,25`. |
+| `--signing-key` | *(none)* | PKCS#8 PEM ECDSA P-256 private key used to sign bundle provenance; requires `--signer-identity`. |
+| `--signer-identity` | *(none)* | Bundle-publisher identity recorded in signed provenance; requires `--signing-key`. |
+| `--store` | `./oci` | OCI layout directory to write. |
+
+```bash
+brewlet dependency-bundle ./deps.tar platform/java-deps/spring-web:2026.08 \
+  --store ./oci \
+  --name spring-web \
+  --version 2026.08 \
+  --source-bom com.example.platform:approved-spring-bom:2026.08 \
+  --lock ./dependency-lock.json \
+  --compatible-jdks 21,25 \
+  --signing-key platform-private.pem \
+  --signer-identity https://ci.example.com/platform-bundles
+```
+
+The CLI reads and writes its local `--store` layout and requires caller-supplied
+locks. Use the Maven plugin for BOM import, Maven graph derivation, and direct
+registry publication or consumption. See
+[Managed dependency bundles](managed-dependency-bundles.md).
+
+---
+
 ## `brewlet push`
 
 Publish a JAR to an OCI registry (generates a minimal launch config, or embeds one
@@ -47,6 +115,10 @@ you provide). By default it publishes a **runnable, kubelet-pullable OCI image**
 brewlet push <jar> <ref> [--format image|artifact] [--store DIR] [--config FILE]
                          [--arch LIST | --no-arch]
                          [--classpath-layer TAR ...] [--module-layer TAR ...]
+                         [--dependency-bundle REF --dependency-lock FILE
+                          --main-class CLASS
+                          [--trusted-public-key PEM --trusted-signer-identity IDENTITY]
+                          [--signing-key PEM --builder-identity IDENTITY]]
                          [--appcds-archive JSA | --appcds [--appcds-java JAVA]
                           [--appcds-timeout SEC] [--appcds-arg ARG ...]]
 ```
@@ -60,6 +132,13 @@ brewlet push <jar> <ref> [--format image|artifact] [--store DIR] [--config FILE]
 | `--no-arch` | `false` | Disable native-library auto-detection and publish with **no** arch constraint (force arch-neutral), even when bundled natives are found. |
 | `--classpath-layer` | *(none)* | Tar of dependency JARs to attach as a class-path layer (repeatable), unpacked to `/app/lib`. See [layered classpath deployment](layered-classpath-deployment.md). |
 | `--module-layer` | *(none)* | Tar of library modules to attach as a module-path layer (repeatable), unpacked to `/app/mods` and fed to `--module-path`. See [JPMS support](jpms-support.md). |
+| `--dependency-bundle` | *(none)* | Approved managed dependency bundle reference in the same local `--store`. Requires `--format image` and `--dependency-lock`; mutually exclusive with classpath/module layers and AppCDS. |
+| `--dependency-lock` | *(none)* | Canonical lock for the application's resolved Maven runtime graph; required with `--dependency-bundle`. |
+| `--main-class` | *(none)* | Application main class for managed classpath launch; required with `--dependency-bundle` unless a classpath-mode `--config` supplies `entry.mainClass`. |
+| `--trusted-public-key` | *(none)* | ECDSA P-256 public key trusted to sign the selected bundle; paired with `--trusted-signer-identity` when bundle provenance is present. |
+| `--trusted-signer-identity` | *(none)* | Expected bundle-publisher identity in signed bundle provenance; paired with `--trusted-public-key`. |
+| `--signing-key` | *(none)* | PKCS#8 PEM ECDSA P-256 private key used to sign final-image managed-dependency evidence; paired with `--builder-identity`. |
+| `--builder-identity` | *(none)* | Application-builder identity recorded in the signed final-image evidence; paired with `--signing-key`. |
 | `--appcds-archive` | *(none)* | Prebuilt Application Class-Data Sharing archive (`.jsa`) to ship, mounted at `/app/<name>` and launched with `-Xshare:auto -XX:SharedArchiveFile`. Sets `cds.archive` in the config from the file's basename (unless `--config` already declares one, which must then match). Best-effort startup accelerator; see [AppCDS](appcds.md). |
 | `--appcds` | `false` | Generate the AppCDS archive **turnkey** — run a self-terminating training JVM against the JAR, then ship the result (the generate-it-for-me equivalent of `--appcds-archive`). Fat-JAR only; mutually exclusive with `--appcds-archive`, `--classpath-layer`, and `--module-layer`. See [AppCDS §4.2](appcds.md). |
 | `--appcds-java` | *(auto)* | `java` executable (or a `JAVA_HOME` directory) used for `--appcds` training. Defaults to `$JAVA_HOME/bin/java`, then `java` on `PATH`. |
@@ -81,6 +160,11 @@ brewlet push ./target/orders.jar demo/orders:1.0.0 --module-layer mods.tar
 brewlet push ./target/app.jar demo/hello:1.0.0 --appcds-archive ./target/app.jsa
 brewlet push ./target/app.jar demo/hello:1.0.0 --appcds                # generate + ship an AppCDS archive
 brewlet push ./target/native-app.jar demo/native:1.0.0 --arch amd64,arm64   # non-portable (JNI) JAR
+brewlet push ./target/orders.jar apps/orders:1.4.2 \
+  --store ./oci --format image \
+  --dependency-bundle platform/java-deps/spring-web:2026.08 \
+  --dependency-lock ./application-dependency-lock.json \
+  --main-class com.example.OrdersApplication
 ```
 
 Output confirms the pushed digest and store (for a runnable image, the multi-arch index
@@ -91,15 +175,20 @@ digest and target platforms; for a native artifact, the manifest digest and
 
 ## `brewlet inspect`
 
-Print the artifact's OCI manifest and its JVM launch config.
+Print the artifact's OCI manifest and its JVM launch config. Managed dependency
+bundles and final images also show their lock/evidence. Optional trust flags
+verify signed bundle provenance or a final-image attestation.
 
 ```
 brewlet inspect <ref> [--store DIR]
+                      [--trusted-public-key PEM --trusted-signer-identity IDENTITY]
 ```
 
 | Flag | Default | Meaning |
 |---|---|---|
 | `--store` | `./oci` | OCI layout directory to read from. |
+| `--trusted-public-key` | *(none)* | ECDSA P-256 public key used to verify managed provenance or attestation; requires `--trusted-signer-identity`. |
+| `--trusted-signer-identity` | *(none)* | Expected signed identity. For a bundle this is its publisher; for a final image this is its application builder. Requires `--trusted-public-key`. |
 
 ```bash
 brewlet inspect demo/hello:1.0.0

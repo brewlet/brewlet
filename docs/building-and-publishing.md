@@ -136,6 +136,12 @@ Instead of one fat JAR, you can ship a **thin application JAR** plus one or more
 only the small app layer moves per build. Set `entry.classPath` (ordered,
 `/app`-relative) and attach the dependency JARs as a tar layer:
 
+For a governed variant, platform teams can publish an approved immutable
+classpath as a **managed dependency bundle**. Application publication verifies
+the Maven runtime graph against that bundle and reuses its exact layer in the
+final thin-JAR image. See
+[Managed dependency bundles](managed-dependency-bundles.md).
+
 ```json
 { "schemaVersion": 1, "mainJar": "app.jar",
   "entry": { "mode": "classpath", "mainClass": "com.example.Main", "classPath": ["app.jar", "lib/*"] } }
@@ -229,6 +235,17 @@ cache behavior, and layer-ordering strategy.
 ---
 
 ## 3. Publish the artifact
+
+### Publish with a managed dependency bundle
+
+Platform teams can publish an approved dependency bundle from a Maven BOM with
+`mvn package brewlet:dependency-bundle`; application teams then select it with
+`mvn package brewlet:push -Dbrewlet.dependencyBundle=...`. Brewlet verifies the
+application graph, rejects fat JARs, and never falls back to application-built
+dependency layers after a managed-bundle error.
+
+See [Managed dependency bundles](managed-dependency-bundles.md) for the Ops and
+developer workflows, signing options, trust roles, and Go CLI boundary.
 
 ### Option A — the `brewlet` CLI (simplest)
 
