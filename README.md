@@ -19,10 +19,14 @@ This repository contains the complete Brewlet implementation: the CLI and
 runtime, Kubernetes platform, node provisioner, Maven plugin, specifications,
 and integration tests.
 
+> [!IMPORTANT]
+> User-facing documentation is maintained in
+> [`brewlet/site`](https://github.com/brewlet/site), not in this repository.
+
 - [Documentation](https://brewlet.sh/)
 - [Getting started](https://brewlet.sh/docs/getting-started/)
-- [Ops workshop](https://github.com/brewlet/site/blob/main/WORKSHOP-OPS.md)
-- [Developer workshop](https://github.com/brewlet/site/blob/main/WORKSHOP-DEV.md)
+- [Ops workshop](https://brewlet.sh/docs/workshops/operations/)
+- [Developer workshop](https://brewlet.sh/docs/workshops/developers/)
 - [Latest release](https://github.com/brewlet/brewlet/releases/latest)
 - [Specification](specs/SPECIFICATION.md)
 - [Roadmap](ROADMAP.md)
