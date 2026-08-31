@@ -3,9 +3,9 @@ site_description: Brewlet user and operator documentation
 site_url: https://brewlet.sh/docs/
 docs_dir: docs
 site_dir: _site/docs
-repo_url: https://github.com/brewlet/site
-repo_name: brewlet/site
-edit_uri: edit/main/docs/
+repo_url: https://github.com/brewlet/brewlet
+repo_name: brewlet/brewlet
+edit_uri: https://github.com/brewlet/site/edit/main/docs/
 not_in_nav: |
   logos/README.md
 
