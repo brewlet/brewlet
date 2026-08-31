@@ -11,8 +11,8 @@
   --brewlet-muted: #6b5d51;
   --brewlet-line: #e7dcc9;
   --brewlet-bg: #fffdf9;
-  --brewlet-rail-primary: #f2e7d7;
-  --brewlet-rail-secondary: #faf6ef;
+  --brewlet-rail-primary: #fff;
+  --brewlet-rail-secondary: #fff;
   --brewlet-panel: #f8efe0;
   --brewlet-panel-hover: #f1e3cd;
   --brewlet-focus: rgba(50, 108, 229, 0.4);
