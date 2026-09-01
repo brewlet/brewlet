@@ -20,6 +20,10 @@ telemetry to the node exporter over a Unix datagram socket. The contract
 intentionally excludes artifact references, digests, pod names, and arbitrary
 errors from labels. Metrics are opt-in in the Helm chart.
 
+`BREWLET_METRICS_DIR` is a legacy compatibility path for external Prometheus
+textfile collectors. Such collectors must remove consumed files; the built-in
+exporter uses the Unix socket and does not read that directory.
+
 From the repository root, build and test the module with:
 
 ```bash

@@ -43,6 +43,9 @@ func TestReasonBoundsErrors(t *testing.T) {
 	if got := Reason(assertError("arbitrary tenant supplied failure text")); got != "BundlePreparation" {
 		t.Fatalf("Reason() leaked arbitrary text: %q", got)
 	}
+	if got := Reason(assertError(`no Brewlet artifact reference on task "task-1"`)); got != "MissingArtifactReference" {
+		t.Fatalf("Reason() = %q, want MissingArtifactReference", got)
+	}
 }
 
 func TestDecodeRejectsUnboundedLabels(t *testing.T) {

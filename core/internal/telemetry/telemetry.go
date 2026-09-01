@@ -84,7 +84,7 @@ func Decode(payload []byte) (Event, error) {
 		}
 	case KindLaunch:
 		if !oneOf(event.Outcome, "success", "error") ||
-			!oneOf(event.Reason, "none", "NoCompatibleJDK", "NoCompatibleLauncher", "NoCompatibleArch", "ArtifactResolution", "OverlaySetup", "RuntimeCreate", "ProcessStart", "BundlePreparation") ||
+			!oneOf(event.Reason, "none", "NoCompatibleJDK", "NoCompatibleLauncher", "NoCompatibleArch", "MissingArtifactReference", "ArtifactResolution", "OverlaySetup", "RuntimeCreate", "ProcessStart", "BundlePreparation") ||
 			!oneOf(event.EntryMode, "jar", "classpath", "module", "unknown") ||
 			!oneOf(event.Format, "native", "image", "unknown") {
 			return Event{}, errors.New("invalid launch event")
@@ -136,6 +136,8 @@ func Reason(err error) string {
 		}
 	}
 	switch {
+	case strings.Contains(message, "no Brewlet artifact reference"):
+		return "MissingArtifactReference"
 	case strings.Contains(message, "artifact"), strings.Contains(message, "manifest"), strings.Contains(message, "blob"):
 		return "ArtifactResolution"
 	case strings.Contains(message, "overlay"):

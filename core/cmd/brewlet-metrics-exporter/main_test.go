@@ -16,6 +16,11 @@ func TestInventoryCollector(t *testing.T) {
 	if err := os.MkdirAll(jdk, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	for _, launcher := range []string{"java", "jaz"} {
+		if err := os.MkdirAll(filepath.Join(root, "launchers", launcher), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
 	files := map[string]string{
 		filepath.Join(root, "jdks", ".brewlet-active"):                     "temurin-21\n",
 		filepath.Join(root, "jdks", "temurin-21", ".brewlet-java-home"):    "/opt/java/openjdk\n",
@@ -40,6 +45,7 @@ brewlet_jdk_info{arch="aarch64",distribution="temurin",feature="21",source="dock
 brewlet_jdk_installed_timestamp_seconds{distribution="temurin",feature="21",version="21.0.8"} 1.7881776e+09
 # HELP brewlet_launcher_info JVM launchers installed on this Brewlet node.
 # TYPE brewlet_launcher_info gauge
+brewlet_launcher_info{launcher="jaz"} 1
 brewlet_launcher_info{launcher="java"} 1
 `
 	if err := testutil.GatherAndCompare(reg, strings.NewReader(expected)); err != nil {

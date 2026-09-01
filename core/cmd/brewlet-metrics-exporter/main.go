@@ -129,12 +129,19 @@ func (c *inventoryCollector) Collect(ch chan<- prometheus.Metric) {
 			ch <- prometheus.MustNewConstMetric(c.jdkInstalled, prometheus.GaugeValue, float64(installed), dist, feature, version)
 		}
 	}
+	emittedLaunchers := map[string]struct{}{"java": {}}
 	ch <- prometheus.MustNewConstMetric(c.launcherInfo, prometheus.GaugeValue, 1, "java")
 	entries, _ := os.ReadDir(filepath.Join(c.root, "launchers"))
 	for _, entry := range entries {
-		if entry.IsDir() {
-			ch <- prometheus.MustNewConstMetric(c.launcherInfo, prometheus.GaugeValue, 1, entry.Name())
+		if !entry.IsDir() {
+			continue
 		}
+		name := entry.Name()
+		if _, emitted := emittedLaunchers[name]; emitted {
+			continue
+		}
+		emittedLaunchers[name] = struct{}{}
+		ch <- prometheus.MustNewConstMetric(c.launcherInfo, prometheus.GaugeValue, 1, name)
 	}
 }
 

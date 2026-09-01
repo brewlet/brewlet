@@ -165,6 +165,16 @@ func (s *brewletTaskService) Start(ctx context.Context, r *taskAPI.StartRequest)
 	return resp, err
 }
 
+func (s *brewletTaskService) Delete(ctx context.Context, r *taskAPI.DeleteRequest) (*taskAPI.DeleteResponse, error) {
+	resp, err := s.TaskService.Delete(ctx, r)
+	if err == nil && r.GetExecID() == "" {
+		s.mu.Lock()
+		delete(s.pending, r.ID)
+		s.mu.Unlock()
+	}
+	return resp, err
+}
+
 // isSandboxBundle reports whether the OCI spec at <bundle>/config.json belongs
 // to a CRI pod sandbox (the pause container). Non-CRI callers (the ctr / e2e
 // harness paths) leave the annotation unset, so those bundles are always treated

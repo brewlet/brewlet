@@ -11,15 +11,15 @@ import (
 
 // recordRegenMetric writes a best-effort node-local record of the AppCDS
 // regeneration role chosen for a launch. It is the shim-side half of the metrics
-// design in https://github.com/brewlet/site/blob/main/docs/metrics-exporter.md (Option A): the long-lived provisioner
-// exporter aggregates these files into `brewlet_cds_archive_mapped_total` /
-// `_stale_total`, letting operators watch the accelerator's payoff erode after a
-// JDK patch (https://github.com/brewlet/site/blob/main/docs/appcds.md §7). It NEVER fails a launch: every error is
-// swallowed, and an empty dir disables emission entirely.
+// design in https://github.com/brewlet/site/blob/main/docs/metrics-exporter.md
+// (Option A). The current exporter consumes the socket event. The optional file
+// remains for compatibility with external Prometheus textfile collectors. It
+// NEVER fails a launch: every error is swallowed, and an empty dir disables
+// file emission entirely.
 //
 // One file is written per launch decision at
 // <dir>/cds-<key-or-skip>-<unixnano>.prom, in Prometheus text-exposition format,
-// so the exporter can textfile-collect and delete them.
+// External collectors using this compatibility path must delete consumed files.
 func recordRegenMetric(dir, _ string, role RegenRole, now time.Time) {
 	_ = telemetry.Emit(telemetry.Event{Kind: telemetry.KindCDS, CDSRole: string(role)})
 	if dir == "" {

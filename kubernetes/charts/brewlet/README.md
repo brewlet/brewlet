@@ -116,6 +116,10 @@ Runtime metrics are disabled by default. Set `metrics.enabled=true` to run the
 node exporter, enable the control-plane metrics listeners, and expose three
 scrape surfaces:
 
+Upgrades preserve the disabled default. Existing installations that scrape the
+operator or admission controller-runtime endpoint must explicitly set
+`metrics.enabled=true`.
+
 - `brewlet-node-metrics` discovers the exporter in every profile-managed
   provisioner pod and reports sandbox launch phases/outcomes, artifact resolution,
   AppCDS decisions, and JDK/launcher inventory.
