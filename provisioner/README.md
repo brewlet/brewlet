@@ -46,11 +46,13 @@ architecture and packages them with the host installation entrypoint.
 | `NODE_NAME` | downward API | Kubernetes node to label |
 | `BREWLET_PREFIX` | `/opt/brewlet` | Host installation prefix |
 | `CONTAINERD_CONFIG` | `/etc/containerd/config.toml` | containerd configuration |
+| `CONTAINERD_DROPIN_DIR` | `/etc/containerd/config.toml.d` | Host drop-in directory used when the primary config imports it |
+| `CONTAINERD_DROPIN_FILE` | `<drop-in-dir>/99-brewlet.toml` | Brewlet-managed runtime drop-in |
 | `CONTAINERD_ADDRESS` | `/run/containerd/containerd.sock` | containerd socket |
 | `CONTAINERD_NAMESPACE` | `k8s.io` | containerd namespace |
 | `BREWLET_MODE` | `provision` | `provision` installs; `cleanup` reverses it |
 | `BREWLET_CONTAINERD_RESTART` | `validated` | `validated`, `sighup`, or `none` |
-| `BREWLET_VALIDATE` | `true` | Run JDK smoke tests before readiness |
+| `BREWLET_VALIDATE` | `true` | Run JDK and launcher smoke tests before readiness |
 | `MIRRORS` | empty | Registry mirror mappings |
 
 The curated JDK distributions are `temurin` and `microsoft`. A `NodeProfile` can
@@ -65,6 +67,22 @@ reinstalls a token when either changes. Runtime roots retain the source image's
 filesystem modes; the shim keeps the shared lower layer and Java-home bind mount
 read-only for workloads.
 
+## Containerd configuration
+
+The default `validated` mode checks whether the host's primary containerd
+configuration imports `/etc/containerd/config.toml.d/*.toml`. When it does,
+Brewlet writes only `99-brewlet.toml`; otherwise it appends the same runtime
+block to the primary configuration and preserves the original as
+`config.toml.brewlet.bak`.
+
+Before activation, the provisioner runs
+`containerd --config /etc/containerd/config.toml config dump` in the host mount
+namespace. Provisioning fails unless the configuration parses and the dumped
+effective configuration contains the `brewlet` runtime handler. A failed render
+is removed or restored before exit, the node remains unready, and
+`brewlet.sh/provision-error` reports either a rejected config dump or a missing
+handler.
+
 In the default `validated` restart mode, a changed containerd configuration is
 activated with `systemctl restart containerd` from the host PID namespace. The
 provisioner then checks the containerd socket and queries the live CRI status to
@@ -75,9 +93,11 @@ leaves the node unready, and sets an actionable
 `brewlet.sh/provision-error`. A recovery failure is reported separately as
 `rollback-failed`.
 
-`sighup` retains legacy reload behavior, while `none` is the immutable-image
-mode and does not mutate or signal containerd. Unchanged configuration is
-health-checked without an unnecessary restart.
+Re-running an unchanged valid render still verifies the effective configuration
+and health-checks containerd without an unnecessary restart. `sighup` retains
+the legacy in-place render and reload behavior without the config-dump gate,
+while `none` is the immutable-image mode and does not mutate or signal
+containerd.
 
 When Helm runtime metrics are enabled, the profile-managed DaemonSet includes a
 best-effort exporter sidecar that serves `/metrics` and listens for shim
@@ -89,6 +109,22 @@ default.
 Copy-from-image commands run through the bundled `ctr` client in the host mount
 namespace. This is required because the provisioner connects to the host
 containerd socket and unpack mounts must be visible in the node's namespace.
+
+## Readiness validation
+
+With `BREWLET_VALIDATE=true`, the provisioner runs a deterministic one-shot
+probe for every configured runtime component before it advertises runtime or
+capability labels:
+
+- each JDK root runs `bin/java -version` inside its installed root;
+- each `jaz` launcher layer runs with `JAZ_PRINT_VERSION=1` and
+  `JAZ_EXIT_WITHOUT_FLUSH=1`.
+
+A missing or non-executable launcher, or a failed probe, leaves the node
+unready and records a bounded launcher-specific reason such as
+`launcher-jaz-probe-failed` in `brewlet.sh/provision-error`. No JDK or launcher
+capability labels are retained after failure. `BREWLET_VALIDATE=false` skips
+both JDK and launcher probes and preserves the opt-out behavior.
 
 > The provisioner is privileged and host-mutating. Run it only on nodes
 > controlled by the platform team.
