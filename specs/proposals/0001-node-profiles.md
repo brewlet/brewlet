@@ -59,7 +59,7 @@ Today the inventory is a single global string:
 |---|---|---|
 | **One global inventory** | `provisioner.jdks` is one comma list applied to every `brewlet.sh/provision=true` node (`Config.JDKs` → one DaemonSet). | Real fleets are heterogeneous (pool, team, cost). You can't say "the batch pool gets `temurin-21`, the edge pool gets `microsoft-25`". |
 | **Coarse, per-node opt-in** | `kubectl annotate node --all brewlet.sh/provision=true`. | Manual, node-by-node, and untied to any inventory. Worse, it **breaks under autoscaling**: cluster-autoscaler / Karpenter nodes join un-annotated and get nothing until a human re-annotates them. |
-| **No reversal** | Uninstall removes control-plane objects; shim + JDK roots + `config.toml` edits are left on the host (see [installation.md](https://github.com/brewlet/site/blob/main/docs/installation.md) "Uninstall"). | Nodes accumulate drift; no clean way to de-provision without reimaging. |
+| **No reversal** | Uninstall removes control-plane objects; shim + JDK roots + `config.toml` edits are left on the host (see [installation.md](https://github.com/brewlet/brewlet/blob/main/docs/installation.md) "Uninstall"). | Nodes accumulate drift; no clean way to de-provision without reimaging. |
 
 The opt-in and autoscaling gaps have the same root cause: the unit of configuration is
 the **individual node**. Cloud fleets are already organized into **node pools** (GKE

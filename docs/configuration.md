@@ -1,0 +1,239 @@
+# Configuration
+
+Every knob Brewlet exposes, in one place: Helm chart values, node-provisioner
+environment variables, operator/admission flags, the `RuntimeClass`, and how the
+different layers relate. For *how* to install, see [Installation](installation.md);
+for JDKs and launchers specifically, see [JDK management](jdk-management.md) and
+[Launchers](launchers.md). For how the resulting node labels drive scheduling
+and autoscaling, see
+[Capability labels and autoscaling](capability-labels-and-autoscaling.md).
+For the operational workflow behind the metrics values, see
+[Runtime metrics and Grafana dashboards](runtime-metrics.md).
+
+---
+
+## Configuration layers (how they connect)
+
+There is **one source of truth** for the JDK/launcher inventory: you set it once,
+and it flows down.
+
+```
+Helm values (provisioner.jdks / .launchers)
+        │  become operator flags
+        ▼
+Operator flags (--jdks / --launchers)
+        │  flow into the DaemonSet container env
+        ▼
+Provisioner env (JDKS / LAUNCHERS)
+        │  drive what gets installed on each node
+        ▼
+Node state: /opt/brewlet/jdks/<dist>-<feature>/ + capability labels/annotations
+```
+
+If you use Helm, set values. If you run the operator directly, set flags. If you
+hand-wire the DaemonSet, set env vars. Don't mix — the operator overwrites the
+DaemonSet it manages.
+
+> **Note on defaults.** The "Default" columns below are per-layer: they apply only
+> when that layer is invoked directly. The Helm chart ships richer defaults than the
+> bare binaries (e.g. `provisioner.jdks=temurin-21,microsoft-25` and
+> `provisioner.launchers=jaz`), and passes them down explicitly, so a direct
+> operator/DaemonSet invocation without those flags/env falls back to the leaner
+> binary defaults (`--jdks=temurin-21`, `--launchers`/`LAUNCHERS` empty).
+
+---
+
+## Helm chart values
+
+From [`charts/brewlet/values.yaml`](https://github.com/brewlet/brewlet/blob/main/kubernetes/charts/brewlet/values.yaml). Override
+with `--set key=value` or a values file.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `namespace` | `brewlet` | Namespace all components install into (created by the chart). |
+| `images.registry` | `ghcr.io/brewlet` | Registry prefix used to generate component image references. |
+| `images.tag` | chart `appVersion` | Shared component tag. A versioned OCI chart therefore selects matching images automatically. |
+| `images.operator` | generated | Explicit operator image override; supports tags or digests. |
+| `images.provisioner` | generated | Explicit provisioner image override; supports tags or digests. |
+| `images.admission` | generated | Explicit admission webhook image override; supports tags or digests. |
+| `images.pullPolicy` | `IfNotPresent` | Image pull policy for all components. |
+| `provisioner.jdks` | `temurin-21,microsoft-25` | Comma-separated curated `<dist>-<feature>` roots, or a structured list with `source.image` and `source.javaHome` for custom distributions ([§JDK management](jdk-management.md#custom-distributions-azul-zulu-example)). |
+| `provisioner.launchers` | `jaz` | Comma-separated launcher layers ([§Launchers](launchers.md)). Empty = vanilla `java` only. |
+| `provisioner.rollout.maxUnavailable` | `null` | Bounds the default profile's provisioner DaemonSet rolling update. `null` keeps the DaemonSet default. |
+| `provisioner.rollout.validate` | `true` | Gate node readiness on the post-install JDK smoke test (`java -version` per root). Renders the provisioner `BREWLET_VALIDATE` env. |
+| `provisioner.rollout.containerdRestart` | `validated` | When/whether to reload containerd after writing its config: `validated`, `sighup`, or `none`. Renders `BREWLET_CONTAINERD_RESTART` ([§5.5](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)). |
+| `provisioner.registry.mirrors` | `{}` | `<upstream-host>: <mirror-host>` map applied to every copy-from-image pull for air-gapped clusters. Renders `MIRRORS`. |
+| `defaultProfile.enabled` | `true` | Render the chart-managed **default** `NodeProfile` from `provisioner.*`. Disable to manage the default profile yourself, e.g. via GitOps ([§5.6](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)). |
+| `profiles` | `[]` | Additional per-pool `NodeProfile` CRs, each binding node pool(s) to their own JDK/launcher inventory plus rollout/registry policy ([§5.6](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)). |
+| `operator.replicas` | `1` | Operator replica count. |
+| `operator.leaderElect` | `true` | Enable leader election for HA. |
+| `operator.resources` | requests `50m/64Mi`, limits `200m/128Mi` | Operator pod resources. |
+| `metrics.enabled` | `false` | Opt in to Brewlet runtime and control-plane Prometheus endpoints. Enables the operator and admission listeners plus the node exporter sidecar and Services. |
+| `metrics.nodePort` | `9090` | Port exposed by each node-local metrics exporter and the `brewlet-node-metrics` headless Service. |
+| `metrics.serviceMonitor.enabled` | `false` | Create a Prometheus Operator `ServiceMonitor`. Requires the `monitoring.coreos.com/v1` CRDs. |
+| `metrics.serviceMonitor.interval` | `30s` | Scrape interval rendered into the optional `ServiceMonitor`. |
+| `metrics.serviceMonitor.additionalLabels` | `{}` | Extra `ServiceMonitor` labels, commonly used to match a Prometheus `serviceMonitorSelector`. |
+| `metrics.grafanaDashboard.enabled` | `false` | Create the `brewlet-grafana-dashboard` ConfigMap for dashboard sidecar discovery; does not install Grafana or a data source. |
+| `metrics.grafanaDashboard.labels` | `grafana_dashboard: "1"` | Labels applied to the dashboard ConfigMap for sidecar discovery. |
+| `admission.enabled` | `true` | Deploy the admission/scheduling webhook. Set `false` to skip it (the shim keeps its runtime JDK check). |
+| `admission.replicas` | `1` | Webhook replica count. |
+| `admission.failurePolicy` | `Ignore` | Webhook failure policy. `Ignore` ensures a webhook outage never blocks workloads. |
+| `admission.port` | `9443` | Webhook server port. |
+| `admission.resources` | requests `50m/64Mi`, limits `200m/128Mi` | Webhook pod resources. |
+
+Example production install (own registry, no `jaz`):
+
+```bash
+helm install brewlet oci://ghcr.io/brewlet/charts/brewlet \
+  --version 0.1.0 \
+  --set images.operator=registry.example.com/brewlet/operator@sha256:… \
+  --set images.provisioner=registry.example.com/brewlet/node-provisioner@sha256:… \
+  --set images.admission=registry.example.com/brewlet/admission@sha256:… \
+  --set provisioner.jdks="temurin-21,temurin-25" \
+  --set provisioner.launchers=""
+```
+
+> JDKs and launchers are always obtained **copy-from-image** (the vendor's
+> official image, pulled through the host containerd). Mirror those images into
+> your own registry for air-gapped clusters.
+
+---
+
+## Operator flags
+
+The source for these flags lives in
+[`cmd/manager`](https://github.com/brewlet/brewlet/tree/main/kubernetes/cmd/manager).
+When you install via Helm, the chart populates them for you.
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--namespace` | `brewlet` | Namespace the provisioner DaemonSet is managed in. |
+| `--provisioner-image` | `ghcr.io/brewlet/node-provisioner:0.1.0` | Image the DaemonSet runs. |
+| `--jdks` | `temurin-21` | Comma-separated `<dist>-<feature>` inventory (flows to the provisioner `JDKS` env). |
+| `--launchers` | *(empty)* | Comma-separated launcher inventory (`LAUNCHERS` env). |
+| `--leader-elect` | `false` | Enable leader election for HA. |
+| `--metrics-bind-address` | `:8080` | Metrics endpoint. |
+| `--health-probe-bind-address` | `:8081` | Health/readiness endpoint. |
+
+```bash
+./bin/operator --namespace=brewlet \
+  --provisioner-image=ghcr.io/brewlet/node-provisioner:0.1.0 \
+  --jdks=temurin-21,microsoft-25 --launchers=jaz
+```
+
+---
+
+## Node-provisioner environment variables
+
+The provisioner environment contract lives in the core runtime's
+[`provisioner/README.md`](https://github.com/brewlet/brewlet/blob/main/provisioner/README.md).
+The Kubernetes operator sets these variables on the DaemonSet it manages; you
+only touch them directly if you hand-wire the DaemonSet.
+
+| Env var | Default | Meaning |
+|---|---|---|
+| `JDKS` | `temurin-21` | Comma-separated `<distribution>-<feature>` roots to install. |
+| `JDK_CUSTOM_SOURCE_COUNT` | `0` | Number of indexed custom source entries rendered by the operator. |
+| `JDK_CUSTOM_SOURCE_<n>_{TOKEN,IMAGE,JAVA_HOME}` | *(empty)* | Internal operator-to-provisioner transport for custom `NodeProfile` JDK sources. Configure `spec.jdks[].source`, not these variables directly. |
+| `LAUNCHERS` | *(empty)* | Comma-separated launcher layers to stage (e.g. `jaz`). `java` is implicit. |
+| `NODE_NAME` | (downward API) | The node to label; injected from `spec.nodeName`. |
+| `BREWLET_PREFIX` | `/opt/brewlet` | Host install prefix (`bin/`, `jdks/`, `launchers/`). |
+| `CONTAINERD_CONFIG` | `/etc/containerd/config.toml` | containerd config to patch. |
+| `CONTAINERD_ADDRESS` | `/run/containerd/containerd.sock` | Host containerd socket (used for copy-from-image). |
+| `CONTAINERD_NAMESPACE` | `k8s.io` | containerd namespace for image pulls. |
+| `BREWLET_MODE` | `provision` | `provision` installs the runtime; `cleanup` reverses it (restores the containerd config backup, removes the shim, drops the runtime + capability labels) for a deleted `NodeProfile`. The operator sets it on the short-lived `brewlet-cleanup-<profile>` DaemonSet (§5.6). |
+| `BREWLET_CONTAINERD_RESTART` | `validated` | When/whether to reload containerd after writing its config: `validated` (smoke-test the JDK roots first, then SIGHUP), `sighup` (SIGHUP unconditionally), or `none` (never signal; a rollout/human restarts it). Rendered from `spec.rollout.containerdRestart`. |
+| `BREWLET_VALIDATE` | `true` | Run the post-install JDK smoke test (`java -version` per root) before flipping the node ready. `false` skips it. Rendered from `spec.rollout.validate`. |
+| `MIRRORS` | *(empty)* | Comma-separated `<upstream-host>=<mirror-host>` pairs; every copy-from-image pull rewrites its registry host through this map for air-gapped clusters. Rendered from `spec.registry.mirrors`. |
+
+---
+
+## Admission webhook
+
+The [`brewlet-admission`](https://github.com/brewlet/brewlet/tree/main/kubernetes/cmd/admission/) webhook is
+mutating+validating. For every pod on CREATE with `runtimeClassName: brewlet` it:
+
+- **stamps** `brewlet.sh/artifact-ref` (and `brewlet.sh/artifact-digest` when the
+  ref is digest-pinned) so the shim can resolve the JAR from the content store;
+- **matches** any requested JDK/launcher against the ready fleet, denying with
+  `NoCompatibleJDK` / `NoCompatibleLauncher`;
+- **steers** scheduling via `nodeAffinity` onto per-capability node labels.
+
+Admission matches JDK and launcher capability keys with `Operator: Exists`.
+The [Capability labels and autoscaling](capability-labels-and-autoscaling.md)
+guide explains the end-to-end scheduling flow and autoscaler integration. The
+[canonical capability-label contract](https://github.com/brewlet/brewlet/blob/main/specs/CAPABILITY_LABELS.md)
+defines the complete key grammar and compatibility guarantees.
+
+Non-brewlet pods pass through untouched. With `admission.failurePolicy: Ignore`
+(default) a webhook outage never blocks workloads.
+
+**Serving certificate.** By default Helm generates a self-signed serving cert at
+render time and injects the CA as the `caBundle`. Because Helm regenerates it on
+each `helm upgrade`, the Secret and `caBundle` rotate together and a checksum
+annotation rolls the webhook pods. **For production, swap in cert-manager** (a
+`Certificate` + the `cert-manager.io/inject-ca-from` annotation).
+
+Pod-side annotations the webhook reads (developer-facing) — see
+[Deploying workloads](deploying-workloads.md):
+
+| Annotation | Example | Meaning |
+|---|---|---|
+| `brewlet.sh/jdk` | `21` or `temurin-21` | Request a specific JDK feature (any distro) or exact `<dist>-<feature>`. |
+| `brewlet.sh/launcher` | `jaz` | Request a launcher. Empty / `java` = vanilla OpenJDK launcher. |
+| `brewlet.sh/artifact-container` | `app` | Which container's `image` is the OCI artifact (defaults to the brewlet container). |
+
+---
+
+## RuntimeClass
+
+The operator manages the `brewlet` `RuntimeClass`; this is what it generates (mirrors
+[`deploy/runtimeclass.yaml`](https://github.com/brewlet/brewlet/blob/main/kubernetes/deploy/runtimeclass.yaml)):
+
+```yaml
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: brewlet
+handler: brewlet                 # matches the containerd runtime name
+scheduling:
+  nodeSelector:
+    brewlet.sh/runtime: "ready"  # only land on provisioned nodes
+overhead:
+  podFixed:
+    memory: "64Mi"               # JVM/runtime baseline overhead accounting
+    cpu: "50m"
+```
+
+`overhead.podFixed` is how the scheduler and `LimitRange`/quotas account for the
+JVM/runtime baseline. Adjust it if your JVMs have a materially different fixed
+footprint.
+
+---
+
+## Precedence & defaults you should know
+
+- **JVM launch flags:** artifact structured knobs carry app-intrinsic correctness
+  flags; deployment-descriptor `jvm.args` carries heap/GC/agent tuning and comes
+  after those knobs. The descriptor's `jvm.launcher` / `brewlet.sh/launcher`
+  selects `java` or a node-installed launcher. Brewlet injects **no** `-XX` flags
+  itself. See [Resource requests, limits & JVM tuning](resource-tuning.md).
+- **JDK selection:** the deployment descriptor is authoritative:
+  `spec.jvm.version` (plus optional `spec.jvm.distribution`) on `JavaApplication`,
+  or `brewlet.sh/jdk` on raw pods, drives validation, scheduling, and shim launch
+  selection. A bare feature matches any distribution; `<distribution>-<feature>`
+  pins one.
+- **cgroup v2 is mandatory** on nodes; the provisioner refuses cgroup v1-only nodes.
+- **Digest-pinned artifact refs are recommended** (`repo@sha256:…`) so the shim can
+  resolve straight from the content store and so supply-chain policy can apply.
+
+## Next steps
+
+- **[JDK management](jdk-management.md)** — the copy-from-image mechanics and the
+  curated distribution → image matrix.
+- **[Launchers](launchers.md)** — installing and choosing `jaz`.
+- **[Capability labels and autoscaling](capability-labels-and-autoscaling.md)** —
+  connect `NodeProfile` inventories to workload affinity and node-pool scaling.
+- **[Deploying workloads](deploying-workloads.md)** — put these knobs to use.
+- **[Runtime metrics and Grafana dashboards](runtime-metrics.md)** — enable,
+  scrape, query, visualize, and troubleshoot Brewlet telemetry.

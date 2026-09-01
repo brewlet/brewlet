@@ -30,7 +30,7 @@ import java.util.zip.GZIPOutputStream;
  * standard {@code tar+gzip} image so containerd/kubelet pull + unpack it normally;
  * the shim reads the launch contract from the manifest's
  * {@code brewlet.sh/jvm-config} annotation. See
- * https://github.com/brewlet/site/blob/main/docs/runnable-image.md.
+ * https://github.com/brewlet/brewlet/blob/main/docs/runnable-image.md.
  *
  * <p>Layout produced:
  * <ul>

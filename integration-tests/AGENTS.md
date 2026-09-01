@@ -51,4 +51,4 @@ Common environment-specific skips:
 - Tier 12 skips when the node's `ctr` lacks `images unpack`.
 
 Specifications belong in `specs/`, and general project documentation belongs in
-[brewlet/site](https://github.com/brewlet/site), not this directory.
+[`docs/`](../docs/), not this directory.

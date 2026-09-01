@@ -16,7 +16,7 @@ import java.util.Map;
  * this config: they are set once, in the deployment descriptor (the CRD's
  * {@code jvm.version}/{@code jvm.launcher}, or the raw-Deployment pod
  * annotations {@code brewlet.sh/jdk} and {@code brewlet.sh/launcher}). See
- * https://github.com/brewlet/site/blob/main/docs/jdk-management.md.
+ * https://github.com/brewlet/brewlet/blob/main/docs/jdk-management.md.
  *
  * <p>Media type of the serialized blob:
  * {@code application/vnd.brewlet.jvm.config.v1+json}
@@ -152,7 +152,7 @@ public class JvmConfig {
                 // both a module path (`-p`) and a supplementary class path (`-cp`)
                 // for automatic-module or non-modular libraries. Mirrors the Go
                 // launch core. See
-                // https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md#8-shim-resolution-algorithm.
+                // https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md#8-shim-resolution-algorithm.
                 break;
             default:
                 throw new IllegalStateException("unknown entry.mode \"" + mode
@@ -198,7 +198,7 @@ public class JvmConfig {
         // Optional AppCDS archive hint: a best-effort startup accelerator only.
         // The archive is mounted at /app/<archive> and consumed with -Xshare:auto;
         // it is bound to the exact JDK build + classpath layout. See
-        // https://github.com/brewlet/site/blob/main/docs/appcds.md.
+        // https://github.com/brewlet/brewlet/blob/main/docs/appcds.md.
         if (cds != null) {
             String archive = cds.getArchive();
             String trimmed = archive == null ? "" : archive.trim();
@@ -238,7 +238,7 @@ public class JvmConfig {
      * {@code -Xshare:auto -XX:SharedArchiveFile=/app/<archive>} to cut class-load
      * time. It is best-effort seed data: archives are bound to the exact JDK build
      * and classpath layout, and {@code -Xshare:auto} falls back to base CDS on
-     * mismatch. See https://github.com/brewlet/site/blob/main/docs/appcds.md.
+     * mismatch. See https://github.com/brewlet/brewlet/blob/main/docs/appcds.md.
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Cds {

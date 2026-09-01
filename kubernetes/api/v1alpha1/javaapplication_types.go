@@ -81,14 +81,14 @@ type JVMSpec struct {
 	// fleet/operational decision (does this cluster maintain a self-healing
 	// per-JDK-build archive cache?), not a property of the app, so it lives here
 	// rather than in the artifact. The artifact carries only the optional shipped
-	// *seed* archive (its cds.archive bytes). See https://github.com/brewlet/site.
+	// *seed* archive (its cds.archive bytes). See https://github.com/brewlet/brewlet.
 	CDS CDSSpec `json:"cds,omitempty"`
 }
 
 // CDSSpec is the deployment-side AppCDS block (§4.3). Empty by default.
 type CDSSpec struct {
 	// Regenerate opts this deployment into node-side AppCDS regeneration
-	// (see https://github.com/brewlet/site). When true the controller stamps the
+	// (see https://github.com/brewlet/brewlet). When true the controller stamps the
 	// brewlet.sh/cds-regenerate pod annotation; the node then maintains a
 	// per-(artifact, JDK-build) archive cache and launches with
 	// -XX:+AutoCreateSharedArchive, so the archive self-heals on every central

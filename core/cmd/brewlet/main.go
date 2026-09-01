@@ -148,7 +148,7 @@ func cmdPush(args []string) error {
 	archFlag := fs.String("arch", "", "constrain scheduling to these architectures for a NON-portable (JNI) JAR, comma-separated (amd64,arm64); overrides auto-detection. Omit for arch-neutral (default)")
 	noArch := fs.Bool("no-arch", false, "disable native-library auto-detection; publish with no arch constraint (arch-neutral)")
 	var cpLayers stringSlice
-	fs.Var(&cpLayers, "classpath-layer", "optional dependency-layer tar to attach (repeatable); see https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md")
+	fs.Var(&cpLayers, "classpath-layer", "optional dependency-layer tar to attach (repeatable); see https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md")
 	dependencyBundle := fs.String("dependency-bundle", "", "approved managed dependency bundle ref in the same OCI layout; mutually exclusive with --classpath-layer/--module-layer")
 	dependencyLock := fs.String("dependency-lock", "", "canonical lock for the application's resolved Maven runtime graph; required with --dependency-bundle")
 	trustedPublicKey := fs.String("trusted-public-key", "", "PEM ECDSA P-256 public key trusted to sign the selected bundle")
@@ -157,12 +157,12 @@ func cmdPush(args []string) error {
 	builderIdentity := fs.String("builder-identity", "", "final-image builder identity recorded in signed evidence")
 	mainClass := fs.String("main-class", "", "application main class; required with --dependency-bundle unless supplied by a classpath-mode --config")
 	var mpLayers stringSlice
-	fs.Var(&mpLayers, "module-layer", "optional library-module tar for a modular (JPMS) app, unpacked to /app/mods (repeatable); see https://github.com/brewlet/site/blob/main/docs/jpms-support.md")
-	cdsArchive := fs.String("appcds-archive", "", "optional prebuilt AppCDS archive (.jsa) to ship; mounted at /app/<name> and launched with -Xshare:auto -XX:SharedArchiveFile; see https://github.com/brewlet/site/blob/main/docs/appcds.md")
-	appcds := fs.Bool("appcds", false, "generate an AppCDS archive by running a self-terminating training JVM against the JAR, then ship it (turnkey equivalent of --appcds-archive); fat-JAR only. See https://github.com/brewlet/site/blob/main/docs/appcds.md §4.2")
+	fs.Var(&mpLayers, "module-layer", "optional library-module tar for a modular (JPMS) app, unpacked to /app/mods (repeatable); see https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md")
+	cdsArchive := fs.String("appcds-archive", "", "optional prebuilt AppCDS archive (.jsa) to ship; mounted at /app/<name> and launched with -Xshare:auto -XX:SharedArchiveFile; see https://github.com/brewlet/brewlet/blob/main/docs/appcds.md")
+	appcds := fs.Bool("appcds", false, "generate an AppCDS archive by running a self-terminating training JVM against the JAR, then ship it (turnkey equivalent of --appcds-archive); fat-JAR only. See https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §4.2")
 	appcdsJava := fs.String("appcds-java", "", "java executable (or JAVA_HOME dir) for --appcds training; defaults to $JAVA_HOME/bin/java, else java on PATH")
 	appcdsTimeout := fs.Int("appcds-timeout", 120, "seconds to wait for the --appcds training JVM to self-terminate")
-	format := fs.String("format", "image", "delivery format: \"image\" (default; a standard, kubelet-pullable OCI image — a runtimeClassName: brewlet pod can set image: <ref> and containerd/kubelet pull+unpack it as SpinKube does for a Spin-compatible Wasm application) or \"artifact\" (native Brewlet OCI artifact, custom media types — registry-native, delivered to nodes out of band). See https://github.com/brewlet/site/blob/main/docs/runnable-image.md")
+	format := fs.String("format", "image", "delivery format: \"image\" (default; a standard, kubelet-pullable OCI image — a runtimeClassName: brewlet pod can set image: <ref> and containerd/kubelet pull+unpack it as SpinKube does for a Spin-compatible Wasm application) or \"artifact\" (native Brewlet OCI artifact, custom media types — registry-native, delivered to nodes out of band). See https://github.com/brewlet/brewlet/blob/main/docs/runnable-image.md")
 	var appcdsArgs stringSlice
 	fs.Var(&appcdsArgs, "appcds-arg", "workload argument passed to the --appcds training JVM to drive class loading (repeatable)")
 	pos, err := parseInterspersed(fs, args)
@@ -203,7 +203,7 @@ func cmdPush(args []string) error {
 			}
 			// A modular app may also carry non-modular / automatic-module libraries
 			// on the class path: attaching classpath layers yields the mixed form
-			// (`java -cp /app/lib/* -p … -m …`). See https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md §8.
+			// (`java -cp /app/lib/* -p … -m …`). See https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md §8.
 			if len(cpLayers) > 0 {
 				entry.ClassPath = []string{"lib/*"}
 			}
@@ -298,7 +298,7 @@ func cmdPush(args []string) error {
 		managedEvidence = &evidence
 	}
 
-	// Resolve the optional arch constraint (§ https://github.com/brewlet/site/blob/main/docs/multi-arch.md). An explicit
+	// Resolve the optional arch constraint (§ https://github.com/brewlet/brewlet/blob/main/docs/multi-arch.md). An explicit
 	// --arch always wins; --no-arch forces arch-neutral; otherwise scan the JAR
 	// for bundled natives and default the constraint for non-portable artifacts.
 	switch {
@@ -319,7 +319,7 @@ func cmdPush(args []string) error {
 		}
 	}
 
-	// --appcds turnkey generation (https://github.com/brewlet/site/blob/main/docs/appcds.md §4.2): run a self-terminating
+	// --appcds turnkey generation (https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §4.2): run a self-terminating
 	// training JVM against the fat JAR to produce a .jsa, then treat it exactly
 	// like a prebuilt --appcds-archive below. Mutually exclusive with a prebuilt
 	// archive and with layered/module layers (fat-JAR only).
@@ -348,7 +348,7 @@ func cmdPush(args []string) error {
 		*cdsArchive = genArchive
 	}
 
-	// Wire the optional AppCDS archive (https://github.com/brewlet/site/blob/main/docs/appcds.md). When --appcds-archive is
+	// Wire the optional AppCDS archive (https://github.com/brewlet/brewlet/blob/main/docs/appcds.md). When --appcds-archive is
 	// given, default the launch-config cds hint from the file's basename unless a
 	// --config already set one; PushWithCDS then enforces they agree.
 	if *cdsArchive != "" {
@@ -657,7 +657,7 @@ func cmdRun(args []string) error {
 	store := fs.String("store", "./oci", "OCI layout directory")
 	jdkRoot := fs.String("jdk-root", "", "node JDK home (default: JAVA_HOME)")
 	launcher := fs.String("launcher", "java", "launcher name (deployment descriptor's brewlet.sh/launcher; \"java\" for vanilla)")
-	appcdsRegen := fs.Bool("appcds-regenerate", false, "opt into node-side AppCDS regeneration (https://github.com/brewlet/site/blob/main/docs/appcds.md §4.3): maintain a per-(artifact,JDK-build) archive cache with -XX:+AutoCreateSharedArchive, self-healing on every JDK patch. This is the deployment/fleet equivalent of spec.jvm.cds.regenerate; any shipped archive becomes optional seed data")
+	appcdsRegen := fs.Bool("appcds-regenerate", false, "opt into node-side AppCDS regeneration (https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §4.3): maintain a per-(artifact,JDK-build) archive cache with -XX:+AutoCreateSharedArchive, self-healing on every JDK patch. This is the deployment/fleet equivalent of spec.jvm.cds.regenerate; any shipped archive becomes optional seed data")
 	flagArgs, extra := splitDoubleDash(args)
 	pos, err := parseInterspersed(fs, flagArgs)
 	if err != nil {
@@ -689,7 +689,7 @@ func cmdRun(args []string) error {
 		return err
 	}
 
-	// Node-side AppCDS regeneration (https://github.com/brewlet/site/blob/main/docs/appcds.md §4.3): the local `run` path
+	// Node-side AppCDS regeneration (https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §4.3): the local `run` path
 	// executes the JVM directly on the host (no sandbox), so the node cache path
 	// is a host path (ArchiveArgDir empty). Prepend the resolved regen args.
 	// Regeneration is a deployment/fleet choice (--appcds-regenerate), not read
@@ -733,7 +733,7 @@ func cmdBundle(args []string) error {
 	launcher := fs.String("launcher", "java", "launcher name (deployment descriptor's brewlet.sh/launcher; \"java\" for vanilla)")
 	launcherRoot := fs.String("launcher-root", "", "node launcher layer root (custom launcher, e.g. jaz)")
 	out := fs.String("out", "./bundle", "output bundle directory")
-	appcdsRegen := fs.Bool("appcds-regenerate", false, "opt into node-side AppCDS regeneration (https://github.com/brewlet/site/blob/main/docs/appcds.md §4.3): maintain a per-(artifact,JDK-build) archive cache with -XX:+AutoCreateSharedArchive, self-healing on every JDK patch. Deployment/fleet equivalent of spec.jvm.cds.regenerate")
+	appcdsRegen := fs.Bool("appcds-regenerate", false, "opt into node-side AppCDS regeneration (https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §4.3): maintain a per-(artifact,JDK-build) archive cache with -XX:+AutoCreateSharedArchive, self-healing on every JDK patch. Deployment/fleet equivalent of spec.jvm.cds.regenerate")
 	pos, err := parseInterspersed(fs, args)
 	if err != nil {
 		return err

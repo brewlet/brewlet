@@ -132,8 +132,8 @@ config describing how to launch it.
 | Artifact type    | `application/vnd.brewlet.app.v1+json`               | Manifest `artifactType`           |
 | Config blob      | `application/vnd.brewlet.jvm.config.v1+json`        | Launch descriptor (below)         |
 | Payload layer    | `application/vnd.brewlet.jar.layer.v1+jar`          | The raw self-executable JAR       |
-| (optional) layer | `application/vnd.brewlet.classpath.layer.v1+tar`    | Dependency JARs; unpacked to `/app/lib` for layered class-path deployment ([docs](https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md)) |
-| (optional) layer | `application/vnd.brewlet.modulepath.layer.v1+tar`   | Library modules for a modular (JPMS) app; unpacked to `/app/mods` and fed to `--module-path` ([docs](https://github.com/brewlet/site/blob/main/docs/jpms-support.md)) |
+| (optional) layer | `application/vnd.brewlet.classpath.layer.v1+tar`    | Dependency JARs; unpacked to `/app/lib` for layered class-path deployment ([docs](https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md)) |
+| (optional) layer | `application/vnd.brewlet.modulepath.layer.v1+tar`   | Library modules for a modular (JPMS) app; unpacked to `/app/mods` and fed to `--module-path` ([docs](https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md)) |
 
 ### 4.2 Launch config (config blob) schema
 
@@ -267,7 +267,7 @@ Maven plugin, since it fulfils the pure `image: <ref>` promise end to end. Nativ
 artifact mode (`--format=artifact` / `-Dbrewlet.format=artifact`) remains available for
 clusters with a node pre-puller that want the registry-native, smallest, no-OS-image
 framing (and its self-describing media types). See
-[`docs/runnable-image.md`](https://github.com/brewlet/site/blob/main/docs/runnable-image.md)
+[`docs/runnable-image.md`](https://github.com/brewlet/brewlet/blob/main/docs/runnable-image.md)
 for the full contract. The kubelet-pull → unpack → shim-run path is covered on a
 live node by the end-to-end test suite.
 
@@ -1250,7 +1250,7 @@ descriptor's `jvm.args`.
   until no workload references them, then GC'd by the provisioner.
 - **Multi-arch:** JDK roots installed per node architecture (amd64/arm64); the JAR
   artifact is arch-independent, so the *same* artifact runs on any provisioned arch
-  (see [multi-arch](https://github.com/brewlet/site/blob/main/docs/multi-arch.md)).
+  (see [multi-arch](https://github.com/brewlet/brewlet/blob/main/docs/multi-arch.md)).
 
 ---
 
@@ -1273,7 +1273,7 @@ and JVM features:
   run/bundle --appcds-regenerate` locally): the node maintains a
   per-`(artifact, JDK-build)` archive cache driven by `-XX:+AutoCreateSharedArchive`
   (JDK 19+) that self-heals on every central JDK patch. See the
-  [AppCDS note](https://github.com/brewlet/site/blob/main/docs/appcds.md).
+  [AppCDS note](https://github.com/brewlet/brewlet/blob/main/docs/appcds.md).
 
 ---
 

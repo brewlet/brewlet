@@ -8,7 +8,7 @@ type: application
 version: 0.1.0
 appVersion: "0.1.0"
 keywords: [java, jvm, jar, runtimeclass, containerd, spinkube]
-home: https://github.com/brewlet/site
+home: https://brewlet.sh
 sources:
   - https://github.com/brewlet/brewlet/tree/main/kubernetes
   - https://github.com/brewlet/brewlet

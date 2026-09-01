@@ -62,7 +62,7 @@ public class JarInspector {
      * module. Automatic modules (a plain JAR with only an
      * {@code Automatic-Module-Name}) are intentionally not reported here: they
      * have no descriptor and are better shipped as a modulepath layer entry than
-     * launched directly. See https://github.com/brewlet/site/blob/main/docs/jpms-support.md.
+     * launched directly. See https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md.
      */
     public static ModuleDescriptor moduleDescriptor(File jarFile) throws IOException {
         try (JarFile jar = new JarFile(jarFile)) {

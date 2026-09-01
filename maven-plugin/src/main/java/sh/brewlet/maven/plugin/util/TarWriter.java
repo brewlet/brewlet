@@ -15,7 +15,7 @@ import java.util.List;
  *
  * <p>This is the discipline the layered-classpath design calls for — see the
  * "Determinism caveat" in
- * https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md — and it
+ * https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md — and it
  * is what makes cross-build and cross-app dependency-layer dedup actually work.
  *
  * <p>Only regular files are supported, which is all a classpath layer (a flat

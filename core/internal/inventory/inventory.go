@@ -191,7 +191,7 @@ func RenderTable(w io.Writer, nodes []NodeJDKs) {
 	agg := Aggregate(nodes)
 	if len(agg) == 0 {
 		fmt.Fprintln(w, "No Brewlet JDK inventory found on any node.")
-		fmt.Fprintln(w, "(Nodes advertise JDKs once the node-provisioner has run; see https://github.com/brewlet/site/blob/main/docs/jdk-management.md.)")
+		fmt.Fprintln(w, "(Nodes advertise JDKs once the node-provisioner has run; see https://github.com/brewlet/brewlet/blob/main/docs/jdk-management.md.)")
 		return
 	}
 	rows := [][]string{{"VENDOR", "DISTRIBUTION", "MAJOR", "VERSION", "ARCH", "NODES"}}

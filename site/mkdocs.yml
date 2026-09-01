@@ -1,0 +1,101 @@
+site_name: Brewlet docs
+site_description: Brewlet user and operator documentation
+site_url: https://brewlet.sh/docs/
+docs_dir: ../docs
+site_dir: _site/docs
+repo_url: https://github.com/brewlet/brewlet
+repo_name: brewlet/brewlet
+edit_uri: https://github.com/brewlet/brewlet/edit/main/docs/
+not_in_nav: |
+  logos/README.md
+
+theme:
+  name: material
+  custom_dir: overrides
+  logo: logos/brewlet-logo.svg
+  favicon: logos/brewlet-logo.svg
+  palette:
+    - scheme: default
+      primary: custom
+      accent: custom
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - content.code.copy
+    - content.action.edit
+
+plugins:
+  - search
+
+hooks:
+  - scripts/version_docs_assets.py
+
+extra:
+  homepage: https://brewlet.sh/
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+
+extra_javascript:
+  - https://unpkg.com/mermaid@10/dist/mermaid.min.js
+  - javascripts/mermaid-init.js
+
+extra_css:
+  - stylesheets/brewlet-docs.css
+
+nav:
+  - Understand:
+      - Home: README.md
+      - Concepts & architecture: concepts.md
+      - Roadmap (planned work): https://github.com/brewlet/brewlet/blob/main/ROADMAP.md
+  - Try it:
+      - Getting started: getting-started.md
+      - Spring PetClinic: spring-petclinic.md
+  - Workshops:
+      - Overview: workshops/index.md
+      - Part 1 - Enable a cluster: workshops/operations.md
+      - Part 2 - Build and deploy a workload: workshops/developers.md
+  - Run on a cluster:
+      - Installation: installation.md
+      - Configuration: configuration.md
+      - Capability labels and autoscaling: capability-labels-and-autoscaling.md
+      - JDK management: jdk-management.md
+      - Launchers: launchers.md
+  - Ship workloads:
+      - Building & publishing: building-and-publishing.md
+      - Managed dependency bundles: managed-dependency-bundles.md
+      - Deploying workloads: deploying-workloads.md
+      - Resource requests, limits & JVM tuning: resource-tuning.md
+  - Operate:
+      - Security: security.md
+      - Admission enforcement: admission-enforcement.md
+      - Observability: observability.md
+      - Runtime metrics and Grafana dashboards: runtime-metrics.md
+      - Multi-architecture fleets: multi-arch.md
+      - Troubleshooting: troubleshooting.md
+  - Reference:
+      - CLI reference: cli-reference.md
+      - Core reference: reference.md
+      - AppCDS: appcds.md
+      - JPMS support: jpms-support.md
+      - Layered classpath deployment: layered-classpath-deployment.md
+      - Runnable-image delivery: runnable-image.md

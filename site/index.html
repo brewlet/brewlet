@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Brewlet — Java on Kubernetes, for real this time.</title>
+  <meta name="description" content="Run Java on Kubernetes without bundling an OS or JVM into every application image. Push your JAR as an OCI artifact; Brewlet runs it with a node-resident JDK." />
+  <meta name="theme-color" content="#6F4E37" />
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Brewlet — Java on Kubernetes, for real this time." />
+  <meta property="og:description" content="Push your JAR as an OCI artifact. No Dockerfile or OS base image. Brewlet runs it with a node-resident JDK that is patched centrally." />
+  <meta property="og:url" content="https://brewlet.sh" />
+  <meta property="og:image" content="https://brewlet.sh/assets/images/brewlet-social.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Brewlet — Java on Kubernetes, for real this time." />
+  <meta name="twitter:description" content="Push your JAR as an OCI artifact. No Dockerfile, OS base image, or bundled JVM." />
+  <meta name="twitter:image" content="https://brewlet.sh/assets/images/brewlet-social.png" />
+
+  <link rel="icon" href="assets/images/favicon.svg" type="image/svg+xml" />
+  <link rel="canonical" href="https://brewlet.sh/" />
+
+  <!-- Display typeface (headings only; body stays system). Non-blocking, swap. -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap" /></noscript>
+  <link rel="stylesheet" href="assets/css/styles.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="/" aria-label="Brewlet home">
+        <span class="brand-bean" aria-hidden="true"></span>
+        <span class="brand-name">brew<span class="brand-let">let</span></span>
+      </a>
+      <button class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu">
+        <span class="nav-toggle-bars" aria-hidden="true"></span>
+      </button>
+      <nav class="nav-links" id="site-nav" aria-label="Primary">
+        <a href="#value">Why Brewlet</a>
+        <a href="#how">How it works</a>
+        <a href="#proof">See it run</a>
+        <a href="/docs/">Documentation</a>
+        <a class="btn btn-ghost" href="https://github.com/brewlet/brewlet">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+          GitHub
+        </a>
+      </nav>
+    </div>
+    <div class="reading-progress" aria-hidden="true">
+      <span id="reading-progress-bar"></span>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="container hero-grid">
+        <div class="hero-copy">
+          <span class="eyebrow" data-reveal data-reveal-delay="0">☕ Java · Kubernetes · OCI</span>
+          <h1 data-reveal data-reveal-delay="1">Java on Kubernetes,<br /><span class="accent">for real this time.</span></h1>
+          <p class="lede" data-reveal data-reveal-delay="2">
+            Push your app (a fat JAR, a layered classpath, or a JPMS module)
+            to an OCI registry. Brewlet runs it with a JDK installed on the node.
+            <strong>No Dockerfile. No OS base image. No JVM bundled with every app.</strong>
+          </p>
+          <p class="sub" data-reveal data-reveal-delay="2">
+            Brewlet brings SpinKube's node-resident runtime model to <strong>Java</strong>.
+          </p>
+          <div class="hero-cta" data-reveal data-reveal-delay="3">
+            <a class="btn btn-primary" href="#quickstart">Get started</a>
+            <a class="btn btn-ghost" href="https://github.com/brewlet/brewlet">View on GitHub</a>
+          </div>
+          <div class="hero-badges" data-reveal data-reveal-delay="3">
+            <span class="badge">isolated with runc</span>
+            <span class="badge">JVM honors pod limits</span>
+            <span class="badge">MIT licensed</span>
+          </div>
+        </div>
+
+        <div class="hero-visual" aria-hidden="false" data-reveal data-reveal-delay="3">
+          <div class="stack-compare">
+            <figure class="stack stack-before">
+              <figcaption>Traditional container</figcaption>
+              <div class="layer layer-app">your app.jar <span>~5 MB</span></div>
+              <div class="layer layer-jvm">JVM / JDK <span>~180 MB</span></div>
+              <div class="layer layer-os">OS base image <span>~80 MB</span></div>
+              <p class="stack-note">you build, patch &amp; push all of it</p>
+            </figure>
+            <div class="stack-arrow" aria-hidden="true">→</div>
+            <figure class="stack stack-after">
+              <figcaption>Brewlet</figcaption>
+              <div class="layer layer-app tall">your app.jar <span>the only artifact needed</span></div>
+              <p class="stack-note">the JDK installation lives on the node,<br />shared &amp; patched centrally</p>
+            </figure>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BEFORE / AFTER CODE -->
+    <section class="section" id="ship">
+      <div class="container">
+        <h2 data-reveal>Ship the JAR, not the runtime</h2>
+        <div class="code-compare">
+          <div class="code-card" data-reveal data-reveal-delay="0">
+            <div class="code-head"><span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span><span class="code-title">Container image — app plus runtime</span></div>
+            <pre><code><span class="c-kw">FROM</span> eclipse-temurin:21-jre   <span class="c-cm"># you own this base + its CVEs</span>
+<span class="c-kw">COPY</span> target/app.jar /app/app.jar
+<span class="c-kw">ENTRYPOINT</span> ["java","-jar","/app/app.jar"]
+
+$ docker build -t registry/app:1.4.2 .
+$ docker push registry/app:1.4.2   <span class="c-cm"># ~250 MB</span></code></pre>
+          </div>
+          <div class="code-card highlight" data-reveal data-reveal-delay="1">
+            <div class="code-head"><span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span><span class="code-title">Brewlet artifact — just the app</span></div>
+            <pre><code><span class="c-cm"># Push ONLY the JAR as an OCI artifact</span>
+$ brewlet push target/app.jar registry/app:1.4.2
+
+<span class="c-cm"># …or with the installed v0.1.0 Maven plugin, no CLI:</span>
+$ mvn package sh.brewlet:brewlet-maven-plugin:0.1.0:push \
+    <span class="c-key">-Dbrewlet.image</span>=registry/app:1.4.2
+
+<span class="c-cm"># Deploy it — one Brewlet-specific line:</span>
+<span class="c-key">runtimeClassName</span>: <span class="c-val">brewlet</span>
+<span class="c-key">image</span>: <span class="c-val">registry/app:1.4.2</span>
+<span class="c-key">resources</span>:
+  <span class="c-key">limits</span>: { cpu: "2", memory: "512Mi" }</code></pre>
+          </div>
+        </div>
+        <p class="center muted">You ship the <strong>5 MB</strong> you wrote. Brewlet supplies the rest from the node.</p>
+
+        <div class="ship-config">
+          <h3 data-reveal>Add one small launch config</h3>
+          <p class="section-lede" data-reveal>
+            The artifact includes a JSON descriptor that tells Brewlet how to start your
+            application. <code>brewlet push</code> creates the minimum config for you, or
+            you can provide your own with <code>--config</code>.
+          </p>
+          <div class="code-card wide" data-reveal>
+            <div class="code-head"><span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span><span class="code-title">brewlet.json — the launch config</span></div>
+            <pre><code>{
+  <span class="c-key">"schemaVersion"</span>: <span class="c-val">1</span>,
+  <span class="c-key">"mainJar"</span>: <span class="c-val">"app.jar"</span>,             <span class="c-cm">// the JAR inside the artifact</span>
+  <span class="c-key">"entry"</span>: { <span class="c-key">"mode"</span>: <span class="c-val">"jar"</span> },       <span class="c-cm">// java -jar (or "classpath")</span>
+  <span class="c-key">"enablePreview"</span>: <span class="c-val">false</span>,          <span class="c-cm">// app-intrinsic launch knobs only</span>
+  <span class="c-key">"addOpens"</span>: [<span class="c-val">"java.base/java.lang=ALL-UNNAMED"</span>],
+  <span class="c-key">"systemProperties"</span>: { <span class="c-key">"file.encoding"</span>: <span class="c-val">"UTF-8"</span> }
+}</code></pre>
+          </div>
+          <p class="center muted" data-reveal>
+            Keep application-specific settings here: preview features, module access, and
+            system properties. Choose the JDK, ports, launcher, and resource settings such
+            as <code>-XX</code> flags in the deployment descriptor. If no node provides the
+            requested JDK, admission fails with <code>NoCompatibleJDK</code>.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- STOP OWNING -->
+    <section class="section alt" id="value">
+      <div class="container value-section">
+        <div class="value-layout">
+          <div class="value-intro" data-reveal>
+            <h2>Ship your app. Stop rebuilding the runtime.</h2>
+            <p>
+              Brewlet removes image construction, OS base-layer patching, and JDK
+              distribution from each application release.
+            </p>
+          </div>
+          <div class="value-priorities">
+            <article class="value-priority" data-reveal>
+              <h3>No Dockerfile</h3>
+              <p>Push the JAR itself as an OCI artifact instead of building a container image.</p>
+            </article>
+            <article class="value-priority" data-reveal data-reveal-delay="1">
+              <h3>No OS base layer</h3>
+              <p>The artifact contains no OS layer for application teams to scan, patch, or rebuild.</p>
+            </article>
+            <article class="value-priority" data-reveal data-reveal-delay="2">
+              <h3>Shared, centrally managed JDKs</h3>
+              <p>JDKs live on the node. Upgrade them centrally without rebuilding every application.</p>
+            </article>
+          </div>
+        </div>
+        <ul class="value-secondary" aria-label="Additional benefits">
+          <li data-reveal>
+            <strong>Tiny pushes</strong>
+            <span>Move only the application artifact, not hundreds of megabytes of runtime layers.</span>
+          </li>
+          <li data-reveal data-reveal-delay="1">
+            <strong>Faster cold starts</strong>
+            <span>AppCDS ships as an artifact layer and is memory-mapped at launch.</span>
+          </li>
+          <li data-reveal data-reveal-delay="2">
+            <strong>Mixed-architecture pools</strong>
+            <span>Portable JARs run across architectures; JNI workloads can declare an <code>arch</code> constraint.</span>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section class="section" id="how">
+      <div class="container">
+        <h2 data-reveal>How it works</h2>
+        <p class="section-lede">
+          Three components connect Brewlet to Kubernetes: a provisioner installs JDKs on
+          each node, a containerd shim runs the application, and a <code>RuntimeClass</code>
+          routes pods to that shim.
+        </p>
+        <div class="steps">
+          <div class="step" data-reveal data-reveal-delay="0">
+            <span class="step-num">1</span>
+            <h3>Build</h3>
+            <p>Use your normal <code>mvn package</code> or <code>gradle bootJar</code> build. No Brewlet-specific build step is required.</p>
+          </div>
+          <div class="step" data-reveal data-reveal-delay="1">
+            <span class="step-num">2</span>
+            <h3>Push</h3>
+            <p><code>brewlet push</code> (or the <a href="https://github.com/brewlet/brewlet/releases/tag/v0.1.0">released Maven plugin</a>) uploads the JAR plus a tiny launch config as an OCI artifact. No Dockerfile.</p>
+          </div>
+          <div class="step" data-reveal data-reveal-delay="2">
+            <span class="step-num">3</span>
+            <h3>Schedule</h3>
+            <p>Kubernetes sends a pod with <code>runtimeClassName: brewlet</code> to a node prepared by the provisioner.</p>
+          </div>
+          <div class="step" data-reveal data-reveal-delay="3">
+            <span class="step-num">4</span>
+            <h3>Run</h3>
+            <p>The shim mounts the node's JDK read-only, applies the pod's cgroup limits, and starts the app with <code>java -jar</code> inside a runc sandbox.</p>
+          </div>
+        </div>
+        <p class="center muted">
+          Real pod IP via CNI, <code>kubectl logs</code>/<code>exec</code>, probes, HPA and Services all work unchanged.
+        </p>
+      </div>
+    </section>
+
+    <!-- ARCHITECTURE -->
+    <section class="section" id="architecture">
+      <div class="container">
+        <h2 data-reveal>How the pieces fit</h2>
+        <p class="section-lede" data-reveal>
+          Your CI pushes an artifact to the registry while the Kubernetes control plane
+          schedules the pod. The shim on the selected worker node pulls the artifact
+          directly from the registry and runs it.
+        </p>
+        <figure class="arch-fig" data-reveal>
+          <img class="arch-img arch-img-desktop" src="assets/images/architecture-desktop.svg" alt="Brewlet architecture: Developer/CI pushes an artifact to an OCI registry; the control plane generates and schedules a pod; on the worker node the shim pulls the artifact and runs it under runc in a sandbox." width="1000" height="366" loading="lazy" decoding="async" />
+          <img class="arch-img arch-img-mobile" src="assets/images/architecture-mobile.svg" alt="Brewlet architecture: Developer/CI and the control plane both feed the worker node, where the shim runs your JAR under runc in a sandbox." width="360" height="486" loading="lazy" decoding="async" />
+        </figure>
+        <p class="center muted" data-reveal>
+          The control plane never touches your JAR &mdash; it only schedules the pod and
+          provisions the node. The shim on that node pulls the artifact directly from
+          your registry and assembles the sandbox from the node's shared JDK installation. Adapted
+          from the <a href="https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#3-high-level-architecture">high-level architecture</a> in the spec.
+        </p>
+      </div>
+    </section>
+
+    <!-- PROOF -->
+    <section class="section alt" id="proof">
+      <div class="container">
+        <h2 data-reveal>See Brewlet run locally and on Kubernetes</h2>
+        <p class="section-lede">
+          The descriptor below is the complete Kubernetes configuration a developer writes.
+          The captured output shows the same application running from an OCI artifact on a
+          laptop and as a Deployment and Service whose JVM honors the pod's CPU and memory limits.
+        </p>
+        <div class="code-card wide" data-reveal>
+          <div class="code-head"><span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span><span class="code-title">orders.yaml — the whole descriptor</span></div>
+          <pre><code><span class="c-key">apiVersion</span>: <span class="c-val">apps.brewlet.sh/v1alpha1</span>
+<span class="c-key">kind</span>: <span class="c-val">JavaApplication</span>
+<span class="c-key">metadata</span>:
+  <span class="c-key">name</span>: <span class="c-val">orders</span>
+<span class="c-key">spec</span>:
+  <span class="c-key">artifact</span>:
+    <span class="c-key">image</span>: <span class="c-val">registry/app:1.4.2</span>        <span class="c-cm"># the OCI artifact — just the JAR</span>
+  <span class="c-key">replicas</span>: <span class="c-val">1</span>
+  <span class="c-key">jvm</span>:
+    <span class="c-key">version</span>: <span class="c-val">21</span>                    <span class="c-cm"># must match a JDK your nodes offer</span>
+    <span class="c-key">args</span>: [<span class="c-val">"-XX:MaxRAMPercentage=50.0"</span>]
+  <span class="c-key">resources</span>:
+    <span class="c-key">limits</span>: { cpu: <span class="c-val">"1"</span>, memory: <span class="c-val">"256Mi"</span> }   <span class="c-cm"># become cgroup limits</span>
+  <span class="c-key">ports</span>: [{ <span class="c-key">containerPort</span>: <span class="c-val">8080</span> }]
+  <span class="c-key">service</span>: { <span class="c-key">enabled</span>: <span class="c-val">true</span> }</code></pre>
+        </div>
+        <p class="center muted" data-reveal>
+          The operator turns this into the Deployment and Service below. The controller
+          adds <code>runtimeClassName</code>, and the node-resident JDK runs the JAR under
+          the declared cgroup limits.
+        </p>
+        <div class="code-compare">
+          <div class="code-card" data-reveal data-reveal-delay="0">
+            <div class="code-head"><span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span><span class="code-title">Local run — macOS</span></div>
+            <pre><code><span class="c-cm"># Pull the artifact and run the JAR directly</span>
+$ brewlet run demo/hello:1.0.0
+<span class="c-cm">→ java -jar /run/brewlet/app.jar   (no container image)</span>
+
+$ curl localhost:8080/hello
+Hello from a JAR running directly
+on the node via Brewlet!</code></pre>
+          </div>
+          <div class="code-card highlight" data-reveal data-reveal-delay="1">
+            <div class="code-head"><span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span><span class="code-title">Real Kubernetes — Deployment + Service</span></div>
+            <pre><code>$ kubectl apply -f orders.yaml
+$ kubectl get pod -l app=orders
+<span class="c-key">NAME</span>          <span class="c-key">READY</span>   <span class="c-key">STATUS</span>
+orders-7c9…   <span class="c-val">1/1</span>     <span class="c-val">Running</span>
+
+<span class="c-cm"># Curl the Service: pod limits cpu "1", memory 256Mi</span>
+$ curl orders:8080/info
+<span class="c-key">availableProcessors</span>: <span class="c-val">1</span>       <span class="c-cm"># the CPU limit, not the node</span>
+<span class="c-key">maxMemory</span>:           <span class="c-val">128 MB</span>  <span class="c-cm"># heap bounded under 256Mi</span></code></pre>
+          </div>
+        </div>
+        <p class="center muted">
+          The JVM sees <strong>1 CPU</strong> and a heap bounded under <strong>256Mi</strong> because the
+          containerd shim wires the pod's cgroup limits into the process. Scaling, rolling
+          updates, probes, and Services all behave like any pod. With Brewlet's default
+          runnable-image format, <code>image: &lt;ref&gt;</code> is all the pod needs; kubelet
+          pulls it like any container image.
+        </p>
+      </div>
+    </section>
+
+    <!-- COMPARE -->
+    <section class="section" id="compare">
+      <div class="container">
+        <h2 data-reveal>Brewlet vs. containers vs. SpinKube</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th></th>
+                <th>Traditional container</th>
+                <th class="col-highlight">Brewlet (JVM)</th>
+                <th>SpinKube (Wasm)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><th>Workload</th><td>any containerized process</td><td class="col-highlight"><strong>existing JVM applications</strong></td><td>Spin-compatible Wasm applications</td></tr>
+              <tr><th>Developer artifact</th><td>full OCI image</td><td class="col-highlight"><strong>JAR, classpath, or JPMS app</strong> in OCI</td><td>Wasm/Spin application in OCI</td></tr>
+              <tr><th>Dockerfile required</th><td>yes</td><td class="col-highlight"><strong>no</strong></td><td>no</td></tr>
+              <tr><th>Runtime location</th><td>inside the image</td><td class="col-highlight"><strong>shared node JDK</strong></td><td>node-installed Wasm runtime</td></tr>
+              <tr><th>Patch the runtime</th><td>rebuild every image</td><td class="col-highlight"><strong>upgrade the node JDK once</strong></td><td>upgrade node runtime once</td></tr>
+              <tr><th>Isolation</th><td>namespaces + cgroups (runc)</td><td class="col-highlight"><strong>namespaces + cgroups (runc)</strong></td><td>Wasm sandbox</td></tr>
+              <tr><th>K8s integration</th><td>full</td><td class="col-highlight"><strong>full (Services, probes, HPA, logs)</strong></td><td>full</td></tr>
+              <tr><th>Best fit</th><td>general-purpose workloads</td><td class="col-highlight"><strong>JVM compatibility without full images</strong></td><td>small, fast-starting Wasm workloads</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="center muted">Brewlet favors JVM compatibility; SpinKube favors the smaller footprint and capability model of WebAssembly.</p>
+      </div>
+    </section>
+
+    <!-- COMPONENTS -->
+    <section class="section alt" id="repositories">
+      <div class="container">
+        <h2 data-reveal>One monorepo, focused components</h2>
+        <p class="section-lede" data-reveal>
+          Runtime, Kubernetes, Maven, specifications, and integration tests share
+          one revision and coordinated CI. The website remains separately published.
+        </p>
+        <div class="cards">
+          <a class="card" href="https://github.com/brewlet/brewlet/tree/main/site" data-reveal>
+            <h3>Core runtime</h3>
+            <p>CLI, OCI artifacts, containerd shim, and node provisioner.</p>
+          </a>
+          <a class="card" href="https://github.com/brewlet/brewlet/tree/main/kubernetes" data-reveal>
+            <h3>Kubernetes</h3>
+            <p>Operator, admission webhooks, APIs, manifests, and Helm chart.</p>
+          </a>
+          <a class="card" href="https://github.com/brewlet/brewlet/tree/main/maven-plugin" data-reveal>
+            <h3>Maven plugin</h3>
+            <p>Build and publish Brewlet applications from Maven.</p>
+          </a>
+          <a class="card" href="https://github.com/brewlet/brewlet/tree/main/specs" data-reveal>
+            <h3>Specifications</h3>
+            <p>Architecture contracts and enhancement proposals.</p>
+          </a>
+          <a class="card" href="https://github.com/brewlet/brewlet/tree/main/integration-tests" data-reveal>
+            <h3>Integration tests</h3>
+            <p>Cross-component test orchestration and fixture applications.</p>
+          </a>
+          <a class="card" href="https://github.com/brewlet/brewlet" data-reveal>
+            <h3>Site and docs</h3>
+            <p>This website, user guides, workshop, and brand assets.</p>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUICK START -->
+    <section class="section" id="quickstart">
+      <div class="container">
+        <h2 data-reveal>Quick start</h2>
+        <p class="section-lede">Run Brewlet v0.1.0 on your machine with JDK 21+, Maven, and the released CLI. You do not need Go, Docker, Kubernetes, or a Brewlet source build.</p>
+        <div class="code-card wide" data-reveal>
+          <div class="code-head"><span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span><span class="code-title">terminal</span></div>
+          <pre><code><span class="c-cm"># Detect your platform, download the latest release, and verify its checksum</span>
+$ curl -fsSL https://brewlet.sh/install.sh | sh
+$ export PATH="$HOME/.local/bin:$PATH"
+$ brewlet version
+
+<span class="c-cm"># Package only your JAR, then inspect and run it</span>
+$ brewlet push target/app.jar demo/app:0.1.0 --format artifact
+$ brewlet inspect demo/app:0.1.0
+$ brewlet run demo/app:0.1.0</code></pre>
+        </div>
+       <p class="section-lede" data-reveal>Already have a Maven app? Install the <a href="https://github.com/brewlet/brewlet/releases/tag/v0.1.0">released v0.1.0 plugin</a>, then publish without a Dockerfile:</p>
+       <div class="code-card wide" data-reveal>
+         <div class="code-head"><span class="dot red"></span><span class="dot amber"></span><span class="dot green"></span><span class="code-title">your project</span></div>
+         <pre><code><span class="c-cm"># Download and install the public release into your local Maven repository</span>
+$ curl -fLO https://github.com/brewlet/brewlet/releases/download/v0.1.0/brewlet-maven-plugin-0.1.0.jar
+$ curl -fLO https://github.com/brewlet/brewlet/releases/download/v0.1.0/brewlet-maven-plugin-0.1.0.pom
+$ mvn org.apache.maven.plugins:maven-install-plugin:3.1.4:install-file \
+    <span class="c-key">-Dfile</span>=brewlet-maven-plugin-0.1.0.jar <span class="c-key">-DpomFile</span>=brewlet-maven-plugin-0.1.0.pom
+
+<span class="c-cm"># Build the JAR and push its runnable OCI image</span>
+$ mvn package sh.brewlet:brewlet-maven-plugin:0.1.0:push \
+    <span class="c-key">-Dbrewlet.image</span>=registry/app:1.4.2</code></pre>
+       </div>
+       <div class="hero-cta center">
+          <a class="btn btn-primary" href="/docs/getting-started/">Open the full quick start</a>
+          <a class="btn btn-ghost" href="/docs/">Browse documentation</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="section alt" id="faq">
+      <div class="container narrow">
+        <h2 data-reveal>FAQ</h2>
+        <details>
+          <summary>Is this a base image with the JAR copied into it?</summary>
+          <p>No. The OCI artifact contains the application and a small launch config, but no OS or JVM layer. The node supplies the JDK at run time.</p>
+        </details>
+        <details>
+          <summary>Does Brewlet change how my Java app runs?</summary>
+          <p>No. Brewlet starts it with the standard <code>java -jar app.jar</code> command. Spring Boot, Quarkus, JMX, OTel, JFR, and shutdown hooks work normally. Layered Spring Boot builds and JPMS modules are supported too; see the <a href="/docs/spring-petclinic/">Spring PetClinic walkthrough</a>.</p>
+        </details>
+        <details>
+          <summary>How are CPU and memory limits enforced?</summary>
+          <p>Exactly like any pod: limits become cgroup constraints via runc, and the container-aware JVM sizes its heap and thread pools accordingly. Brewlet injects no JVM flags of its own.</p>
+        </details>
+        <details>
+          <summary>How does Brewlet reduce JVM cold starts?</summary>
+          <p>The JDK installation already lives on the node and is shared across pods; each pod still runs in its own JVM process, so nothing pulls a JVM per pod, and only the small JAR moves over the network. <strong>AppCDS is built in:</strong> a class-data archive ships as an artifact layer (<code>brewlet:appcds</code>) and the JVM memory-maps it on launch, or the node can regenerate one on first run via <code>spec.jvm.cds.regenerate</code>. See the <a href="/docs/appcds/">AppCDS docs</a>.</p>
+        </details>
+        <details>
+          <summary>Does it work on mixed-architecture node pools?</summary>
+          <p>Yes. The provisioner installs a JDK matching each node's architecture, and portable JARs schedule anywhere. A JAR with native (JNI) bits can declare an <code>arch</code> constraint so admission steers it onto matching <code>amd64</code>/<code>arm64</code> nodes (or denies it with <code>NoCompatibleArch</code>). See the <a href="/docs/multi-arch/">multi-arch docs</a>.</p>
+        </details>
+        <details>
+          <summary>Which JDKs can I target?</summary>
+          <p>Whatever your nodes offer. Run <code>brewlet jdks</code> to list the JDK distributions and versions available across the cluster before you pick one in the deployment descriptor. Asking for a JDK no node provides fails fast with a <code>NoCompatibleJDK</code> admission error.</p>
+        </details>
+        <details>
+          <summary>Is Brewlet secure for multi-tenant clusters?</summary>
+          <p>Isolation is runc-equivalent to ordinary containers (non-root by default, seccomp/AppArmor, namespaces). Artifacts can require cosign/SLSA verification. Use gVisor/Kata for hostile multi-tenancy.</p>
+        </details>
+        <details>
+          <summary>Can I still use a regular container when I need one?</summary>
+          <p>Yes. Brewlet is additive: it only handles pods that opt in via <code>runtimeClassName: brewlet</code>. Everything else runs normally.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta-band">
+      <div class="container center">
+        <h2>Because your Java app should just run. ☕</h2>
+        <p>Push a JAR, schedule a pod, serve real traffic under cgroup limits. Explore it, run it, contribute.</p>
+        <div class="hero-cta center">
+          <a class="btn btn-primary" href="https://github.com/brewlet/brewlet">Explore Brewlet on GitHub</a>
+          <a class="btn btn-ghost" href="https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md">Read the spec</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <a class="brand" href="/" aria-label="Brewlet home">
+          <span class="brand-bean" aria-hidden="true"></span>
+          <span class="brand-name">brew<span class="brand-let">let</span></span>
+        </a>
+        <p class="muted">Java on Kubernetes, for real this time.</p>
+      </div>
+      <nav aria-label="Footer">
+        <a href="/docs/">Documentation</a>
+        <a href="/docs/workshops/">Workshops</a>
+        <a href="#repositories">Components</a>
+        <a href="#faq">FAQ</a>
+        <a href="https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md">Specification</a>
+        <a href="https://github.com/brewlet/brewlet">GitHub</a>
+        <a href="./LICENSE">MIT License</a>
+      </nav>
+    </div>
+    <div class="container footer-bottom muted">
+      <span>© <span id="year"></span> Brewlet contributors</span>
+      <span>brewlet.sh</span>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Mobile nav toggle
+    (function () {
+      var toggle = document.getElementById('nav-toggle');
+      var nav = document.getElementById('site-nav');
+      if (!toggle || !nav) return;
+      function setOpen(open) {
+        toggle.setAttribute('aria-expanded', String(open));
+        toggle.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+        if (open) { nav.setAttribute('data-open', ''); }
+        else { nav.removeAttribute('data-open'); }
+      }
+      toggle.addEventListener('click', function () {
+        setOpen(toggle.getAttribute('aria-expanded') !== 'true');
+      });
+      nav.addEventListener('click', function (e) {
+        if (e.target.closest('a')) setOpen(false);
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') setOpen(false);
+      });
+    })();
+
+    // Keep the compact navigation oriented on a long single-page story.
+    (function () {
+      var links = Array.prototype.slice.call(document.querySelectorAll('.nav-links a[href^="#"]'));
+      var progress = document.getElementById('reading-progress-bar');
+      var targets = links.map(function (link) {
+        return { link: link, section: document.querySelector(link.getAttribute('href')) };
+      }).filter(function (item) {
+        return item.section;
+      });
+      var scheduled = false;
+
+      function updateWayfinding() {
+        var current = null;
+        var marker = window.scrollY + 110;
+        targets.forEach(function (item) {
+          if (item.section.offsetTop <= marker) current = item;
+        });
+        links.forEach(function (link) {
+          link.removeAttribute('aria-current');
+        });
+        if (current) current.link.setAttribute('aria-current', 'location');
+
+        if (progress) {
+          var scrollable = document.documentElement.scrollHeight - window.innerHeight;
+          var amount = scrollable > 0 ? Math.min(window.scrollY / scrollable, 1) : 0;
+          progress.style.transform = 'scaleX(' + amount + ')';
+        }
+        scheduled = false;
+      }
+
+      function scheduleUpdate() {
+        if (scheduled) return;
+        scheduled = true;
+        window.requestAnimationFrame(updateWayfinding);
+      }
+
+      window.addEventListener('scroll', scheduleUpdate, { passive: true });
+      window.addEventListener('resize', scheduleUpdate);
+      updateWayfinding();
+    })();
+
+    // Scroll reveal — only below-fold elements are hidden;
+    // in-view content shows immediately
+    (function () {
+      var reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
+      var els = Array.prototype.slice.call(document.querySelectorAll('[data-reveal]'));
+      if (!els.length || reduce.matches || !('IntersectionObserver' in window)) return;
+      var io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            io.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -8% 0px' });
+      var fold = window.innerHeight * 0.92;
+      els.forEach(function (el) {
+        if (el.getBoundingClientRect().top < fold) {
+          el.classList.add('is-visible');
+        } else {
+          el.classList.add('reveal-init');
+          io.observe(el);
+        }
+      });
+      // Safety net: reveal everything before printing
+      window.addEventListener('beforeprint', function () {
+        els.forEach(function (el) { el.classList.add('is-visible'); });
+      });
+    })();
+  </script>
+</body>
+</html>

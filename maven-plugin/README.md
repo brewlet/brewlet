@@ -115,7 +115,7 @@ property. Values configured in `<configuration>` and CLI properties can be mixed
 | `outputDirectory` | — | `${project.build.directory}/brewlet` | Where generated files land. |
 | `skip` | `brewlet.skip` | `false` | Skip all Brewlet goals. |
 | `dryRun` | `brewlet.dryRun` | `false` | Generate + display the config but do not push. |
-| `layered` | `brewlet.layered` | `false` | **Layered deployment.** Ship a thin app JAR plus the resolved (transitive) POM dependency tree packed into reproducible OCI layers, instead of one opaque JAR. In `classpath` mode this produces `classpath.layer.v1+tar` layers unpacked to `/app/lib` and sets `entry.classPath=[mainJar, "lib/*"]`. In `module` mode the dependency modules are packed into a single `modulepath.layer.v1+tar` layer unpacked to `/app/mods` and `entry.modulePath=[mainJar, "mods"]` is set, so the app launches with `java -p /app/<jar>:/app/mods -m ...`. When the mode is not modular, `layered` forces `entry.mode=classpath`. Unchanged dependency layers dedup by digest across rebuilds/apps. See [layered class-path deployment](https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md). |
+| `layered` | `brewlet.layered` | `false` | **Layered deployment.** Ship a thin app JAR plus the resolved (transitive) POM dependency tree packed into reproducible OCI layers, instead of one opaque JAR. In `classpath` mode this produces `classpath.layer.v1+tar` layers unpacked to `/app/lib` and sets `entry.classPath=[mainJar, "lib/*"]`. In `module` mode the dependency modules are packed into a single `modulepath.layer.v1+tar` layer unpacked to `/app/mods` and `entry.modulePath=[mainJar, "mods"]` is set, so the app launches with `java -p /app/<jar>:/app/mods -m ...`. When the mode is not modular, `layered` forces `entry.mode=classpath`. Unchanged dependency layers dedup by digest across rebuilds/apps. See [layered class-path deployment](https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md). |
 | `splitSnapshotLayers` | `brewlet.splitSnapshotLayers` | `true` | When `layered`, pack released deps and `-SNAPSHOT` deps into separate `deps` / `snapshot-deps` layers (stable→volatile) for finer dedup. |
 | `dependencyBundle` | `brewlet.dependencyBundle` | — | For `push`, a registry reference or local OCI-layout directory containing a managed dependency bundle. The resolved runtime graph must exactly match its lock. Forces thin-JAR classpath launch and requires `mainClass`. |
 | `signingKey` | `brewlet.signingKey` | — | Optional PKCS#8 PEM ECDSA P-256 private key. When present, bundle or final-image provenance is published and must be paired with the corresponding identity. |
@@ -123,7 +123,7 @@ property. Values configured in `<configuration>` and CLI properties can be mixed
 | `signerIdentity` | `brewlet.signerIdentity` | — | Bundle-publisher identity used only by `dependency-bundle`; required when that goal uses `signingKey`. |
 | `trustedSignerIdentity` | `brewlet.trustedSignerIdentity` | — | Expected identity in signed bundle provenance. Required when the selected bundle has provenance. |
 | `builderIdentity` | `brewlet.builderIdentity` | — | Application publisher identity asserted in optional final-image provenance. Required with `signingKey` when pushing a managed application. |
-| `cdsArchive` | `brewlet.cdsArchive` | — | Optional prebuilt AppCDS `.jsa` archive to append as a `application/vnd.brewlet.cds.layer.v1+jsa` layer after dependency layers. The archive basename becomes `cds.archive`, is mounted at `/app/<name>`, and launches with `-Xshare:auto -XX:SharedArchiveFile=/app/<name>` as best-effort acceleration. See [AppCDS §4.1](https://github.com/brewlet/site/blob/main/docs/appcds.md#41-build-time-archive-layer-recommended-primary). |
+| `cdsArchive` | `brewlet.cdsArchive` | — | Optional prebuilt AppCDS `.jsa` archive to append as a `application/vnd.brewlet.cds.layer.v1+jsa` layer after dependency layers. The archive basename becomes `cds.archive`, is mounted at `/app/<name>`, and launches with `-Xshare:auto -XX:SharedArchiveFile=/app/<name>` as best-effort acceleration. See [AppCDS §4.1](https://github.com/brewlet/brewlet/blob/main/docs/appcds.md#41-build-time-archive-layer-recommended-primary). |
 
 ### Descriptor JDK / launcher requests
 
@@ -236,7 +236,7 @@ the OCI referrer is the cryptographic evidence.
 ## AppCDS (`brewlet:appcds`)
 
 AppCDS is Brewlet's optional startup accelerator from
-[AppCDS §4.2](https://github.com/brewlet/site/blob/main/docs/appcds.md#42-turnkey-generation-in-the-maven-plugin--cli):
+[AppCDS §4.2](https://github.com/brewlet/brewlet/blob/main/docs/appcds.md#42-turnkey-generation-in-the-maven-plugin--cli):
 run the app once with `-XX:ArchiveClassesAtExit`, produce `app.jsa`, then ship it
 as an extra artifact layer.
 
@@ -289,7 +289,7 @@ Parameters:
 | `cdsArchiveOutput` | — | `${project.build.directory}/brewlet/app.jsa` | Where `brewlet:appcds` writes the generated dynamic-CDS archive. |
 | `trainingArgs` | `brewlet.appcds.trainingArgs` | — | Extra program args passed after `-jar <mainJar>` during training. Use these to exercise startup paths (and, in `exit` mode, to make the app terminate). |
 | `timeoutSeconds` | `brewlet.appcds.timeoutSeconds` | `120` | Max wait for the app to exit (`exit` mode) or become ready (`signal` mode). |
-| `trainingJavaHome` | `brewlet.appcds.javaHome` | Maven's `java.home` | JDK used for training. Must be JDK 21+ per [AppCDS §2.2](https://github.com/brewlet/site/blob/main/docs/appcds.md#22-minimum-jdk-version). |
+| `trainingJavaHome` | `brewlet.appcds.javaHome` | Maven's `java.home` | JDK used for training. Must be JDK 21+ per [AppCDS §2.2](https://github.com/brewlet/brewlet/blob/main/docs/appcds.md#22-minimum-jdk-version). |
 | `mode` | `brewlet.appcds.mode` | `exit` | `exit` (self-terminating app) or `signal` (start → wait for readiness → `SIGTERM`). |
 | `readyLog` | `brewlet.appcds.readyLog` | — | `signal` mode: regex matched line-by-line against the app's stdout/stderr; readiness fires on first match. |
 | `readyHttp` | `brewlet.appcds.readyHttp` | — | `signal` mode: HTTP(S) URL polled until it returns 2xx/3xx. |
@@ -310,7 +310,7 @@ JAR's basename, size, and mtime, and Brewlet nodes pin the app JAR mtime to a
 canonical timestamp. `brewlet:appcds` trains against a copy with that same mtime,
 but the archive is still tied to the exact JDK build and classpath layout. With
 `-Xshare:auto`, a mismatch safely falls back to base CDS (no correctness risk, just
-no AppCDS benefit); see [AppCDS §7](https://github.com/brewlet/site/blob/main/docs/appcds.md#7-the-jdk-coupling-problem-design-core).
+no AppCDS benefit); see [AppCDS §7](https://github.com/brewlet/brewlet/blob/main/docs/appcds.md#7-the-jdk-coupling-problem-design-core).
 
 ### `brewlet:manifest` extras
 
@@ -332,7 +332,7 @@ no AppCDS benefit); see [AppCDS §7](https://github.com/brewlet/site/blob/main/d
 | Format | What it publishes | When a pod names it as `image:` |
 |---|---|---|
 | `image` (default) | A **runnable OCI image**: your JAR (+ dependency/module/CDS payload) packaged as standard `tar+gzip` layers with a real OCI image config and a multi-arch index. The Brewlet launch contract rides in the `brewlet.sh/jvm-config` manifest annotation. | kubelet/containerd pull and unpack it like any image, so a `runtimeClassName: brewlet` pod can set `image: <ref>` directly — the SpinKube-style workflow. |
-| `artifact` | The **native Brewlet OCI artifact**: your JAR plus a launch-config blob under Brewlet [media types](https://github.com/brewlet/site/blob/main/docs/reference.md#oci-media-types) (`artifactType: application/vnd.brewlet.app.v1+json`). Compact and the canonical Brewlet shape. | kubelet/containerd **cannot** unpack the custom layer media types, so a bare pod `image:` reference `ImagePullBackOff`s. It is resolved by the shim out-of-band via the `brewlet.sh/artifact-*` annotations the admission webhook stamps. |
+| `artifact` | The **native Brewlet OCI artifact**: your JAR plus a launch-config blob under Brewlet [media types](https://github.com/brewlet/brewlet/blob/main/docs/reference.md#oci-media-types) (`artifactType: application/vnd.brewlet.app.v1+json`). Compact and the canonical Brewlet shape. | kubelet/containerd **cannot** unpack the custom layer media types, so a bare pod `image:` reference `ImagePullBackOff`s. It is resolved by the shim out-of-band via the `brewlet.sh/artifact-*` annotations the admission webhook stamps. |
 
 ```bash
 # The default push already produces a runnable, kubelet-pullable image:
@@ -359,7 +359,7 @@ standard layers, `rootfs.diff_ids` computed over the *uncompressed* tars, and a
 multi-arch index (a portable JAR publishes `amd64`+`arm64`; a JAR pinned to native
 architectures via `arch` publishes just those). `brewlet:inspect` reports the runnable
 shape (media types, `jvm-config` annotation, platforms). See
-[runnable image documentation](https://github.com/brewlet/site/blob/main/docs/runnable-image.md) for the full design.
+[runnable image documentation](https://github.com/brewlet/brewlet/blob/main/docs/runnable-image.md) for the full design.
 
 ---
 
@@ -373,14 +373,14 @@ shape (media types, `jvm-config` annotation, platforms). See
 - `target/brewlet/javaapplication.yaml` — the CR/Deployment manifest (from
   `brewlet:manifest`).
 
-The published artifact uses the Brewlet [media types](https://github.com/brewlet/site/blob/main/docs/reference.md#oci-media-types),
+The published artifact uses the Brewlet [media types](https://github.com/brewlet/brewlet/blob/main/docs/reference.md#oci-media-types),
 which mark it as an OCI artifact rather than a container image.
 
 ---
 
 ## Relationship to the `brewlet` CLI
 
-The plugin mirrors the Go [`brewlet` CLI](https://github.com/brewlet/site/blob/main/docs/cli-reference.md): `brewlet:push`
+The plugin mirrors the Go [`brewlet` CLI](https://github.com/brewlet/brewlet/blob/main/docs/cli-reference.md): `brewlet:push`
 ≈ `brewlet push`, `brewlet:inspect` ≈ `brewlet inspect`, and `brewlet:build`
 produces the same OCI layout as `brewlet bundle`/`--store`. Use whichever fits your
 pipeline — the resulting artifact is identical.

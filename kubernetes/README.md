@@ -13,7 +13,7 @@ This directory contains the Kubernetes-facing components of Brewlet:
 
 The runtime shim and node provisioner source live at the monorepo root.
 Architecture and API specifications live in [`specs/`](../specs), and the user
-documentation lives in [`brewlet/site`](https://github.com/brewlet/site).
+documentation lives in [`docs/`](../docs/).
 
 ## Install with Helm
 
@@ -36,7 +36,7 @@ kubectl get nodeprofiles
 kubectl get nodes -L brewlet.sh/runtime
 ```
 
-See the [Brewlet installation guide](https://github.com/brewlet/site) for
+See the [Brewlet installation guide](../docs/installation.md) for
 cluster prerequisites and production configuration.
 
 The public [capability-label reference](../specs/CAPABILITY_LABELS.md) defines

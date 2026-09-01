@@ -11,7 +11,7 @@ JDK runtime roots and optional launcher layers, registers the `brewlet`
 containerd runtime, validates the installation, and advertises node readiness.
 
 See the [Brewlet specification](../specs/SPECIFICATION.md) for the node
-provisioning model and the [user documentation](https://github.com/brewlet/site)
+provisioning model and the [user documentation](../docs/)
 for installation and operations guidance.
 
 ## Build

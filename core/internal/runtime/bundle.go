@@ -83,11 +83,11 @@ func GenerateBundle(cfg artifact.JVMConfig, jdkRoot, jarHostPath, outDir string,
 // path.
 //
 // classpathTars are optional dependency-layer tars (see
-// https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md). When present they are extracted into a
+// https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md). When present they are extracted into a
 // host staging dir and bind-mounted read-only at /app/lib, so a class-mode
 // `-cp /app/app.jar:/app/lib/*` resolves the dependency JARs.
 //
-// modulepathTars are optional library-module tars (see https://github.com/brewlet/site/blob/main/docs/jpms-support.md).
+// modulepathTars are optional library-module tars (see https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md).
 // When present they are extracted into a host staging dir and bind-mounted
 // read-only at /app/mods, so a module-mode `-p /app/app.jar:/app/mods` resolves
 // the library modules.
@@ -99,13 +99,13 @@ func GenerateBundleWithLauncher(cfg artifact.JVMConfig, jdkRoot, launcherRoot, l
 // archive. When cdsHostPath is non-empty the `.jsa` file it names is bind-mounted
 // read-only at /app/<archive> (cfg.CDS.Archive), matching the -XX:SharedArchiveFile
 // path BuildJVMArgs derives, so the JVM maps the app archive on startup. Pass ""
-// for the common no-CDS case. See https://github.com/brewlet/site/blob/main/docs/appcds.md.
+// for the common no-CDS case. See https://github.com/brewlet/brewlet/blob/main/docs/appcds.md.
 func GenerateBundleWithCDS(cfg artifact.JVMConfig, jdkRoot, launcherRoot, launcherName, jarHostPath string, classpathTars, modulepathTars []string, cdsHostPath, outDir string, res Resources, extraArgs []string) error {
 	return GenerateBundleWithRegen(cfg, jdkRoot, launcherRoot, launcherName, jarHostPath, classpathTars, modulepathTars, cdsHostPath, outDir, res, extraArgs, CDSRegenOptions{})
 }
 
 // CDSRegenOptions carries the node context needed for node-side AppCDS
-// regeneration (https://github.com/brewlet/site/blob/main/docs/appcds.md §4.3, Phase B). Regeneration is a deployment/fleet
+// regeneration (https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §4.3, Phase B). Regeneration is a deployment/fleet
 // decision (the brewlet.sh/cds-regenerate annotation / --appcds-regenerate flag),
 // so Regenerate is passed in here rather than read from the artifact. It is only
 // acted on when Regenerate is true AND ArtifactKey is non-empty; otherwise
@@ -122,14 +122,14 @@ type CDSRegenOptions struct {
 	// CacheDir overrides the node cache directory (default DefaultCDSCacheDir).
 	CacheDir string
 	// MetricsDir, when set, receives best-effort node-local role records
-	// (https://github.com/brewlet/site/blob/main/docs/metrics-exporter.md).
+	// (https://github.com/brewlet/brewlet/blob/main/docs/metrics-exporter.md).
 	MetricsDir string
 }
 
 // GenerateBundleWithRegen is GenerateBundleWithCDS plus node-side regeneration.
 // When the deployment opts into regeneration (regen.Regenerate) and
 // regen.ArtifactKey is set, it resolves a per-(artifact, JDK-build) archive from
-// the node cache (https://github.com/brewlet/site/blob/main/docs/appcds.md §4.3): it bind-mounts the cache dir at
+// the node cache (https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §4.3): it bind-mounts the cache dir at
 // InSandboxCDSDir (writable only for the elected writer), prepends the resolved
 // -XX:+AutoCreateSharedArchive / -XX:SharedArchiveFile args, and treats any
 // shipped archive as optional seed data rather than mounting it at /app/<archive>.
@@ -190,7 +190,7 @@ func GenerateBundleWithRegen(cfg artifact.JVMConfig, jdkRoot, launcherRoot, laun
 	// Pin the app JAR (and any staged lib/mods entries) to the canonical mtime
 	// whenever CDS is in play — either a shipped archive or node-side
 	// regeneration — so the archive maps rather than being silently rejected
-	// under -Xshare:auto (see CDSModTime / https://github.com/brewlet/site/blob/main/docs/appcds.md §4.4).
+	// under -Xshare:auto (see CDSModTime / https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §4.4).
 	pinMtime := shipsCDS(cfg) || regen.Regenerate
 
 	// Stage classpath dependency layers into a host dir bind-mounted at /app/lib.
@@ -212,7 +212,7 @@ func GenerateBundleWithRegen(cfg artifact.JVMConfig, jdkRoot, launcherRoot, laun
 	}
 
 	// Stage modulepath library-module layers into a host dir bind-mounted at
-	// /app/mods, the module-path twin of /app/lib. See https://github.com/brewlet/site/blob/main/docs/jpms-support.md.
+	// /app/mods, the module-path twin of /app/lib. See https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md.
 	var modsMount []ociMount
 	if len(modulepathTars) > 0 {
 		modsHost := filepath.Join(outDir, "mods")
@@ -246,7 +246,7 @@ func GenerateBundleWithRegen(cfg artifact.JVMConfig, jdkRoot, launcherRoot, laun
 	}
 
 	// Bind-mount the optional AppCDS archive read-only at /app/<archive> so the
-	// -XX:SharedArchiveFile path BuildJVMArgs emitted resolves. See https://github.com/brewlet/site/blob/main/docs/appcds.md.
+	// -XX:SharedArchiveFile path BuildJVMArgs emitted resolves. See https://github.com/brewlet/brewlet/blob/main/docs/appcds.md.
 	// Skipped when the deployment opts into node-side regeneration: there the
 	// shipped archive is only seed data for the node cache (mounted at
 	// InSandboxCDSDir instead).
