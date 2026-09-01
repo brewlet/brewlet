@@ -94,7 +94,8 @@ Node provisioning is **privileged and mutates the host**. The
 
 - runs privileged with `hostPID`;
 - writes the shim to the host `PATH` and JDK/launcher roots under `/opt/brewlet`;
-- edits `/etc/containerd/config.toml` and reloads containerd.
+- writes an imported containerd drop-in when supported, or a backed-up primary
+  config otherwise, and activates it through the host service manager.
 
 Mitigations and guardrails:
 
@@ -102,6 +103,7 @@ Mitigations and guardrails:
 |---|---|
 | **Provisioning is scoped, but broad by default** | The chart's default `NodeProfile` provisions **every** node (§5.6). To limit the blast radius, disable it (`defaultProfile.enabled=false`) and define named `NodeProfile`s scoped to platform-owned pools. The legacy standalone DaemonSet instead touches only nodes carrying the `brewlet.sh/provision=true` **label**. |
 | **Scope to platform-owned pools** | Use named `NodeProfile` pools (or the `brewlet.sh/provision` label for the standalone path) to restrict provisioning to nodes your platform team controls. Do **not** provision shared/hostile multi-tenant nodes. |
+| **Host mutation is validated and reversible** | The default rollout validates the effective containerd config before activation, checks the live runtime handler afterward, and restores known-good configuration if restart or health checks fail. Nodes remain unready until JDK and launcher probes also pass. |
 | **The operator is unprivileged** | The operator only talks to the API server; only the DaemonSet it manages is privileged. |
 | **Webhook can't block workloads** | `admission.failurePolicy: Ignore` (default) means a webhook outage never wedges deployments. |
 

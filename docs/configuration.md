@@ -60,8 +60,8 @@ with `--set key=value` or a values file.
 | `provisioner.jdks` | `temurin-21,microsoft-25` | Comma-separated curated `<dist>-<feature>` roots, or a structured list with `source.image` and `source.javaHome` for custom distributions ([§JDK management](jdk-management.md#custom-distributions-azul-zulu-example)). |
 | `provisioner.launchers` | `jaz` | Comma-separated launcher layers ([§Launchers](launchers.md)). Empty = vanilla `java` only. |
 | `provisioner.rollout.maxUnavailable` | `null` | Bounds the default profile's provisioner DaemonSet rolling update. `null` keeps the DaemonSet default. |
-| `provisioner.rollout.validate` | `true` | Gate node readiness on the post-install JDK smoke test (`java -version` per root). Renders the provisioner `BREWLET_VALIDATE` env. |
-| `provisioner.rollout.containerdRestart` | `validated` | When/whether to reload containerd after writing its config: `validated`, `sighup`, or `none`. Renders `BREWLET_CONTAINERD_RESTART` ([§5.5](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)). |
+| `provisioner.rollout.validate` | `true` | Gate node readiness on post-install JDK and launcher smoke tests (`java -version` per root plus a deterministic version probe per launcher layer). Renders the provisioner `BREWLET_VALIDATE` env. |
+| `provisioner.rollout.containerdRestart` | `validated` | Select containerd activation: transactional config validation, service restart, live health checks, and rollback (`validated`); legacy in-place render plus SIGHUP (`sighup`); or no containerd mutation/signal (`none`). Renders `BREWLET_CONTAINERD_RESTART` ([§5.5](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)). |
 | `provisioner.registry.mirrors` | `{}` | `<upstream-host>: <mirror-host>` map applied to every copy-from-image pull for air-gapped clusters. Renders `MIRRORS`. |
 | `defaultProfile.enabled` | `true` | Render the chart-managed **default** `NodeProfile` from `provisioner.*`. Disable to manage the default profile yourself, e.g. via GitOps ([§5.6](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)). |
 | `profiles` | `[]` | Additional per-pool `NodeProfile` CRs, each binding node pool(s) to their own JDK/launcher inventory plus rollout/registry policy ([§5.6](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md)). |
@@ -138,12 +138,14 @@ only touch them directly if you hand-wire the DaemonSet.
 | `LAUNCHERS` | *(empty)* | Comma-separated launcher layers to stage (e.g. `jaz`). `java` is implicit. |
 | `NODE_NAME` | (downward API) | The node to label; injected from `spec.nodeName`. |
 | `BREWLET_PREFIX` | `/opt/brewlet` | Host install prefix (`bin/`, `jdks/`, `launchers/`). |
-| `CONTAINERD_CONFIG` | `/etc/containerd/config.toml` | containerd config to patch. |
+| `CONTAINERD_CONFIG` | `/etc/containerd/config.toml` | Primary containerd configuration. Validated mode uses an imported drop-in when supported and otherwise patches this file with a backup. |
+| `CONTAINERD_DROPIN_DIR` | `/etc/containerd/config.toml.d` | Drop-in directory used when the primary config imports `*.toml` from it. |
+| `CONTAINERD_DROPIN_FILE` | `/etc/containerd/config.toml.d/99-brewlet.toml` | Brewlet-managed runtime drop-in. |
 | `CONTAINERD_ADDRESS` | `/run/containerd/containerd.sock` | Host containerd socket (used for copy-from-image). |
 | `CONTAINERD_NAMESPACE` | `k8s.io` | containerd namespace for image pulls. |
-| `BREWLET_MODE` | `provision` | `provision` installs the runtime; `cleanup` reverses it (restores the containerd config backup, removes the shim, drops the runtime + capability labels) for a deleted `NodeProfile`. The operator sets it on the short-lived `brewlet-cleanup-<profile>` DaemonSet (§5.6). |
-| `BREWLET_CONTAINERD_RESTART` | `validated` | When/whether to reload containerd after writing its config: `validated` (smoke-test the JDK roots first, then SIGHUP), `sighup` (SIGHUP unconditionally), or `none` (never signal; a rollout/human restarts it). Rendered from `spec.rollout.containerdRestart`. |
-| `BREWLET_VALIDATE` | `true` | Run the post-install JDK smoke test (`java -version` per root) before flipping the node ready. `false` skips it. Rendered from `spec.rollout.validate`. |
+| `BREWLET_MODE` | `provision` | `provision` installs the runtime; `cleanup` reverses it (removes the Brewlet drop-in or restores the primary-config backup, removes the shim, and drops runtime/capability labels) for a deleted `NodeProfile`. The operator sets it on the short-lived `brewlet-cleanup-<profile>` DaemonSet (§5.6). |
+| `BREWLET_CONTAINERD_RESTART` | `validated` | `validated` smoke-tests the runtime inventory, validates the effective config with `containerd config dump`, restarts the host service only when needed, checks containerd and the live `brewlet` handler, and restores known-good config on activation failure. `sighup` preserves the legacy in-place render/reload path without the config-dump gate. `none` neither mutates nor signals containerd. Rendered from `spec.rollout.containerdRestart`. |
+| `BREWLET_VALIDATE` | `true` | Run post-install smoke tests for every JDK (`java -version`) and configured launcher before publishing runtime or capability labels. `false` skips both sets of probes. Rendered from `spec.rollout.validate`. |
 | `MIRRORS` | *(empty)* | Comma-separated `<upstream-host>=<mirror-host>` pairs; every copy-from-image pull rewrites its registry host through this map for air-gapped clusters. Rendered from `spec.registry.mirrors`. |
 
 ---

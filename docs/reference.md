@@ -32,6 +32,7 @@ the provisioning, affinity, Cluster Autoscaler, and Karpenter workflows.
 | `brewlet.sh/jdks` | `temurin-21,microsoft-25` | Advertised JDK roots (comma-separated). |
 | `brewlet.sh/launchers` | `java,jaz` | Advertised launcher layers. |
 | `brewlet.sh/provision-state` | `Provisioning` \| `Ready` \| `Failed` | The operator's view of the node's lifecycle (distinct from the provisioner-owned `runtime=ready` label). |
+| `brewlet.sh/provision-error` | `launcher-jaz-probe-failed` | Machine-readable provisioner failure reason. The operator uses it for `ProvisionFailed` events and clears it after a successful run. |
 
 ### Pod annotations
 
@@ -54,7 +55,7 @@ Recorded by the operator / admission webhook (see [Troubleshooting](troubleshoot
 |---|---|
 | `Provisioning` | The operator has requested provisioning for a node. |
 | `NodeReady` | A node is provisioned and advertising the brewlet runtime. |
-| `ProvisionFailed` | The provisioner pod on a node is failing (e.g. `CrashLoopBackOff`). |
+| `ProvisionFailed` | The provisioner reports a validation/reconfiguration error, or its pod is failing (for example `CrashLoopBackOff`). |
 | `NoCompatibleJDK` | A pod requested a JDK no ready node provides → admission denied. |
 | `NoCompatibleLauncher` | A pod requested a launcher no ready node provides → admission denied. |
 | `NoCompatibleArch` | A non-portable JAR requested an `arch` no ready node provides → admission denied. |
@@ -68,7 +69,7 @@ Recorded by the operator / admission webhook (see [Troubleshooting](troubleshoot
 | RuntimeClass / containerd handler | `brewlet` | |
 | Provisioner DaemonSet | `brewlet-node-provisioner` | Managed by the operator. |
 | Default namespace | `brewlet` | Created by the Helm chart. |
-| containerd runtime type | `io.containerd.brewlet.v2` | Registered in `/etc/containerd/config.toml`. |
+| containerd runtime type | `io.containerd.brewlet.v2` | Registered in the effective containerd config through an imported drop-in or the primary file. |
 | Vanilla launcher name | `java` | Provided by every JDK; needs no layer. |
 
 ---
@@ -189,7 +190,8 @@ Full field semantics: [Building & publishing](building-and-publishing.md#2-the-l
 | `/opt/brewlet/bin/containerd-shim-brewlet-v2` | The shim binary (also linked into `/usr/local/bin`). |
 | `/opt/brewlet/jdks/<dist>-<feature>/bin/java` | A shared, read-only JDK runtime root. |
 | `/opt/brewlet/launchers/<name>/bin/<name>` | A shared, read-only launcher layer. |
-| `/etc/containerd/config.toml` | Patched with the `runtimes.brewlet` block. |
+| `/etc/containerd/config.toml` | Primary containerd config; patched only when imported drop-ins are unavailable. |
+| `/etc/containerd/config.toml.d/99-brewlet.toml` | Preferred Brewlet-managed runtime drop-in when the primary config imports the directory. |
 | `/app/<mainJar>` | The JAR, mounted read-only inside the sandbox. |
 
 Override the `/opt/brewlet` prefix with `BREWLET_PREFIX`
@@ -199,12 +201,19 @@ Override the `/opt/brewlet` prefix with `BREWLET_PREFIX`
 
 ## containerd runtime registration
 
-The provisioner appends this to `/etc/containerd/config.toml`:
+The provisioner renders this runtime block into
+`/etc/containerd/config.toml.d/99-brewlet.toml` when the primary config imports
+that directory, otherwise it appends the block to a backed-up
+`/etc/containerd/config.toml`:
 
 ```toml
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.brewlet]
   runtime_type = "io.containerd.brewlet.v2"
 ```
+
+In default `validated` mode, the provisioner checks the effective config with
+`containerd config dump`, restarts the host service when activation is needed,
+verifies the live runtime handler, and automatically rolls back failed changes.
 
 ---
 
