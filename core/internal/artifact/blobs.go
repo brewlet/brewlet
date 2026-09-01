@@ -25,6 +25,7 @@ type ResolvedBlobs struct {
 	ClasspathHostPaths  []string // on-disk paths of the optional classpath layer tars
 	ModulepathHostPaths []string // on-disk paths of the optional modulepath layer tars
 	CDSHostPath         string   // on-disk path of the optional AppCDS archive, or ""
+	Format              string   // "native" or "image"
 }
 
 // BlobSource abstracts a content-addressed blob store so format resolution
@@ -119,7 +120,7 @@ func ResolveNativeBlobs(src BlobSource, man Manifest) (ResolvedBlobs, error) {
 			return ResolvedBlobs{}, fmt.Errorf("cds blob %s not available: %w", l.Digest, err)
 		}
 	}
-	return ResolvedBlobs{Config: cfg, JarHostPath: jarPath, ClasspathHostPaths: cpPaths, ModulepathHostPaths: mpPaths, CDSHostPath: cdsPath}, nil
+	return ResolvedBlobs{Config: cfg, JarHostPath: jarPath, ClasspathHostPaths: cpPaths, ModulepathHostPaths: mpPaths, CDSHostPath: cdsPath, Format: "native"}, nil
 }
 
 // existingBlobPaths returns the on-disk path of each layer, verifying presence.
@@ -181,7 +182,7 @@ func ResolveRunnableBlobs(src BlobSource, man Manifest, manifestDigest string) (
 	if err != nil {
 		return ResolvedBlobs{}, err
 	}
-	return ResolvedBlobs{Config: cfg, JarHostPath: jarPath, ClasspathHostPaths: cpPaths, ModulepathHostPaths: mpPaths, CDSHostPath: cdsPath}, nil
+	return ResolvedBlobs{Config: cfg, JarHostPath: jarPath, ClasspathHostPaths: cpPaths, ModulepathHostPaths: mpPaths, CDSHostPath: cdsPath, Format: "image"}, nil
 }
 
 // runnableStageDir is the per-image staging directory a runnable image is

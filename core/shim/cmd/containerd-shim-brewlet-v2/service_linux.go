@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	taskAPI "github.com/containerd/containerd/api/runtime/task/v2"
@@ -26,6 +28,7 @@ import (
 
 	"github.com/brewlet/brewlet/internal/artifact"
 	kcruntime "github.com/brewlet/brewlet/internal/runtime"
+	"github.com/brewlet/brewlet/internal/telemetry"
 )
 
 // Node-level locations the provisioner (https://github.com/brewlet/brewlet/tree/main/specs §5.2) materializes on
@@ -68,7 +71,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			return &brewletTaskService{TaskService: inner}, nil
+			return &brewletTaskService{TaskService: inner, pending: map[string]launchInfo{}}, nil
 		},
 	})
 }
@@ -82,6 +85,13 @@ func init() {
 // sandbox backed by the node-resident JDK.
 type brewletTaskService struct {
 	taskAPI.TaskService
+	mu      sync.Mutex
+	pending map[string]launchInfo
+}
+
+type launchInfo struct {
+	entryMode string
+	format    string
 }
 
 // RegisterTTRPC binds THIS decorator (not the embedded runc service) so
@@ -114,11 +124,45 @@ func (s *brewletTaskService) Create(ctx context.Context, r *taskAPI.CreateTaskRe
 		return nil, err
 	}
 	if !sandbox {
-		if err := assembleBrewletBundle(r); err != nil {
+		info, err := assembleBrewletBundle(r)
+		if err != nil {
+			emitLaunch(info, err)
 			return nil, err
 		}
+		start := time.Now()
+		resp, err := s.TaskService.Create(ctx, r)
+		emitPhase("runc_create", start, err)
+		if err != nil {
+			emitLaunchWithReason(info, err, "RuntimeCreate")
+			return nil, err
+		}
+		s.mu.Lock()
+		s.pending[r.ID] = info
+		s.mu.Unlock()
+		return resp, nil
 	}
 	return s.TaskService.Create(ctx, r)
+}
+
+func (s *brewletTaskService) Start(ctx context.Context, r *taskAPI.StartRequest) (*taskAPI.StartResponse, error) {
+	start := time.Now()
+	resp, err := s.TaskService.Start(ctx, r)
+	if r.GetExecID() != "" {
+		return resp, err
+	}
+	s.mu.Lock()
+	info, ok := s.pending[r.ID]
+	delete(s.pending, r.ID)
+	s.mu.Unlock()
+	if ok {
+		emitPhase("process_start", start, err)
+		reason := ""
+		if err != nil {
+			reason = "ProcessStart"
+		}
+		emitLaunchWithReason(info, err, reason)
+	}
+	return resp, err
 }
 
 // isSandboxBundle reports whether the OCI spec at <bundle>/config.json belongs
@@ -210,20 +254,20 @@ func runcOptionsFromGeneric(o *runtimeoptions.Options) (*runcoptions.Options, er
 // JDK/JAR mounts and JVM env — while preserving everything CRI set up
 // (namespaces incl. the CNI-provided network namespace, cgroup resources, user,
 // and standard pod mounts).
-func assembleBrewletBundle(r *taskAPI.CreateTaskRequest) error {
+func assembleBrewletBundle(r *taskAPI.CreateTaskRequest) (launchInfo, error) {
 	specPath := filepath.Join(r.Bundle, "config.json")
 	raw, err := os.ReadFile(specPath)
 	if err != nil {
-		return fmt.Errorf("read oci spec: %w", err)
+		return launchInfo{}, fmt.Errorf("read oci spec: %w", err)
 	}
 	var spec specs.Spec
 	if err := json.Unmarshal(raw, &spec); err != nil {
-		return fmt.Errorf("parse oci spec: %w", err)
+		return launchInfo{}, fmt.Errorf("parse oci spec: %w", err)
 	}
 
 	ref := artifactRef(&spec)
 	if ref == "" {
-		return fmt.Errorf("no Brewlet artifact reference on task %q (expected annotation %q)", r.ID, annArtifactRef)
+		return launchInfo{}, fmt.Errorf("no Brewlet artifact reference on task %q (expected annotation %q)", r.ID, annArtifactRef)
 	}
 
 	ic := imageConfig{
@@ -244,30 +288,110 @@ func assembleBrewletBundle(r *taskAPI.CreateTaskRequest) error {
 		ContentRoot:    envOr("BREWLET_CONTENT_ROOT", defaultContentRoot),
 		ManifestDigest: spec.Annotations[annArtifactDigest],
 	}
+	resolveStart := time.Now()
 	ra, err := resolveArtifact(ic)
+	backend := artifactBackend(ic)
+	format := ra.Format
+	if format == "" {
+		format = "unknown"
+	}
+	_ = telemetry.Emit(telemetry.Event{
+		Kind:            telemetry.KindArtifactResolution,
+		Backend:         backend,
+		Format:          format,
+		Outcome:         telemetry.Outcome(err),
+		DurationSeconds: time.Since(resolveStart).Seconds(),
+	})
+	emitPhase("artifact_resolve", resolveStart, err)
 	if err != nil {
-		return err // NoCompatibleJDK / NoCompatibleLauncher surface as task-create failures
+		return launchInfo{format: format}, err // NoCompatibleJDK / NoCompatibleLauncher surface as task-create failures
+	}
+	info := launchInfo{entryMode: ra.Config.Entry.Mode, format: format}
+	if info.entryMode == "" {
+		info.entryMode = "jar"
 	}
 
+	bundleStart := time.Now()
 	if err := applyBrewletLaunch(&spec, ra, r.Bundle); err != nil {
-		return err
+		emitPhase("bundle_prepare", bundleStart, err)
+		return info, err
 	}
+	bundleDuration := time.Since(bundleStart)
+
+	overlayStart := time.Now()
 	if err := setupOverlayRootfs(r, ra); err != nil {
-		return err
+		emitPhase("overlay_setup", overlayStart, err)
+		return info, err
 	}
+	emitPhase("overlay_setup", overlayStart, nil)
+
+	bundleStart = time.Now()
 	if err := mountClasspathLayers(&spec, ra, r.Bundle); err != nil {
-		return err
+		emitPhaseDuration("bundle_prepare", bundleDuration+time.Since(bundleStart), err)
+		return info, err
 	}
 	if err := mountModulepathLayers(&spec, ra, r.Bundle); err != nil {
-		return err
+		emitPhaseDuration("bundle_prepare", bundleDuration+time.Since(bundleStart), err)
+		return info, err
 	}
 	spec.Root = &specs.Root{Path: "rootfs", Readonly: false}
 
 	out, err := json.MarshalIndent(&spec, "", "  ")
 	if err != nil {
-		return err
+		emitPhaseDuration("bundle_prepare", bundleDuration+time.Since(bundleStart), err)
+		return info, err
 	}
-	return os.WriteFile(specPath, out, 0o644)
+	err = os.WriteFile(specPath, out, 0o644)
+	emitPhaseDuration("bundle_prepare", bundleDuration+time.Since(bundleStart), err)
+	return info, err
+}
+
+func artifactBackend(ic imageConfig) string {
+	if ic.Backend != "" {
+		return ic.Backend
+	}
+	if ic.StoreRoot != "" {
+		return "layout"
+	}
+	return "containerd"
+}
+
+func emitPhase(phase string, start time.Time, err error) {
+	emitPhaseDuration(phase, time.Since(start), err)
+}
+
+func emitPhaseDuration(phase string, duration time.Duration, err error) {
+	_ = telemetry.Emit(telemetry.Event{
+		Kind:            telemetry.KindLaunchPhase,
+		Phase:           phase,
+		Outcome:         telemetry.Outcome(err),
+		DurationSeconds: duration.Seconds(),
+	})
+}
+
+func emitLaunch(info launchInfo, err error) {
+	emitLaunchWithReason(info, err, "")
+}
+
+func emitLaunchWithReason(info launchInfo, err error, reason string) {
+	entryMode := info.entryMode
+	if entryMode == "" {
+		entryMode = "unknown"
+	}
+	format := info.format
+	if format == "" {
+		format = "unknown"
+	}
+	if reason == "" {
+		reason = telemetry.Reason(err)
+	}
+	_ = telemetry.Emit(telemetry.Event{
+		Kind:      telemetry.KindLaunch,
+		Outcome:   telemetry.Outcome(err),
+		Reason:    reason,
+		EntryMode: entryMode,
+		Format:    format,
+	})
 }
 
 // setupOverlayRootfs implements §6.1 step 3: the sandbox rootfs is an overlay

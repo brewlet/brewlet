@@ -43,7 +43,9 @@ func main() {
 	flag.StringVar(&cfg.ProvisionerImage, "provisioner-image", "ghcr.io/brewlet/node-provisioner:0.1.0", "brewlet-node-provisioner image to run")
 	flag.StringVar(&cfg.JDKs, "jdks", "temurin-21", "comma-separated <dist>-<feature> JDK roots to install on nodes")
 	flag.StringVar(&cfg.Launchers, "launchers", "", "comma-separated launcher layers to install (e.g. jaz)")
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "address the metric endpoint binds to")
+	flag.IntVar(&cfg.MetricsPort, "node-metrics-port", 9090, "node provisioner metrics exporter port")
+	flag.BoolVar(&cfg.MetricsEnabled, "node-metrics-enabled", false, "run the node-local metrics exporter in provisioner pods")
+	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "address the metric endpoint binds to; 0 disables metrics")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "address the health probe endpoint binds to")
 	flag.BoolVar(&enableLeaderElec, "leader-elect", false, "enable leader election for HA (single active manager)")
 	opts := zap.Options{Development: true}

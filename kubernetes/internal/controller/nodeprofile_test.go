@@ -279,4 +279,7 @@ func TestCleanupDaemonSetBuilder(t *testing.T) {
 	if mode != "cleanup" {
 		t.Fatalf("cleanup ds BREWLET_MODE = %q, want cleanup", mode)
 	}
+	if len(ds.Spec.Template.Spec.Containers) != 1 {
+		t.Fatalf("cleanup ds containers = %d, want no metrics sidecar", len(ds.Spec.Template.Spec.Containers))
+	}
 }

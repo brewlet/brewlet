@@ -63,6 +63,21 @@ operator:
     requests: { cpu: "50m", memory: "64Mi" }
     limits: { cpu: "200m", memory: "128Mi" }
 
+metrics:
+  # Opt in to Brewlet runtime and control-plane Prometheus endpoints.
+  enabled: false
+  nodePort: 9090
+  serviceMonitor:
+    # Requires the Prometheus Operator monitoring.coreos.com/v1 CRDs.
+    enabled: false
+    interval: 30s
+    additionalLabels: {}
+  grafanaDashboard:
+    # Creates a ConfigMap suitable for Grafana sidecar dashboard discovery.
+    enabled: false
+    labels:
+      grafana_dashboard: "1"
+
 # The pod admission/scheduling webhook (§8/§14): stamps the artifact ref/digest
 # the shim resolves and matches a pod's requested JDK/launcher against the ready
 # fleet (NoCompatibleJDK / NoCompatibleLauncher).

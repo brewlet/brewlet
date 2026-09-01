@@ -7,6 +7,7 @@ import (
 
 	nodev1alpha1 "brewlet-operator/api/nodeprofile/v1alpha1"
 	"brewlet-operator/internal/brewlet"
+	"brewlet-operator/internal/observability"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -41,6 +42,9 @@ type NodeProfileReconciler struct {
 func (r *NodeProfileReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	var profile nodev1alpha1.NodeProfile
 	if err := r.Get(ctx, req.NamespacedName, &profile); err != nil {
+		if apierrors.IsNotFound(err) {
+			observability.DeleteNodeProfile(req.Name)
+		}
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -248,6 +252,7 @@ func (r *NodeProfileReconciler) updateStatus(ctx context.Context, profile *nodev
 		cond.Message = fmt.Sprintf("%d/%d assigned nodes provisioned", ready, assigned)
 	}
 	meta.SetStatusCondition(&profile.Status.Conditions, cond)
+	observability.SetNodeProfile(profile.Name, assigned, ready, cond.Reason, cond.Status == metav1.ConditionTrue)
 
 	if equalStatus(&base.Status, &profile.Status) {
 		return nil

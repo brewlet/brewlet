@@ -1,0 +1,60 @@
+{{- if and .Values.metrics.enabled .Values.metrics.grafanaDashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: brewlet-grafana-dashboard
+  namespace: {{ include "brewlet.namespace" . }}
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+    {{- with .Values.metrics.grafanaDashboard.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+data:
+  brewlet-runtime.json: |-
+    {
+      "title": "Brewlet runtime",
+      "uid": "brewlet-runtime",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": {"from": "now-6h", "to": "now"},
+      "panels": [
+        {
+          "type": "timeseries",
+          "title": "Sandbox launch latency by phase (p95)",
+          "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+          "targets": [{"expr": "histogram_quantile(0.95, sum by (le, phase) (rate(brewlet_sandbox_launch_duration_seconds_bucket[5m])))", "legendFormat": "{{ "{{phase}}" }}"}]
+        },
+        {
+          "type": "timeseries",
+          "title": "Sandbox launch outcomes",
+          "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+          "targets": [{"expr": "sum by (outcome, reason) (rate(brewlet_sandbox_launches_total[5m]))", "legendFormat": "{{ "{{outcome}}" }}/{{ "{{reason}}" }}"}]
+        },
+        {
+          "type": "timeseries",
+          "title": "Admission denials",
+          "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+          "targets": [{"expr": "sum by (reason) (rate(brewlet_admission_requests_total{outcome=\"denied\"}[5m]))", "legendFormat": "{{ "{{reason}}" }}"}]
+        },
+        {
+          "type": "timeseries",
+          "title": "NodeProfile readiness",
+          "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+          "targets": [{"expr": "brewlet_nodeprofile_nodes", "legendFormat": "{{ "{{profile}}" }}/{{ "{{state}}" }}"}]
+        },
+        {
+          "type": "timeseries",
+          "title": "AppCDS regeneration decisions",
+          "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+          "targets": [{"expr": "sum by (role) (rate(brewlet_cds_regeneration_decisions_total[5m]))", "legendFormat": "{{ "{{role}}" }}"}]
+        },
+        {
+          "type": "table",
+          "title": "Installed JDK builds",
+          "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+          "targets": [{"expr": "brewlet_jdk_info", "format": "table", "instant": true}]
+        }
+      ]
+    }
+{{- end }}

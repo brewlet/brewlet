@@ -12,7 +12,7 @@ Runtime Class Manager and Spin Operator. `helm install` deploys:
 - **brewlet-admission** — the pod admission/scheduling webhook (§8/§14): it
   stamps `brewlet.sh/artifact-ref` + `brewlet.sh/artifact-digest` onto brewlet
   pods, matches a pod's requested JDK/launcher against the ready fleet
-  (`NoCompatibleJDK` / `NoCompatibleLauncher`), and injects nodeAffinity so the
+  (`NoCompatibleJDK` / `NoCompatibleLauncher` / `NoCompatibleArch`), and injects nodeAffinity so the
   scheduler only lands pods on capable nodes. Can be disabled with
   `--set admission.enabled=false`.
 
@@ -55,6 +55,10 @@ kubectl get nodes -L brewlet.sh/runtime
 | `provisioner.jdks` | `temurin-21,microsoft-25` | Comma-separated `<dist>-<feature>` JDK roots to install (§5.3). |
 | `provisioner.launchers` | `jaz` | Comma-separated launcher layers (§5.4). Empty = vanilla `java` only. |
 | `operator.leaderElect` | `true` | Enable operator leader election. |
+| `metrics.enabled` | `false` | Enable control-plane metrics listeners and the node exporter, and expose scrape Services/ports. |
+| `metrics.nodePort` | `9090` | Port served by the exporter in each provisioner pod. |
+| `metrics.serviceMonitor.enabled` | `false` | Create a Prometheus Operator `ServiceMonitor`. |
+| `metrics.grafanaDashboard.enabled` | `false` | Create the starter Grafana dashboard ConfigMap. |
 | `admission.enabled` | `true` | Deploy the admission/scheduling webhook. |
 | `admission.failurePolicy` | `Ignore` | Webhook failure policy — `Ignore` never blocks workloads on a webhook outage. |
 | `admission.port` | `9443` | Webhook server port. |
@@ -105,6 +109,37 @@ If no ready node provides a compatible JDK/launcher, the pod is rejected with a
 `NoCompatibleJDK` / `NoCompatibleLauncher` reason surfaced on the owning
 controller (§14). With no annotation, the pod is admitted (ref/digest still
 stamped) and the shim keeps its runtime compatibility check.
+
+## Runtime metrics
+
+Runtime metrics are disabled by default. Set `metrics.enabled=true` to run the
+node exporter, enable the control-plane metrics listeners, and expose three
+scrape surfaces:
+
+- `brewlet-node-metrics` discovers the exporter in every profile-managed
+  provisioner pod and reports sandbox launch phases/outcomes, artifact resolution,
+  AppCDS decisions, and JDK/launcher inventory.
+- `brewlet-operator-metrics` exposes controller-runtime metrics plus Brewlet
+  NodeProfile readiness and provisioning transitions.
+- `brewlet-admission` exposes webhook metrics on its `metrics` Service port,
+  including admitted, denied, errored, and fail-open outcomes.
+
+Enable optional integrations with:
+
+```yaml
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+  grafanaDashboard:
+    enabled: true
+```
+
+The node exporter intentionally reports exact JDK build/source and installation
+time rather than claiming the node installation age is the upstream patch age.
+It also reports artifact resolution, not containerd pull-cache hits, because the
+pull occurs before the shim is invoked.
 
 ## Serving certificate
 

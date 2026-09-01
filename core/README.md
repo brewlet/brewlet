@@ -10,9 +10,15 @@ tooling, shared runtime packages, and containerd Runtime v2 shim.
 
 ```text
 cmd/brewlet/                         Brewlet CLI
+cmd/brewlet-metrics-exporter/        Node-local Prometheus exporter
 internal/                            Artifact, diagnostics, inventory, and runtime packages
 shim/cmd/containerd-shim-brewlet-v2/ containerd runtime shim
 ```
+
+When runtime metrics are enabled, the shim emits best-effort launch and AppCDS
+telemetry to the node exporter over a Unix datagram socket. The contract
+intentionally excludes artifact references, digests, pod names, and arbitrary
+errors from labels. Metrics are opt-in in the Helm chart.
 
 From the repository root, build and test the module with:
 

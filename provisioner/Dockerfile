@@ -22,7 +22,10 @@ RUN go mod download
 COPY core/. .
 RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
     go build -trimpath -ldflags='-s -w' \
-    -o /out/containerd-shim-brewlet-v2 ./shim/cmd/containerd-shim-brewlet-v2
+    -o /out/containerd-shim-brewlet-v2 ./shim/cmd/containerd-shim-brewlet-v2 \
+ && CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH} \
+    go build -trimpath -ldflags='-s -w' \
+    -o /out/brewlet-metrics-exporter ./cmd/brewlet-metrics-exporter
 
 # ---- stage 2: runtime image ------------------------------------------------
 FROM debian:bookworm-slim
@@ -47,6 +50,7 @@ RUN apt-get update \
 
 # The shim binary the provisioner installs onto the node.
 COPY --from=shim /out/containerd-shim-brewlet-v2 /opt/brewlet-dist/containerd-shim-brewlet-v2
+COPY --from=shim /out/brewlet-metrics-exporter /opt/brewlet-dist/brewlet-metrics-exporter
 
 COPY provisioner/entrypoint.sh /usr/local/bin/brewlet-provision
 RUN chmod 0755 /usr/local/bin/brewlet-provision

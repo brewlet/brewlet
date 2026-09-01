@@ -1,0 +1,57 @@
+{{- if .Values.metrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: brewlet-operator-metrics
+  namespace: {{ include "brewlet.namespace" . }}
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+    brewlet.sh/metrics: "true"
+spec:
+  selector:
+    app: brewlet-operator
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: metrics
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: brewlet-node-metrics
+  namespace: {{ include "brewlet.namespace" . }}
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+    brewlet.sh/metrics: "true"
+spec:
+  clusterIP: None
+  selector:
+    app: brewlet-node-provisioner
+  ports:
+    - name: metrics
+      port: {{ .Values.metrics.nodePort }}
+      targetPort: metrics
+{{- if .Values.metrics.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: brewlet
+  namespace: {{ include "brewlet.namespace" . }}
+  labels:
+    {{- include "brewlet.labels" . | nindent 4 }}
+    {{- with .Values.metrics.serviceMonitor.additionalLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  namespaceSelector:
+    matchNames:
+      - {{ include "brewlet.namespace" . }}
+  selector:
+    matchLabels:
+      brewlet.sh/metrics: "true"
+  endpoints:
+    - port: metrics
+      interval: {{ .Values.metrics.serviceMonitor.interval }}
+{{- end }}
+{{- end }}

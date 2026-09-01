@@ -95,6 +95,7 @@ type resolvedArtifact struct {
 	JDKHome             string   // JDK or jlink runtime within JDKRoot; mounted at /opt/jdk
 	LauncherRoot        string   // node-installed launcher layer, or "" for vanilla `java`
 	LauncherName        string   // launcher the descriptor requested ("" or "java" for vanilla)
+	Format              string   // native artifact or runnable image
 }
 
 // resolveArtifact performs the shared §6.1 steps 1-2b: read the artifact,
@@ -129,6 +130,7 @@ func resolveArtifact(ic imageConfig) (resolvedArtifact, error) {
 		JDKHome:             jdkHome,
 		LauncherRoot:        launcherRoot,
 		LauncherName:        ic.LauncherName,
+		Format:              blobs.Format,
 	}, nil
 }
 

@@ -106,12 +106,21 @@ spec:
             - --provisioner-image={{ include "brewlet.image" (dict "root" . "component" "provisioner" "name" "node-provisioner") }}
             - --jdks={{ include "brewlet.jdkTokens" (dict "value" .Values.provisioner.jdks) }}
             - --launchers={{ .Values.provisioner.launchers }}
+            - --node-metrics-port={{ .Values.metrics.nodePort }}
+            - --node-metrics-enabled={{ .Values.metrics.enabled }}
+            {{- if .Values.metrics.enabled }}
+            - --metrics-bind-address=:8080
+            {{- else }}
+            - --metrics-bind-address=0
+            {{- end }}
             {{- if .Values.operator.leaderElect }}
             - --leader-elect
             {{- end }}
             - --health-probe-bind-address=:8081
           ports:
+            {{- if .Values.metrics.enabled }}
             - { name: metrics, containerPort: 8080 }
+            {{- end }}
           livenessProbe:
             httpGet: { path: /healthz, port: 8081 }
             initialDelaySeconds: 15

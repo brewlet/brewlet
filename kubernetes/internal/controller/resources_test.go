@@ -16,6 +16,7 @@ func testConfig() Config {
 		ProvisionerImage: "ghcr.io/brewlet/node-provisioner:test",
 		JDKs:             "temurin-21,microsoft-25",
 		Launchers:        "jaz",
+		MetricsEnabled:   true,
 	}
 }
 
@@ -100,6 +101,28 @@ func TestBuildProfileDaemonSet(t *testing.T) {
 	}
 	if env["BREWLET_CONTAINERD_RESTART"] != "validated" {
 		t.Errorf("BREWLET_CONTAINERD_RESTART env = %q, want validated (default)", env["BREWLET_CONTAINERD_RESTART"])
+	}
+	if len(spec.Containers) != 2 || spec.Containers[1].Name != "metrics-exporter" {
+		t.Fatalf("containers = %+v, want provisioner plus metrics-exporter sidecar", spec.Containers)
+	}
+	if ports := spec.Containers[1].Ports; len(ports) != 1 || ports[0].Name != "metrics" || ports[0].ContainerPort != 9090 {
+		t.Errorf("metrics ports = %+v", ports)
+	}
+}
+
+func TestBuildProfileDaemonSetWithoutMetrics(t *testing.T) {
+	cfg := testConfig()
+	cfg.MetricsEnabled = false
+	profile := &nodev1alpha1.NodeProfile{
+		ObjectMeta: metav1.ObjectMeta{Name: "general"},
+		Spec: nodev1alpha1.NodeProfileSpec{
+			JDKs: []nodev1alpha1.JDKRef{{Distribution: "temurin", Feature: 21}},
+		},
+	}
+
+	ds := buildProfileDaemonSet(cfg, profile, "", nil)
+	if got := len(ds.Spec.Template.Spec.Containers); got != 1 {
+		t.Fatalf("containers = %d, want only provisioner when metrics are disabled", got)
 	}
 }
 

@@ -42,6 +42,7 @@ if (
   exit 1
 fi
 
+
 if (
   JDK_CUSTOM_SOURCE_COUNT=1
   JDK_CUSTOM_SOURCE_0_IMAGE=azul-zulu:21

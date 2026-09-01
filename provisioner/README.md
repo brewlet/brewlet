@@ -30,8 +30,8 @@ make provisioner-image PROVISIONER_IMAGE=ghcr.io/acme/brewlet-provisioner:1.2.3
 ```
 
 The multi-stage Docker build compiles
-`containerd-shim-brewlet-v2` for the target Linux architecture and packages it
-with the host installation entrypoint.
+`containerd-shim-brewlet-v2` and `brewlet-metrics-exporter` for the target Linux
+architecture and packages them with the host installation entrypoint.
 
 ## Configuration
 
@@ -64,6 +64,13 @@ Provisioning is idempotent, records the source image and Java home, and
 reinstalls a token when either changes. Runtime roots retain the source image's
 filesystem modes; the shim keeps the shared lower layer and Java-home bind mount
 read-only for workloads.
+
+When Helm runtime metrics are enabled, the profile-managed DaemonSet includes a
+best-effort exporter sidecar that serves `/metrics` and listens for shim
+telemetry on `/opt/brewlet/metrics/telemetry.sock`. It also reads the installed
+JDK and launcher roots directly, including each JDK's exact `release` metadata,
+source image, and node installation timestamp. The sidecar is disabled by
+default.
 
 Copy-from-image commands run through the bundled `ctr` client in the host mount
 namespace. This is required because the provisioner connects to the host
