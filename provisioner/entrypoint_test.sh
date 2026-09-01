@@ -106,7 +106,9 @@ printf '{"config":{"containerd":{"runtimes":{"runc":{},"brewlet":{}}}}}\n'
 EOF
 chmod +x "$fake_crictl"
 (
-  CRICTL="$fake_crictl"
+  HOST_CRICTL="$fake_crictl"
+  HOST_CRICTL_PATH="$fake_crictl"
+  host_exec() { "$@"; }
   brewlet_handler_healthy
 )
 cat >"$fake_crictl" <<'EOF'
@@ -114,7 +116,9 @@ cat >"$fake_crictl" <<'EOF'
 printf '{"config":{"containerd":{"runtimes":{"runc":{}}}}}\n'
 EOF
 if (
-  CRICTL="$fake_crictl"
+  HOST_CRICTL="$fake_crictl"
+  HOST_CRICTL_PATH="$fake_crictl"
+  host_exec() { "$@"; }
   brewlet_handler_healthy
 ); then
   echo "expected a missing live brewlet runtime handler to fail health checking" >&2

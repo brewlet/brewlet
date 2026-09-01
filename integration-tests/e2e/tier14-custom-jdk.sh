@@ -50,7 +50,8 @@ _t14_cleanup() {
       docker exec "$T14_NODE" systemctl restart containerd >/dev/null 2>&1 || true
       docker exec "$T14_NODE" rm -f \
         /etc/containerd/config.toml.brewlet.bak \
-        /usr/local/bin/brewlet-ctr-rollback-probe >/dev/null 2>&1 || true
+        /usr/local/bin/brewlet-ctr-rollback-probe \
+        /usr/local/bin/brewlet-crictl-rollback-probe >/dev/null 2>&1 || true
     fi
     docker exec "$T14_NODE" sh -c \
       'chmod -R u+w "$1" 2>/dev/null || true; rm -rf "$1"' \
@@ -137,7 +138,8 @@ spec:
       command: ["/bin/bash", "-c"]
       args:
         - install -m 0755 /usr/local/bin/ctr "\$HOST_CTR";
-          trap 'rm -f "\$HOST_CTR"' EXIT;
+          install -m 0755 /bin/false "\$HOST_CRICTL";
+          trap 'rm -f "\$HOST_CTR" "\$HOST_CRICTL"' EXIT;
           source /usr/local/bin/brewlet-provision;
           clear_node_advertisement;
           patch_containerd;
@@ -145,12 +147,14 @@ spec:
       env:
         - name: NODE_NAME
           value: $T14_NODE
-        - name: CRICTL
-          value: /bin/false
         - name: HOST_CTR
           value: /host/usr/local/bin/brewlet-ctr-rollback-probe
         - name: HOST_CTR_PATH
           value: /usr/local/bin/brewlet-ctr-rollback-probe
+        - name: HOST_CRICTL
+          value: /host/usr/local/bin/brewlet-crictl-rollback-probe
+        - name: HOST_CRICTL_PATH
+          value: /usr/local/bin/brewlet-crictl-rollback-probe
         - name: CONTAINERD_HEALTH_ATTEMPTS
           value: "1"
         - name: CONTAINERD_RECOVERY_ATTEMPTS
@@ -203,7 +207,8 @@ YAML
   annotate_node "$T14_NODE" brewlet.sh/provision-error- >/dev/null 2>&1 || true
   docker exec "$T14_NODE" rm -f \
     /etc/containerd/config.toml.brewlet.bak \
-    /usr/local/bin/brewlet-ctr-rollback-probe >/dev/null 2>&1 || true
+    /usr/local/bin/brewlet-ctr-rollback-probe \
+    /usr/local/bin/brewlet-crictl-rollback-probe >/dev/null 2>&1 || true
   (( failed == 0 ))
 }
 

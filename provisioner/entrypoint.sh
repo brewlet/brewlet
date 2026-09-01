@@ -37,9 +37,11 @@ CONTAINERD_CONFIG="${CONTAINERD_CONFIG:-/etc/containerd/config.toml}"
 SHIM_SRC="${SHIM_SRC:-/opt/brewlet-dist/containerd-shim-brewlet-v2}"  # baked into the image
 SHIM_NAME="containerd-shim-brewlet-v2"
 CTR_SRC="${CTR_SRC:-/usr/local/bin/ctr}"
-CRICTL="${CRICTL:-/usr/local/bin/crictl}"
+CRICTL_SRC="${CRICTL_SRC:-/usr/local/bin/crictl}"
 HOST_CTR="${HOST_CTR:-$HOST_BIN/brewlet-ctr}"
 HOST_CTR_PATH="${HOST_CTR_PATH:-/usr/local/bin/brewlet-ctr}"
+HOST_CRICTL="${HOST_CRICTL:-$HOST_BIN/brewlet-crictl}"
+HOST_CRICTL_PATH="${HOST_CRICTL_PATH:-/usr/local/bin/brewlet-crictl}"
 JDK_HOME_METADATA=".brewlet-java-home"
 JDK_SOURCE_METADATA=".brewlet-source"
 JDK_ACTIVE_INVENTORY=".brewlet-active"
@@ -245,13 +247,15 @@ require_cgroup_v2() {
 install_shim() {
   [[ -x "$SHIM_SRC" ]] || die "shim binary not found in image at $SHIM_SRC"
   [[ -x "$CTR_SRC" ]] || die "ctr binary not found in image at $CTR_SRC"
+  [[ -x "$CRICTL_SRC" ]] || die "crictl binary not found in image at $CRICTL_SRC"
   mkdir -p "$PREFIX/bin" "$HOST_BIN"
   # /opt/brewlet/bin is the canonical location; /usr/local/bin is on containerd's
   # PATH so runtime_type = io.containerd.brewlet.v2 resolves the shim binary.
   install -m 0755 "$SHIM_SRC" "$PREFIX/bin/$SHIM_NAME"
   install -m 0755 "$SHIM_SRC" "$HOST_BIN/$SHIM_NAME"
   install -m 0755 "$CTR_SRC" "$HOST_CTR"
-  log "installed shim and host ctr helper"
+  install -m 0755 "$CRICTL_SRC" "$HOST_CRICTL"
+  log "installed shim and host containerd/CRI helpers"
 }
 
 # ---------------------------------------------------------------------------
@@ -538,8 +542,9 @@ containerd_healthy() {
 }
 
 brewlet_handler_healthy() {
-  [[ -x "$CRICTL" ]] || return 1
-  "$CRICTL" --runtime-endpoint "unix://${CONTAINERD_ADDRESS}" info 2>/dev/null \
+  [[ -x "$HOST_CRICTL" ]] || return 1
+  host_exec "$HOST_CRICTL_PATH" \
+    --runtime-endpoint "unix://${CONTAINERD_ADDRESS}" info 2>/dev/null \
     | grep -Eq '"brewlet"[[:space:]]*:'
 }
 
@@ -755,8 +760,9 @@ unpatch_containerd() {
 }
 
 remove_shim() {
-  rm -f "$PREFIX/bin/$SHIM_NAME" "$HOST_BIN/$SHIM_NAME" "$HOST_CTR"
-  log "removed shim binaries and host ctr helper"
+  rm -f "$PREFIX/bin/$SHIM_NAME" "$HOST_BIN/$SHIM_NAME" \
+    "$HOST_CTR" "$HOST_CRICTL"
+  log "removed shim binaries and host containerd/CRI helpers"
 }
 
 unlabel_node() {
