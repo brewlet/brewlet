@@ -39,6 +39,11 @@ kubectl get nodes -L brewlet.sh/runtime
 See the [Brewlet installation guide](https://github.com/brewlet/site) for
 cluster prerequisites and production configuration.
 
+The public [capability-label reference](../specs/CAPABILITY_LABELS.md) defines
+the node labels emitted from `NodeProfile` inventories, the affinity injected
+by admission, and supported Cluster Autoscaler and Karpenter integration
+patterns.
+
 ### Custom JDK distributions
 
 `temurin` and `microsoft` use built-in image mappings. For another distribution,
