@@ -599,8 +599,17 @@ DaemonSet — remains for the no-operator path (§5.5).
    shim translates it back into `runc` options (preserving `SystemdCgroup`) and,
    for the pod's pause/sandbox container, delegates to the embedded `runc` task
    service unchanged rather than rewriting it into a JVM launch.
-4. Reloads containerd (SIGHUP / restart), verifies the shim responds.
-5. On success, labels the node `brewlet.sh/runtime=ready` and annotates with the
+4. Applies the configured containerd reload policy and readiness smoke gate.
+   Unless validation is disabled, it runs `java -version` inside every configured
+   JDK root and a deterministic one-shot probe for every configured launcher
+   layer (`JAZ_PRINT_VERSION=1` for `jaz`). The default `validated` mode probes
+   before reload; the `sighup` and `none` modes retain their reload behavior and
+   apply the same gate before readiness is advertised. A missing or
+   non-executable launcher, or any unsuccessful probe, clears all readiness
+   advertisements and records a bounded launcher-specific
+   `brewlet.sh/provision-error` reason.
+5. Verifies the shim responds.
+6. On success, labels the node `brewlet.sh/runtime=ready` and annotates with the
    available JDKs, e.g. `brewlet.sh/jdks=temurin-17,temurin-21,temurin-25`, and
    any installed launchers, e.g. `brewlet.sh/launchers=java,jaz`. It also emits
    per-capability **scheduling labels** the admission webhook matches nodeAffinity
@@ -717,6 +726,13 @@ OpenJDK. The node advertises what it installed via `brewlet.sh/launchers=…`, a
 a descriptor requesting a launcher the node lacks fails admission with
 `NoCompatibleLauncher` (§14).
 
+Before those launcher capabilities are advertised, the provisioner verifies
+each installed launcher layer. For `jaz`, it sets `JAZ_PRINT_VERSION=1` (and
+`JAZ_EXIT_WITHOUT_FLUSH=1`) to print the launcher version and exit without
+starting a JVM. Probe failure leaves the node unready and reports a concise
+launcher-specific provisioning error. Setting `BREWLET_VALIDATE=false` skips
+this check together with the JDK smoke tests.
+
 > **Security note (shared with Runtime Class Manager):** node provisioning is privileged and
 > modifies the host. It must be scoped to nodes the platform team controls, and is
 > not recommended for hostile multi-tenant nodes without further isolation (§11).
@@ -734,14 +750,15 @@ directory (`Dockerfile` + `entrypoint.sh`) and deployed by
   matches the node arch), then assembles a small Debian-based runtime carrying the
   entrypoint plus `bash`/`curl`/`kubectl`. Build with `make provisioner-image`
   (single arch) or `make provisioner-image-push` (multi-arch via buildx).
-- **Entrypoint** — an idempotent script that performs all five §5.2 steps:
+- **Entrypoint** — an idempotent script that performs all §5.2 steps:
   installs the shim to `/opt/brewlet/bin` and the host `/usr/local/bin` (containerd's
   PATH); materializes each declared JDK root under `/opt/brewlet/jdks/<dist>-<feature>/`
   via **copy-from-image** (`ctr` against the host containerd); stages launcher layers
   (e.g. `jaz`) under `/opt/brewlet/launchers/`; appends the
   `runtimes.brewlet` block to `/etc/containerd/config.toml` and reloads containerd
-  (SIGHUP via `hostPID`) — gated by a post-install JDK smoke test and configurable
-  per the restart policy in §5.6 (`validate` / `containerdRestart`); then labels the
+  (SIGHUP via `hostPID`) — gated by post-install JDK and launcher smoke tests and
+  configurable per the restart policy in §5.6 (`validate` /
+  `containerdRestart`); then labels the
   node `brewlet.sh/runtime=ready`,
   annotates the installed JDKs/launchers, and emits the per-capability scheduling
   labels the admission webhook uses (`brewlet.sh/jdk.*`, `brewlet.sh/jdk-feature.*`,
@@ -783,7 +800,7 @@ spec:
     mirrors: { "mcr.microsoft.com": "mirror.internal/mcr" }
   rollout:
     maxUnavailable: 1
-    validate: true           # gate readiness on a post-install JDK smoke test
+    validate: true           # gate readiness on post-install JDK/launcher probes
     containerdRestart: validated   # validated | sighup | none
 ```
 

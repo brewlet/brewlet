@@ -24,6 +24,8 @@ The following parts have shipped:
   environment wiring.
 - A post-install `java -version` smoke test for every configured JDK root before
   the node is labelled `brewlet.sh/runtime=ready`.
+- A deterministic version smoke test for every configured launcher layer before
+  runtime-ready or launcher capability labels are advertised.
 - Removal of stale readiness advertisements before provisioning starts, so a
   failed reprovisioning attempt does not leave the node advertised as ready.
 - The `brewlet.sh/provision-error` annotation and controller propagation into
@@ -33,9 +35,7 @@ The proposal remains open because the validated reconfiguration path does not
 yet validate the rendered configuration with `containerd config dump`, use a
 drop-in when supported, restart containerd through the host service manager,
 health-probe the runtime handler after restart, or automatically restore the
-known-good configuration after a failed provisioning attempt. Installed
-launcher layers also do not yet receive their proposal-defined version smoke
-test.
+known-good configuration after a failed provisioning attempt.
 
 ---
 

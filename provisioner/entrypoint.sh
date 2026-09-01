@@ -65,7 +65,7 @@ BREWLET_MODE="${BREWLET_MODE:-provision}"
 
 # When and whether to reload containerd after (re)writing its config (§5.6 /
 # proposal 0002). One of:
-#   validated (default) = smoke-test the installed JDK roots first, then SIGHUP
+#   validated (default) = SIGHUP after the readiness smoke gate passes
 #   sighup              = SIGHUP containerd unconditionally after writing config
 #   none                = never signal containerd; a human/rollout restarts it
 BREWLET_CONTAINERD_RESTART="${BREWLET_CONTAINERD_RESTART:-validated}"
@@ -455,15 +455,42 @@ patch_containerd() {
 EOF
 }
 
-# validate_runtime is the "validated" restart gate: before we ask containerd to
-# pick up the brewlet runtime, smoke-test every installed JDK root so a broken
-# copy-from-image never gets flipped live. Honors BREWLET_VALIDATE=false (skip).
+# Keep launcher-derived provision-error reasons concise and bounded even if a
+# future inventory source passes an invalid or unexpectedly long token.
+launcher_reason_id() {
+  local name="$1"
+  name="${name//[^[:alnum:]._-]/_}"
+  printf '%.48s' "$name"
+}
+
+validate_launcher() {
+  local name="$1" root binary reason_id
+  [[ "$name" != "java" ]] || return 0
+  root="$PREFIX/launchers/${name}"
+  binary="$root/bin/${name}"
+  reason_id="$(launcher_reason_id "$name")"
+
+  [[ -e "$binary" ]] || die "launcher-${reason_id}-missing"
+  [[ -x "$binary" ]] || die "launcher-${reason_id}-not-executable"
+
+  case "$name" in
+    jaz)
+      JAZ_PRINT_VERSION=1 JAZ_EXIT_WITHOUT_FLUSH=1 "$binary" >/dev/null 2>&1 \
+        || die "launcher-${reason_id}-probe-failed" ;;
+    *)
+      "$binary" -version >/dev/null 2>&1 \
+        || die "launcher-${reason_id}-probe-failed" ;;
+  esac
+}
+
+# Before readiness is advertised, smoke-test every installed JDK and launcher
+# root. Honors BREWLET_VALIDATE=false (skip).
 validate_runtime() {
   if [[ "${BREWLET_VALIDATE}" == "false" ]]; then
     log "validation disabled (BREWLET_VALIDATE=false); skipping smoke test"
     return 0
   fi
-  local spec dist feature root java_home
+  local spec dist feature root java_home launcher
   IFS=',' read -ra _jdks <<<"$JDKS"
   for spec in "${_jdks[@]}"; do
     [[ -n "$spec" ]] || continue
@@ -473,11 +500,15 @@ validate_runtime() {
     jdk_root_complete "$root" \
       || die "validation failed: '${java_home%/}/bin/java -version' errored inside ${root} for ${spec}"
   done
-  log "validation passed: all JDK roots smoke-tested"
+  IFS=',' read -ra _launchers <<<"$LAUNCHERS"
+  for launcher in "${_launchers[@]}"; do
+    [[ -n "$launcher" ]] && validate_launcher "$launcher"
+  done
+  log "validation passed: all JDK and launcher roots smoke-tested"
 }
 
-# maybe_reload_containerd applies BREWLET_CONTAINERD_RESTART (§5.6): reload
-# always, only after validation, or never (defer to an out-of-band restart).
+# maybe_reload_containerd applies BREWLET_CONTAINERD_RESTART (§5.6): reload with
+# the selected mechanism, or defer to an out-of-band restart.
 maybe_reload_containerd() {
   case "${BREWLET_CONTAINERD_RESTART}" in
     none)
@@ -489,6 +520,15 @@ maybe_reload_containerd() {
       reload_containerd ;;
     *)
       die "invalid BREWLET_CONTAINERD_RESTART='${BREWLET_CONTAINERD_RESTART}' (want: validated|sighup|none)" ;;
+  esac
+}
+
+# The validated mode probes before its reload. Other modes retain their existing
+# reload behavior and apply the same gate afterward, immediately before labels.
+validate_readiness_after_reload() {
+  case "${BREWLET_CONTAINERD_RESTART}" in
+    validated|"") ;;
+    *) validate_runtime ;;
   esac
 }
 
@@ -732,6 +772,7 @@ main() {
 
   patch_containerd
   maybe_reload_containerd
+  validate_readiness_after_reload
   verify_shim
   label_node || die "could not publish node runtime inventory"
   # Clear any stale provision-error from a previous failed attempt now we're good.

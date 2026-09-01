@@ -69,3 +69,111 @@ if (
   echo "expected a path-traversing custom JDK token to fail" >&2
   exit 1
 fi
+
+validation_root="$(mktemp -d)"
+chmod -R u+w "$validation_root" 2>/dev/null || true
+trap 'rm -f "$calls"; chmod -R u+w "$dest" "$validation_root" 2>/dev/null || true; rm -rf "$dest" "$validation_root"' EXIT
+
+mkdir -p "$validation_root/launchers/jaz/bin"
+cat >"$validation_root/launchers/jaz/bin/jaz" <<'EOF'
+#!/usr/bin/env bash
+[[ "${JAZ_PRINT_VERSION:-}" == "1" ]]
+[[ "${JAZ_EXIT_WITHOUT_FLUSH:-}" == "1" ]]
+printf 'jaz-probed\n' >>"$LAUNCHER_PROBE_CALLS"
+EOF
+chmod 0755 "$validation_root/launchers/jaz/bin/jaz"
+
+(
+  PREFIX="$validation_root"
+  JDKS=temurin-21
+  LAUNCHERS=java,jaz
+  BREWLET_VALIDATE=true
+  LAUNCHER_PROBE_CALLS="$calls"
+  export LAUNCHER_PROBE_CALLS
+  jdk_root_complete() { return 0; }
+  validate_runtime
+)
+grep -Fxq "jaz-probed" "$calls"
+
+assert_launcher_validation_fails() {
+  local expected="$1"
+  local output
+  if output="$(
+    (
+      PREFIX="$validation_root"
+      JDKS=temurin-21
+      LAUNCHERS=jaz
+      BREWLET_VALIDATE=true
+      BREWLET_MODE=cleanup
+      jdk_root_complete() { return 0; }
+      validate_runtime
+    ) 2>&1
+  )"; then
+    echo "expected launcher validation to fail with ${expected}" >&2
+    exit 1
+  fi
+  grep -Fq "ERROR: ${expected}" <<<"$output"
+}
+
+rm -f "$validation_root/launchers/jaz/bin/jaz"
+assert_launcher_validation_fails "launcher-jaz-missing"
+
+printf '#!/usr/bin/env bash\nexit 0\n' >"$validation_root/launchers/jaz/bin/jaz"
+chmod 0644 "$validation_root/launchers/jaz/bin/jaz"
+assert_launcher_validation_fails "launcher-jaz-not-executable"
+
+printf '#!/usr/bin/env bash\nexit 7\n' >"$validation_root/launchers/jaz/bin/jaz"
+chmod 0755 "$validation_root/launchers/jaz/bin/jaz"
+assert_launcher_validation_fails "launcher-jaz-probe-failed"
+
+(
+  PREFIX="$validation_root"
+  JDKS=temurin-21
+  LAUNCHERS=jaz
+  BREWLET_VALIDATE=false
+  jdk_root_complete() { return 1; }
+  validate_runtime
+)
+
+long_launcher="launcher-name-that-is-deliberately-longer-than-forty-eight-characters"
+bounded_launcher="${long_launcher:0:48}"
+if output="$(
+  (
+    PREFIX="$validation_root"
+    JDKS=temurin-21
+    LAUNCHERS="$long_launcher"
+    BREWLET_VALIDATE=true
+    BREWLET_MODE=cleanup
+    jdk_root_complete() { return 0; }
+    validate_runtime
+  ) 2>&1
+)"; then
+  echo "expected a missing long-named launcher to fail validation" >&2
+  exit 1
+fi
+grep -Fq "ERROR: launcher-${bounded_launcher}-missing" <<<"$output"
+if grep -Fq "$long_launcher" <<<"$output"; then
+  echo "launcher validation reason was not bounded" >&2
+  exit 1
+fi
+
+assert_restart_validation_order() {
+  local mode="$1" expected="$2" order
+  order="$(
+    (
+      BREWLET_CONTAINERD_RESTART="$mode"
+      validate_runtime() { printf 'validate\n'; }
+      reload_containerd() { printf 'reload\n'; }
+      maybe_reload_containerd
+      validate_readiness_after_reload
+    )
+  )"
+  [[ "$order" == "$expected" ]] || {
+    echo "unexpected ${mode} restart/validation order: ${order}" >&2
+    exit 1
+  }
+}
+
+assert_restart_validation_order validated $'validate\nreload'
+assert_restart_validation_order sighup $'reload\nvalidate'
+assert_restart_validation_order none $'[brewlet-provisioner] BREWLET_CONTAINERD_RESTART=none; leaving containerd untouched (restart it out of band to activate the brewlet runtime)\nvalidate'
