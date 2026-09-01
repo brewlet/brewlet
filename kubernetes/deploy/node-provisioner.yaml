@@ -66,7 +66,7 @@ spec:
                   - key: brewlet.sh/provision
                     operator: In
                     values: ["true"]
-      hostPID: true                       # so the entrypoint can SIGHUP containerd
+      hostPID: true                       # restart containerd through the host service manager
       tolerations:
         - operator: Exists
       containers:
