@@ -312,8 +312,10 @@ as needed.
   selected node pool.
 - **A requested `<feature>` must be published as an image** by the chosen vendor for
   the node's architecture.
-- **containerd reload is `SIGHUP`.** On some distros a full `systemctl restart
-  containerd` is more reliable for picking up the new runtime.
+- The default validated activation expects the host containerd service to be
+  restartable as `containerd` through systemd. Use the legacy `sighup` mode when
+  that service-manager contract is unavailable, or `none` when runtime
+  registration is managed in the node image.
 
 ## Next steps
 

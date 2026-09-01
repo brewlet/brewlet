@@ -136,6 +136,13 @@ kubectl get node node-1 -o jsonpath='{.metadata.annotations.brewlet\.sh/launcher
 # java,jaz
 ```
 
+With the default `provisioner.rollout.validate=true`, Brewlet probes every
+configured launcher before publishing this inventory or any readiness/capability
+labels. `jaz` uses its deterministic version-only mode; other launchers use
+`<launcher> -version`. Missing, non-executable, or failing binaries leave the
+node unready and set a bounded reason such as
+`brewlet.sh/provision-error=launcher-jaz-probe-failed`.
+
 See the core runtime's
 [`provisioner/README.md`](https://github.com/brewlet/brewlet/blob/main/provisioner/README.md)
 for the provisioner mechanics.

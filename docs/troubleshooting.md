@@ -31,6 +31,7 @@ kubectl get node <n> -o jsonpath='{.metadata.labels.brewlet\.sh/provision}{"\n"}
 kubectl get pods -n brewlet -o wide | grep <n>
 kubectl logs -n brewlet <provisioner-pod>
 kubectl get events --field-selector reason=ProvisionFailed
+kubectl get node <n> -o jsonpath='{.metadata.annotations.brewlet\.sh/provision-error}{"\n"}'
 ```
 
 **Common causes & fixes:**
@@ -43,9 +44,20 @@ kubectl get events --field-selector reason=ProvisionFailed
   [JDK management](jdk-management.md#installation-copy-from-image).
 - **can't reach the registry / socket** — verify the containerd
   socket mount and that the node can pull the JDK image.
-- **containerd didn't pick up the runtime** — the provisioner reloads via `SIGHUP`;
-  on some distros a full `systemctl restart containerd` is needed. Restart
-  containerd on the node and re-check.
+- **JDK or launcher probe failed** — `brewlet.sh/provision-error` identifies the
+  failed component. Confirm each configured JDK has an executable `bin/java`;
+  confirm each launcher has an executable `bin/<name>` and can complete its
+  version probe. A failed probe removes stale runtime and capability labels.
+- **containerd config validation failed** — in `validated` mode, Brewlet runs
+  `containerd config dump` and requires the exact `brewlet` handler before
+  activation. Inspect the provisioner log and the effective host configuration;
+  Brewlet restores/removes the rejected render automatically.
+- **containerd restart or health check failed** — validated mode restores the
+  prior primary config or drop-in, restarts containerd, and verifies recovery.
+  Reasons such as `restart-failed`, `containerd-health-check-failed`, or
+  `runtime-handler-health-check-failed` indicate the failed stage;
+  `rollback-failed` means automated recovery also failed and the node needs
+  immediate operator attention.
 - **RBAC** — the provisioner needs `get`/`patch` on nodes to label them; confirm the
   ServiceAccount/ClusterRole from the manifest/chart are present.
 
@@ -126,10 +138,15 @@ kubectl describe pod <pod>                 # events from kubelet/containerd
 journalctl -u containerd | grep -i brewlet
 ls -l /opt/brewlet/bin/containerd-shim-brewlet-v2
 grep -A2 runtimes.brewlet /etc/containerd/config.toml
+test ! -f /etc/containerd/config.toml.d/99-brewlet.toml ||
+  cat /etc/containerd/config.toml.d/99-brewlet.toml
+containerd --config /etc/containerd/config.toml config dump | grep -A4 runtimes.brewlet
 ```
 
-- **Shim not on containerd's PATH** — confirm it's installed to `/usr/local/bin` and
-  the `runtimes.brewlet` block exists in `config.toml`; restart containerd.
+- **Shim not on containerd's PATH** — confirm it's installed to `/usr/local/bin`
+  and the effective config dump contains the `runtimes.brewlet` block. In
+  validated mode the provisioner restarts and probes the handler itself; use its
+  logs and `brewlet.sh/provision-error` rather than manually replacing config.
 - **JDK root missing** — confirm `/opt/brewlet/jdks/<dist>-<feature>/bin/java`
   exists on the node.
 - **Arch mismatch** — the shim is arch-specific; ensure the provisioner image matches

@@ -10,10 +10,11 @@ There are two paths:
   activation.
 - **[Manual](#manual-without-helm)** — apply the raw manifests yourself.
 
-> ⚠️ **Node provisioning is privileged and mutates the host** (installs a shim,
-> JDK roots, and edits `/etc/containerd/config.toml`). Provision only nodes your
-> platform team controls; on mixed clusters scope with named `NodeProfile`s (§5.6)
-> rather than the all-nodes default profile. See [Security](security.md).
+> ⚠️ **Node provisioning is privileged and mutates the host** (installs a shim
+> and runtime roots, and registers the runtime through containerd configuration).
+> Provision only nodes your platform team controls; on mixed clusters scope with
+> named `NodeProfile`s (§5.6) rather than the all-nodes default profile. See
+> [Security](security.md).
 
 ---
 
@@ -72,7 +73,8 @@ helm upgrade --install brewlet oci://ghcr.io/brewlet/charts/brewlet \
 
 # The chart renders a default NodeProfile that provisions EVERY node (§5.6) —
 # there is no per-node opt-in step. The operator provisions each node and the
-# provisioner marks it ready once the shim + JDK + runtime are installed. Watch:
+# provisioner marks it ready once the shim, runtime inventory, containerd
+# handler, and configured readiness probes are healthy. Watch:
 kubectl get nodes -L brewlet.sh/runtime -w
 ```
 
@@ -82,6 +84,26 @@ kubectl get nodes -L brewlet.sh/runtime -w
 > (`profiles` / `defaultProfile`) and [SPECIFICATION §5.6](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md).
 > For the labels those profiles publish and their autoscaler implications, see
 > [Capability labels and autoscaling](capability-labels-and-autoscaling.md).
+
+### Safe activation and readiness
+
+The default rollout is fail-safe:
+
+- `provisioner.rollout.validate=true` executes every installed JDK and launcher
+  version probe before readiness or capability labels are published.
+- `provisioner.rollout.containerdRestart=validated` renders an imported
+  `/etc/containerd/config.toml.d/99-brewlet.toml` drop-in when supported, or a
+  backed-up in-place configuration otherwise. It validates the effective config,
+  restarts the host containerd service only when required, and verifies both
+  containerd and the live `brewlet` runtime handler.
+- If validation, restart, or a health check fails, Brewlet removes/restores its
+  change, recovers containerd, leaves the node unready, and records the reason in
+  `brewlet.sh/provision-error`.
+
+Use `containerdRestart: sighup` only for the legacy in-place SIGHUP path. Use
+`containerdRestart: none` when containerd registration is managed in the node
+image or by another system; the JDK and launcher readiness probes still run.
+See [Configuration](configuration.md#helm-chart-values) for the values.
 
 Point the chart at your own registry or image digests if required:
 
@@ -198,6 +220,12 @@ kubectl get node node-1 -o jsonpath='{.metadata.annotations.brewlet\.sh/provisio
 #   Ready
 ```
 
+The failure reason annotation is empty after successful provisioning:
+
+```bash
+kubectl get node node-1 -o jsonpath='{.metadata.annotations.brewlet\.sh/provision-error}{"\n"}'
+```
+
 Watch provisioning events if a node isn't going ready:
 
 ```bash
@@ -231,9 +259,10 @@ helm uninstall brewlet
 > Uninstalling deletes the control-plane components **and** the chart's `NodeProfile`
 > objects. Each profile carries a `node.brewlet.sh/cleanup` finalizer, so the operator
 > holds the object while a short-lived `brewlet-cleanup-<profile>` DaemonSet
-> (`BREWLET_MODE=cleanup`) restores the `config.toml` backup, removes the shim + JDK
-> roots, and drops the runtime + capability labels on every assigned node — reversing
-> host state automatically before the object is garbage-collected (§5.6). Watch it with
+> (`BREWLET_MODE=cleanup`) removes the Brewlet drop-in or restores the primary-config
+> backup, removes the shim + JDK roots, and drops the runtime + capability labels on
+> every assigned node — reversing host state automatically before the object is
+> garbage-collected (§5.6). Watch it with
 > `kubectl get daemonset -n brewlet -w`. If a cluster was provisioned the older way (a
 > bare `brewlet.sh/provision=true` node **label** with no profile), drain and clean those
 > nodes (or replace them) to fully reverse provisioning.
