@@ -77,6 +77,7 @@ nav:
   - Run on a cluster:
       - Installation: installation.md
       - Configuration: configuration.md
+      - Capability labels and autoscaling: capability-labels-and-autoscaling.md
       - JDK management: jdk-management.md
       - Launchers: launchers.md
   - Ship workloads:
