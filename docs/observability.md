@@ -42,6 +42,13 @@ kubectl logs <pod> --previous          # after a restart
 - **metrics-server / HPA** work because the sandbox is a real cgroup-backed
   container.
 
+These are application and Kubernetes resource signals. Brewlet's own
+control-plane, launch-path, and node inventory telemetry is a separate,
+default-off feature. See
+[Runtime metrics and Grafana dashboards](runtime-metrics.md) for Helm
+enablement, Prometheus scrape surfaces, the metric catalog, PromQL examples,
+and the bundled dashboard.
+
 ```yaml
 jvm:
   args:
@@ -136,11 +143,15 @@ kubectl get events --field-selector reason=ProvisionFailed
 kubectl get pods -n brewlet
 ```
 
-The operator exposes metrics (`--metrics-bind-address`, default `:8080`) and a
-health/readiness endpoint (`--health-probe-bind-address`, default `:8081`).
+The operator's health/readiness endpoint is available at
+`--health-probe-bind-address` (default `:8081`). Its Prometheus listener, the
+admission listener, and the node exporter are enabled through
+`metrics.enabled`; see
+[Runtime metrics and Grafana dashboards](runtime-metrics.md).
 
 ## Next steps
 
 - **[Troubleshooting](troubleshooting.md)** — when something's wrong.
 - **[Security](security.md)** — hardening and supply chain.
-- **[Roadmap](https://github.com/brewlet/brewlet/blob/main/ROADMAP.md#observability)** — planned Brewlet-specific telemetry.
+- **[Runtime metrics and Grafana dashboards](runtime-metrics.md)** — operate the
+  shipped Brewlet-specific telemetry.
