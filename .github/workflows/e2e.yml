@@ -74,6 +74,11 @@ jobs:
             java: true
             cluster: true
             helm: false
+          - name: Runtime metrics (tier 15)
+            tiers: --tier 15
+            java: true
+            cluster: true
+            helm: true
     steps:
       - uses: actions/checkout@v7
 
