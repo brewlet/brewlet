@@ -4,7 +4,8 @@ Every knob Brewlet exposes, in one place: Helm chart values, node-provisioner
 environment variables, operator/admission flags, the `RuntimeClass`, and how the
 different layers relate. For *how* to install, see [Installation](installation.md);
 for JDKs and launchers specifically, see [JDK management](jdk-management.md) and
-[Launchers](launchers.md).
+[Launchers](launchers.md). For the operational workflow behind the metrics
+values, see [Runtime metrics and Grafana dashboards](runtime-metrics.md).
 
 ---
 
@@ -64,6 +65,13 @@ with `--set key=value` or a values file.
 | `operator.replicas` | `1` | Operator replica count. |
 | `operator.leaderElect` | `true` | Enable leader election for HA. |
 | `operator.resources` | requests `50m/64Mi`, limits `200m/128Mi` | Operator pod resources. |
+| `metrics.enabled` | `false` | Opt in to Brewlet runtime and control-plane Prometheus endpoints. Enables the operator and admission listeners plus the node exporter sidecar and Services. |
+| `metrics.nodePort` | `9090` | Port exposed by each node-local metrics exporter and the `brewlet-node-metrics` headless Service. |
+| `metrics.serviceMonitor.enabled` | `false` | Create a Prometheus Operator `ServiceMonitor`. Requires the `monitoring.coreos.com/v1` CRDs. |
+| `metrics.serviceMonitor.interval` | `30s` | Scrape interval rendered into the optional `ServiceMonitor`. |
+| `metrics.serviceMonitor.additionalLabels` | `{}` | Extra `ServiceMonitor` labels, commonly used to match a Prometheus `serviceMonitorSelector`. |
+| `metrics.grafanaDashboard.enabled` | `false` | Create the `brewlet-grafana-dashboard` ConfigMap for dashboard sidecar discovery; does not install Grafana or a data source. |
+| `metrics.grafanaDashboard.labels` | `grafana_dashboard: "1"` | Labels applied to the dashboard ConfigMap for sidecar discovery. |
 | `admission.enabled` | `true` | Deploy the admission/scheduling webhook. Set `false` to skip it (the shim keeps its runtime JDK check). |
 | `admission.replicas` | `1` | Webhook replica count. |
 | `admission.failurePolicy` | `Ignore` | Webhook failure policy. `Ignore` ensures a webhook outage never blocks workloads. |
@@ -216,3 +224,5 @@ footprint.
   curated distribution → image matrix.
 - **[Launchers](launchers.md)** — installing and choosing `jaz`.
 - **[Deploying workloads](deploying-workloads.md)** — put these knobs to use.
+- **[Runtime metrics and Grafana dashboards](runtime-metrics.md)** — enable,
+  scrape, query, visualize, and troubleshoot Brewlet telemetry.

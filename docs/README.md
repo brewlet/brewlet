@@ -75,6 +75,9 @@ examples in
   integrity, and the sharp edge of privileged node provisioning.
 - **[Observability & day‑2](observability.md)** — networking, logs, metrics,
   probes, JDK upgrades, and multi-arch operations.
+- **[Runtime metrics and Grafana dashboards](runtime-metrics.md)** — enable and
+  scrape Brewlet's control-plane and runtime telemetry, use the bundled
+  dashboard, and troubleshoot missing targets or inventory.
 - **[Multi-architecture fleets](multi-arch.md)** — run portable JARs across
   `amd64` and `arm64`, and constrain workloads that bundle native libraries.
 - **[Troubleshooting](troubleshooting.md)** — failure modes, what they look like,
