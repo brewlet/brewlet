@@ -1,6 +1,6 @@
 # Proposal 0002 — Validated containerd reconfiguration & readiness smoke gate
 
-- **Status:** partially implemented
+- **Status:** implemented
 - **Target spec sections:** amend **§5.2** (steps 4–5) + **§14** (failure modes)
 - **Related code:** [`brewlet/brewlet`](https://github.com/brewlet/brewlet):
   `provisioner/entrypoint.sh`; [`kubernetes/`](../../kubernetes):
@@ -30,12 +30,14 @@ The following parts have shipped:
   failed reprovisioning attempt does not leave the node advertised as ready.
 - The `brewlet.sh/provision-error` annotation and controller propagation into
   `ProvisionFailed` events and `NodeProfile` status.
+- Host-enabled containerd drop-in rendering with a backed-up in-place fallback,
+  followed by `containerd config dump` validation that explicitly requires the
+  `runtimes.brewlet` handler. Unchanged valid renders skip the reload.
+- Transactional host-service restart, live containerd and runtime-handler health
+  checks, and automatic known-good configuration recovery after activation
+  failures.
 
-The proposal remains open because the validated reconfiguration path does not
-yet validate the rendered configuration with `containerd config dump`, use a
-drop-in when supported, restart containerd through the host service manager,
-health-probe the runtime handler after restart, or automatically restore the
-known-good configuration after a failed provisioning attempt.
+The proposal is fully implemented.
 
 ---
 

@@ -9,7 +9,8 @@
 #   2. Install one or more read-only JDK runtime roots under /opt/brewlet/jdks/
 #      via copy-from-image (ctr against the host containerd).
 #   3. Optionally install launcher layers (e.g. jaz) under /opt/brewlet/launchers/.
-#   4. Register the `brewlet` runtime in /etc/containerd/config.toml and restart.
+#   4. Register the `brewlet` runtime through a host-enabled drop-in or validated
+#      in-place fallback, then activate it through the selected restart mode.
 #   5. Label the node brewlet.sh/runtime=ready and advertise the installed
 #      JDKs/launchers via annotations.
 #
@@ -34,6 +35,8 @@ NODE_NAME="${NODE_NAME:-$(hostname)}"
 PREFIX="${BREWLET_PREFIX:-/opt/brewlet}"                 # host-mounted at $PREFIX
 HOST_BIN="${HOST_BIN:-/host/usr/local/bin}"              # host /usr/local/bin (on containerd PATH)
 CONTAINERD_CONFIG="${CONTAINERD_CONFIG:-/etc/containerd/config.toml}"
+CONTAINERD_DROPIN_DIR="${CONTAINERD_DROPIN_DIR:-$(dirname "$CONTAINERD_CONFIG")/config.toml.d}"
+CONTAINERD_DROPIN_FILE="${CONTAINERD_DROPIN_FILE:-$CONTAINERD_DROPIN_DIR/99-brewlet.toml}"
 SHIM_SRC="${SHIM_SRC:-/opt/brewlet-dist/containerd-shim-brewlet-v2}"  # baked into the image
 SHIM_NAME="containerd-shim-brewlet-v2"
 CTR_SRC="${CTR_SRC:-/usr/local/bin/ctr}"
@@ -76,13 +79,13 @@ CONTAINERD_HEALTH_ATTEMPTS="${CONTAINERD_HEALTH_ATTEMPTS:-10}"
 CONTAINERD_RECOVERY_ATTEMPTS="${CONTAINERD_RECOVERY_ATTEMPTS:-30}"
 CONTAINERD_HEALTH_INTERVAL="${CONTAINERD_HEALTH_INTERVAL:-1}"
 
-# Renderer-to-lifecycle contract. patch_containerd sets these only when it
-# changes host state. Issue #21 can replace the primary-file renderer with a
-# drop-in by setting CONTAINERD_ROLLBACK_KIND=dropin and
-# CONTAINERD_ROLLBACK_PATH to that file.
+# Renderer-to-lifecycle contract. The renderer sets these only when it changes
+# host state so validated activation can restore the exact prior configuration.
 CONTAINERD_CONFIG_CHANGED=0
 CONTAINERD_ROLLBACK_KIND="none"
 CONTAINERD_ROLLBACK_PATH=""
+CONTAINERD_ROLLBACK_BACKUP=""
+CONTAINERD_VALIDATION_ERROR=""
 
 # Whether to run the post-install validation smoke test at all. The profile's
 # spec.rollout.validate=false sets this to skip validation (§5.6).
@@ -433,21 +436,7 @@ install_launcher() {
 # ---------------------------------------------------------------------------
 # Step 3 — register the brewlet runtime in containerd and reload.
 # ---------------------------------------------------------------------------
-patch_containerd() {
-  CONTAINERD_CONFIG_CHANGED=0
-  CONTAINERD_ROLLBACK_KIND="none"
-  CONTAINERD_ROLLBACK_PATH=""
-  [[ -f "$CONTAINERD_CONFIG" ]] || die "containerd config not found at $CONTAINERD_CONFIG"
-  if grep -q 'io.containerd.grpc.v1.cri".containerd.runtimes.brewlet' "$CONTAINERD_CONFIG"; then
-    log "containerd already has the brewlet runtime — skipping config patch"
-    return 0
-  fi
-  log "registering brewlet runtime in $CONTAINERD_CONFIG"
-  cp -a "$CONTAINERD_CONFIG" "${CONTAINERD_CONFIG}.brewlet.bak"
-  CONTAINERD_CONFIG_CHANGED=1
-  CONTAINERD_ROLLBACK_KIND="primary"
-  CONTAINERD_ROLLBACK_PATH="${CONTAINERD_CONFIG}.brewlet.bak"
-
+containerd_systemd_cgroup() {
   # Mirror the node's cgroup driver. containerd's CRI plugin only synthesizes the
   # runc-native options for the built-in runc runtime types; for a custom handler
   # like brewlet it passes a generic runtimeoptions.Options carrying this block
@@ -459,9 +448,12 @@ patch_containerd() {
   if grep -qiE '^[[:space:]]*SystemdCgroup[[:space:]]*=[[:space:]]*false' "$CONTAINERD_CONFIG"; then
     systemd_cgroup="false"
   fi
+  printf '%s' "$systemd_cgroup"
+}
 
-  cat >>"$CONTAINERD_CONFIG" <<EOF
-
+render_containerd_runtime() {
+  local systemd_cgroup="$1"
+  cat <<EOF
 # --- added by brewlet-node-provisioner (https://github.com/brewlet/brewlet/tree/main/specs §5.2) ---
 [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.brewlet]
   runtime_type = "io.containerd.brewlet.v2"
@@ -506,6 +498,136 @@ validate_launcher() {
   log "launcher ${name} probe passed"
 }
 
+containerd_config_has_runtime() {
+  grep -Eq '^[[:space:]]*\[[^]]*containerd\.runtimes\.brewlet\][[:space:]]*$' "$1"
+}
+
+containerd_dump_has_runtime_handler() {
+  awk '
+    /^[[:space:]]*\[[^]]*containerd\.runtimes\.brewlet\][[:space:]]*$/ { in_brewlet=1; next }
+    in_brewlet && /^[[:space:]]*\[/ { exit }
+    in_brewlet && /^[[:space:]]*runtime_type[[:space:]]*=[[:space:]]*["'\'']io\.containerd\.brewlet\.v2["'\'']/ {
+      found=1
+      exit
+    }
+    END { exit !found }
+  ' "$1"
+}
+
+containerd_dropins_supported() {
+  local imports config_dir import_path resolved
+  imports="$(
+    awk '
+      /^[[:space:]]*imports[[:space:]]*=/ { collecting=1 }
+      collecting {
+        sub(/[[:space:]]*#.*/, "")
+        print
+        if (index($0, "]") != 0) exit
+      }
+    ' "$CONTAINERD_CONFIG"
+  )"
+  config_dir="$(dirname "$CONTAINERD_CONFIG")"
+  while IFS= read -r import_path; do
+    import_path="${import_path#\"}"
+    import_path="${import_path%\"}"
+    if [[ "$import_path" == /* ]]; then
+      resolved="$import_path"
+    else
+      import_path="${import_path#./}"
+      resolved="$config_dir/$import_path"
+    fi
+    if [[ "$resolved" == "$CONTAINERD_DROPIN_FILE" \
+      || "$resolved" == "$CONTAINERD_DROPIN_DIR/*.toml" \
+      || "$resolved" == "$CONTAINERD_DROPIN_DIR/*" ]]; then
+      return 0
+    fi
+  done < <(printf '%s\n' "$imports" | grep -oE '"[^"]+"' || true)
+  return 1
+}
+
+write_containerd_dropin() {
+  local tmp systemd_cgroup
+  systemd_cgroup="$(containerd_systemd_cgroup)"
+  mkdir -p "$CONTAINERD_DROPIN_DIR"
+  tmp="${CONTAINERD_DROPIN_FILE}.tmp.$$"
+  render_containerd_runtime "$systemd_cgroup" >"$tmp"
+  if [[ -f "$CONTAINERD_DROPIN_FILE" ]] && cmp -s "$tmp" "$CONTAINERD_DROPIN_FILE"; then
+    rm -f "$tmp"
+    log "containerd drop-in is already current at $CONTAINERD_DROPIN_FILE"
+    return 0
+  fi
+  if [[ -f "$CONTAINERD_DROPIN_FILE" ]]; then
+    CONTAINERD_ROLLBACK_BACKUP="${CONTAINERD_CONFIG}.brewlet.dropin.rollback"
+    cp -a "$CONTAINERD_DROPIN_FILE" "$CONTAINERD_ROLLBACK_BACKUP"
+    CONTAINERD_ROLLBACK_KIND="dropin-backup"
+  else
+    CONTAINERD_ROLLBACK_KIND="dropin"
+  fi
+  mv "$tmp" "$CONTAINERD_DROPIN_FILE"
+  CONTAINERD_CONFIG_CHANGED=1
+  CONTAINERD_ROLLBACK_PATH="$CONTAINERD_DROPIN_FILE"
+  log "rendered containerd runtime drop-in at $CONTAINERD_DROPIN_FILE"
+}
+
+patch_containerd_in_place() {
+  [[ -f "$CONTAINERD_CONFIG" ]] || die "containerd config not found at $CONTAINERD_CONFIG"
+  if containerd_config_has_runtime "$CONTAINERD_CONFIG"; then
+    log "containerd already has the brewlet runtime in $CONTAINERD_CONFIG"
+    return 0
+  fi
+
+  local tmp systemd_cgroup
+  systemd_cgroup="$(containerd_systemd_cgroup)"
+  tmp="${CONTAINERD_CONFIG}.brewlet.tmp.$$"
+  cp -a "$CONTAINERD_CONFIG" "$tmp"
+  printf '\n' >>"$tmp"
+  render_containerd_runtime "$systemd_cgroup" >>"$tmp"
+  cp -a "$CONTAINERD_CONFIG" "${CONTAINERD_CONFIG}.brewlet.bak"
+  mv "$tmp" "$CONTAINERD_CONFIG"
+  CONTAINERD_CONFIG_CHANGED=1
+  CONTAINERD_ROLLBACK_KIND="primary"
+  CONTAINERD_ROLLBACK_PATH="${CONTAINERD_CONFIG}.brewlet.bak"
+  log "registered brewlet runtime in $CONTAINERD_CONFIG"
+}
+
+validate_containerd_config() {
+  local dump error
+  dump="$(mktemp)"
+  error="$(mktemp)"
+  CONTAINERD_VALIDATION_ERROR=""
+  if ! host_exec containerd --config "$CONTAINERD_CONFIG" config dump >"$dump" 2>"$error"; then
+    CONTAINERD_VALIDATION_ERROR="containerd config validation failed: config dump rejected $CONTAINERD_CONFIG"
+    [[ ! -s "$error" ]] || log "containerd config dump: $(head -1 "$error")"
+    rm -f "$dump" "$error"
+    return 1
+  fi
+  if ! containerd_dump_has_runtime_handler "$dump"; then
+    CONTAINERD_VALIDATION_ERROR="containerd config validation failed: brewlet runtime handler is missing"
+    rm -f "$dump" "$error"
+    return 1
+  fi
+  rm -f "$dump" "$error"
+  log "containerd config validation passed: brewlet runtime handler is present"
+}
+
+configure_containerd_validated() {
+  [[ -f "$CONTAINERD_CONFIG" ]] || die "containerd config not found at $CONTAINERD_CONFIG"
+  validate_runtime
+  if containerd_config_has_runtime "$CONTAINERD_CONFIG"; then
+    log "using existing in-place brewlet runtime configuration"
+  elif containerd_dropins_supported; then
+    write_containerd_dropin
+  else
+    log "containerd drop-ins are not enabled; using validated in-place configuration"
+    patch_containerd_in_place
+  fi
+
+  if ! validate_containerd_config; then
+    rollback_containerd_config || die "rollback-failed: could not restore config after validation failure"
+    die "$CONTAINERD_VALIDATION_ERROR"
+  fi
+}
+
 # Before readiness is advertised, smoke-test every installed JDK and launcher
 # root. Honors BREWLET_VALIDATE=false (skip).
 validate_runtime() {
@@ -530,12 +652,32 @@ validate_runtime() {
   log "validation passed: all JDK and launcher roots smoke-tested"
 }
 
+# Render the selected configuration. Validated mode owns drop-in detection and
+# effective-config validation; legacy sighup retains the in-place renderer.
+configure_containerd() {
+  CONTAINERD_CONFIG_CHANGED=0
+  CONTAINERD_ROLLBACK_KIND="none"
+  CONTAINERD_ROLLBACK_PATH=""
+  CONTAINERD_ROLLBACK_BACKUP=""
+  case "${BREWLET_CONTAINERD_RESTART}" in
+    none)
+      log "BREWLET_CONTAINERD_RESTART=none; skipping containerd configuration mutation" ;;
+    sighup)
+      patch_containerd_in_place ;;
+    validated|"")
+      configure_containerd_validated ;;
+    *)
+      die "invalid BREWLET_CONTAINERD_RESTART='${BREWLET_CONTAINERD_RESTART}' (want: validated|sighup|none)" ;;
+  esac
+}
+
 # Apply the selected restart mode. Validated mode is transactional: after a
 # mutation, any restart or health failure restores known-good configuration,
 # restarts containerd again, verifies recovery, and reports the original stage.
 activate_containerd_config() {
   case "${BREWLET_CONTAINERD_RESTART}" in
     none)
+      validate_runtime
       log "BREWLET_CONTAINERD_RESTART=none; containerd configuration is managed out of band" ;;
     sighup)
       if [[ "$CONTAINERD_CONFIG_CHANGED" == "1" ]]; then
@@ -544,7 +686,6 @@ activate_containerd_config() {
         log "containerd configuration unchanged; skipping SIGHUP"
       fi ;;
     validated|"")
-      validate_runtime
       validated_restart ;;
     *)
       die "invalid BREWLET_CONTAINERD_RESTART='${BREWLET_CONTAINERD_RESTART}' (want: validated|sighup|none)" ;;
@@ -555,8 +696,9 @@ activate_containerd_config() {
 # lifecycle behavior and apply the same gate afterward, immediately before labels.
 validate_readiness_after_activation() {
   case "${BREWLET_CONTAINERD_RESTART}" in
-    validated|"") ;;
-    *) validate_runtime ;;
+    sighup) validate_runtime ;;
+    validated|""|none) ;;
+    *) die "invalid BREWLET_CONTAINERD_RESTART='${BREWLET_CONTAINERD_RESTART}' (want: validated|sighup|none)" ;;
   esac
 }
 
@@ -610,6 +752,11 @@ rollback_containerd_config() {
       [[ -n "$CONTAINERD_ROLLBACK_PATH" ]] || return 1
       log "removing failed containerd drop-in $CONTAINERD_ROLLBACK_PATH"
       rm -f "$CONTAINERD_ROLLBACK_PATH" ;;
+    dropin-backup)
+      [[ -n "$CONTAINERD_ROLLBACK_PATH" && -f "$CONTAINERD_ROLLBACK_BACKUP" ]] || return 1
+      log "restoring known-good containerd drop-in from $CONTAINERD_ROLLBACK_BACKUP"
+      cp -a "$CONTAINERD_ROLLBACK_BACKUP" "$CONTAINERD_ROLLBACK_PATH"
+      rm -f "$CONTAINERD_ROLLBACK_BACKUP" ;;
     none)
       return 0 ;;
     *)
@@ -630,10 +777,17 @@ rollback_and_recover() {
 validated_restart() {
   if [[ "$CONTAINERD_CONFIG_CHANGED" != "1" ]]; then
     log "containerd configuration unchanged; skipping service restart"
+    if wait_for_health containerd_healthy &&
+       wait_for_health brewlet_handler_healthy; then
+      return 0
+    fi
+    log "validated containerd configuration is not live; restarting it"
+    restart_containerd_service \
+      || die "restart-failed: could not activate existing brewlet configuration"
     wait_for_health containerd_healthy \
-      || die "containerd-health-check-failed: containerd is not operational"
+      || die "containerd-health-check-failed: containerd is not operational after restart"
     wait_for_health brewlet_handler_healthy \
-      || die "runtime-handler-health-check-failed: brewlet handler is not available"
+      || die "runtime-handler-health-check-failed: brewlet handler is not available after restart"
     return 0
   fi
 
@@ -643,6 +797,7 @@ validated_restart() {
     || rollback_and_recover "containerd-health-check-failed"
   wait_for_health brewlet_handler_healthy \
     || rollback_and_recover "runtime-handler-health-check-failed"
+  [[ -z "$CONTAINERD_ROLLBACK_BACKUP" ]] || rm -f "$CONTAINERD_ROLLBACK_BACKUP"
   log "containerd and the brewlet runtime handler are healthy"
 }
 
@@ -780,12 +935,16 @@ write_active_jdk_inventory() {
 # a deleted NodeProfile (§5.6), following the kata-deploy cleanup pattern.
 # ---------------------------------------------------------------------------
 
-# Remove the brewlet runtime block from containerd's config. Prefer restoring the
-# pre-brewlet backup patch_containerd wrote; otherwise strip the fenced block in
-# place so we never clobber unrelated edits made after provisioning.
+# Remove a drop-in first. For the in-place fallback, prefer restoring the
+# pre-brewlet backup; otherwise strip the fenced block without clobbering other
+# edits made after provisioning.
 unpatch_containerd() {
   [[ -f "$CONTAINERD_CONFIG" ]] || { log "containerd config not found; nothing to unpatch"; return 0; }
-  if ! grep -q 'io.containerd.grpc.v1.cri".containerd.runtimes.brewlet' "$CONTAINERD_CONFIG"; then
+  if [[ -f "$CONTAINERD_DROPIN_FILE" ]]; then
+    rm -f "$CONTAINERD_DROPIN_FILE"
+    log "removed containerd runtime drop-in $CONTAINERD_DROPIN_FILE"
+  fi
+  if ! containerd_config_has_runtime "$CONTAINERD_CONFIG"; then
     log "brewlet runtime not present in $CONTAINERD_CONFIG — nothing to remove"
     return 0
   fi
@@ -837,11 +996,15 @@ cleanup_node() {
   log "cleaning up node ${NODE_NAME} for deleted NodeProfile (BREWLET_MODE=cleanup)"
   # Remove the runtime first so no new brewlet pods land while we tear down, then
   # reload containerd (unless disabled), drop the shim, and unlabel the node.
-  unpatch_containerd
   case "${BREWLET_CONTAINERD_RESTART}" in
-    none) log "BREWLET_CONTAINERD_RESTART=none; leaving containerd reload to an out-of-band restart" ;;
-    validated|"") restart_containerd_service ;;
-    sighup) reload_containerd ;;
+    none)
+      log "BREWLET_CONTAINERD_RESTART=none; leaving image-managed containerd configuration untouched" ;;
+    validated|"")
+      unpatch_containerd
+      restart_containerd_service ;;
+    sighup)
+      unpatch_containerd
+      reload_containerd ;;
     *) die "invalid BREWLET_CONTAINERD_RESTART='${BREWLET_CONTAINERD_RESTART}' (want: validated|sighup|none)" ;;
   esac
   remove_shim
@@ -877,11 +1040,7 @@ main() {
     for l in "${launcher_list[@]}"; do [[ -n "$l" ]] && install_launcher "$l"; done
   fi
 
-  if [[ "${BREWLET_CONTAINERD_RESTART}" == "none" ]]; then
-    log "BREWLET_CONTAINERD_RESTART=none; skipping containerd configuration mutation"
-  else
-    patch_containerd
-  fi
+  configure_containerd
   activate_containerd_config
   validate_readiness_after_activation
   verify_shim

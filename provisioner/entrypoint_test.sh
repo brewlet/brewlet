@@ -157,6 +157,184 @@ if grep -Fq "$long_launcher" <<<"$output"; then
   exit 1
 fi
 
+new_containerd_test_dir() {
+  local dir
+  dir="$(mktemp -d "$dest/containerd.XXXXXX")"
+  printf 'version = 2\n' >"$dir/config.toml"
+  printf '%s' "$dir"
+}
+
+mock_containerd_dump() {
+  printf '%s\n' "$*" >>"$calls"
+  if [[ "$1" == "containerd" && "$2" == "--config" && "$4" == "config" && "$5" == "dump" ]]; then
+    cat "$3"
+    [[ ! -f "$CONTAINERD_DROPIN_FILE" ]] || cat "$CONTAINERD_DROPIN_FILE"
+  fi
+}
+
+mock_reload_containerd() {
+  printf 'reload\n' >>"$calls"
+}
+
+# A host config that imports config.toml.d uses the drop-in and leaves the
+# primary config untouched.
+dropin_dir="$(new_containerd_test_dir)"
+printf 'imports = ["./config.toml.d/*.toml"]\n' >>"$dropin_dir/config.toml"
+(
+  CONTAINERD_CONFIG="$dropin_dir/config.toml"
+  CONTAINERD_DROPIN_DIR="$dropin_dir/config.toml.d"
+  CONTAINERD_DROPIN_FILE="$CONTAINERD_DROPIN_DIR/99-brewlet.toml"
+  BREWLET_CONTAINERD_RESTART=validated
+  BREWLET_VALIDATE=false
+  NODE_NAME=""
+  host_exec() { mock_containerd_dump "$@"; }
+  reload_containerd() { mock_reload_containerd; }
+  configure_containerd
+)
+grep -Fq 'containerd.runtimes.brewlet' "$dropin_dir/config.toml.d/99-brewlet.toml"
+if grep -Fq 'containerd.runtimes.brewlet' "$dropin_dir/config.toml"; then
+  echo "expected drop-in support to leave the primary containerd config unchanged" >&2
+  exit 1
+fi
+
+# Re-running an unchanged validated render still validates it but does not
+# reload containerd again.
+: >"$calls"
+(
+  CONTAINERD_CONFIG="$dropin_dir/config.toml"
+  CONTAINERD_DROPIN_DIR="$dropin_dir/config.toml.d"
+  CONTAINERD_DROPIN_FILE="$CONTAINERD_DROPIN_DIR/99-brewlet.toml"
+  BREWLET_CONTAINERD_RESTART=validated
+  BREWLET_VALIDATE=false
+  NODE_NAME=""
+  host_exec() { mock_containerd_dump "$@"; }
+  reload_containerd() { mock_reload_containerd; }
+  configure_containerd
+)
+grep -Fq 'containerd --config '"$dropin_dir/config.toml"' config dump' "$calls"
+if grep -Fxq 'reload' "$calls"; then
+  echo "expected an unchanged validated config to skip containerd reload" >&2
+  exit 1
+fi
+
+# Replacing an existing managed drop-in keeps its rollback copy outside the
+# imported directory and can restore the exact previous contents.
+changed_dropin_dir="$(new_containerd_test_dir)"
+printf 'imports = ["./config.toml.d/*.toml"]\n' >>"$changed_dropin_dir/config.toml"
+mkdir -p "$changed_dropin_dir/config.toml.d"
+printf 'known-good drop-in\n' >"$changed_dropin_dir/config.toml.d/99-brewlet.toml"
+(
+  CONTAINERD_CONFIG="$changed_dropin_dir/config.toml"
+  CONTAINERD_DROPIN_DIR="$changed_dropin_dir/config.toml.d"
+  CONTAINERD_DROPIN_FILE="$CONTAINERD_DROPIN_DIR/99-brewlet.toml"
+  BREWLET_CONTAINERD_RESTART=validated
+  BREWLET_VALIDATE=false
+  NODE_NAME=""
+  host_exec() { mock_containerd_dump "$@"; }
+  configure_containerd
+  [[ "$CONTAINERD_ROLLBACK_BACKUP" == "${CONTAINERD_CONFIG}.brewlet.dropin.rollback" ]]
+  [[ ! -e "${CONTAINERD_DROPIN_FILE}.brewlet.rollback" ]]
+  rollback_containerd_config
+)
+grep -Fxq 'known-good drop-in' "$changed_dropin_dir/config.toml.d/99-brewlet.toml"
+
+# Hosts without an enabled import use the backed-up in-place fallback.
+fallback_dir="$(new_containerd_test_dir)"
+: >"$calls"
+(
+  CONTAINERD_CONFIG="$fallback_dir/config.toml"
+  CONTAINERD_DROPIN_DIR="$fallback_dir/config.toml.d"
+  CONTAINERD_DROPIN_FILE="$CONTAINERD_DROPIN_DIR/99-brewlet.toml"
+  BREWLET_CONTAINERD_RESTART=validated
+  BREWLET_VALIDATE=false
+  NODE_NAME=""
+  host_exec() { mock_containerd_dump "$@"; }
+  reload_containerd() { mock_reload_containerd; }
+  configure_containerd
+)
+grep -Fq 'containerd.runtimes.brewlet' "$fallback_dir/config.toml"
+grep -Fxq 'version = 2' "$fallback_dir/config.toml.brewlet.bak"
+
+# A malformed effective config fails validation, restores the primary config,
+# and reports a concise reason.
+malformed_dir="$(new_containerd_test_dir)"
+if (
+  CONTAINERD_CONFIG="$malformed_dir/config.toml"
+  CONTAINERD_DROPIN_DIR="$malformed_dir/config.toml.d"
+  CONTAINERD_DROPIN_FILE="$CONTAINERD_DROPIN_DIR/99-brewlet.toml"
+  BREWLET_CONTAINERD_RESTART=validated
+  BREWLET_VALIDATE=false
+  NODE_NAME=""
+  host_exec() {
+    printf 'toml: malformed configuration\n' >&2
+    return 1
+  }
+  reload_containerd() { echo "unexpected reload" >&2; return 1; }
+  configure_containerd
+) >"$malformed_dir/output" 2>&1; then
+  echo "expected malformed containerd configuration to fail" >&2
+  exit 1
+fi
+grep -Fq 'config dump rejected' "$malformed_dir/output"
+grep -Fxq 'version = 2' "$malformed_dir/config.toml"
+
+# A successful parse that omits the brewlet handler is also rejected and a
+# newly rendered drop-in is removed.
+missing_dir="$(new_containerd_test_dir)"
+printf 'imports = ["%s/*.toml"]\n' "$missing_dir/config.toml.d" >>"$missing_dir/config.toml"
+if (
+  CONTAINERD_CONFIG="$missing_dir/config.toml"
+  CONTAINERD_DROPIN_DIR="$missing_dir/config.toml.d"
+  CONTAINERD_DROPIN_FILE="$CONTAINERD_DROPIN_DIR/99-brewlet.toml"
+  BREWLET_CONTAINERD_RESTART=validated
+  BREWLET_VALIDATE=false
+  NODE_NAME=""
+  host_exec() {
+    printf '%s\n' \
+      'version = 2' \
+      '[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.brewlet-old]' \
+      '  runtime_type = "io.containerd.brewlet.v2"'
+  }
+  reload_containerd() { echo "unexpected reload" >&2; return 1; }
+  configure_containerd
+) >"$missing_dir/output" 2>&1; then
+  echo "expected a parsed config without the brewlet handler to fail" >&2
+  exit 1
+fi
+grep -Fq 'brewlet runtime handler is missing' "$missing_dir/output"
+if [[ -e "$missing_dir/config.toml.d/99-brewlet.toml" ]]; then
+  echo "expected failed drop-in validation to restore the prior host state" >&2
+  exit 1
+fi
+
+# The legacy modes retain their behavior: sighup patches in place and reloads,
+# while none leaves containerd configuration untouched.
+for mode in sighup none; do
+  legacy_dir="$(new_containerd_test_dir)"
+  : >"$calls"
+  (
+    CONTAINERD_CONFIG="$legacy_dir/config.toml"
+    CONTAINERD_DROPIN_DIR="$legacy_dir/config.toml.d"
+    CONTAINERD_DROPIN_FILE="$CONTAINERD_DROPIN_DIR/99-brewlet.toml"
+    BREWLET_CONTAINERD_RESTART="$mode"
+    BREWLET_VALIDATE=false
+    NODE_NAME=""
+    reload_containerd() { mock_reload_containerd; }
+    configure_containerd
+    activate_containerd_config
+  )
+  if [[ "$mode" == "sighup" ]]; then
+    grep -Fq 'containerd.runtimes.brewlet' "$legacy_dir/config.toml"
+    grep -Fxq 'reload' "$calls"
+  else
+    if grep -Fq 'containerd.runtimes.brewlet' "$legacy_dir/config.toml" ||
+       grep -Fxq 'reload' "$calls"; then
+      echo "expected none mode not to mutate or reload containerd" >&2
+      exit 1
+    fi
+  fi
+done
+
 assert_contains() {
   local needle="$1" file="$2"
   grep -Fq "$needle" "$file" || {
@@ -173,8 +351,14 @@ assert_activation_validation_order() {
       BREWLET_CONTAINERD_RESTART="$mode"
       CONTAINERD_CONFIG_CHANGED=1
       validate_runtime() { printf 'validate\n'; }
+      configure_containerd_validated() { validate_runtime; }
+      patch_containerd_in_place() {
+        printf 'configure\n'
+        CONTAINERD_CONFIG_CHANGED=1
+      }
       validated_restart() { printf 'activate\n'; }
       reload_containerd() { printf 'activate\n'; }
+      configure_containerd
       activate_containerd_config
       validate_readiness_after_activation
     )
@@ -186,8 +370,8 @@ assert_activation_validation_order() {
 }
 
 assert_activation_validation_order validated $'validate\nactivate'
-assert_activation_validation_order sighup $'activate\nvalidate'
-assert_activation_validation_order none $'[brewlet-provisioner] BREWLET_CONTAINERD_RESTART=none; containerd configuration is managed out of band\nvalidate'
+assert_activation_validation_order sighup $'configure\nactivate\nvalidate'
+assert_activation_validation_order none $'[brewlet-provisioner] BREWLET_CONTAINERD_RESTART=none; skipping containerd configuration mutation\nvalidate\n[brewlet-provisioner] BREWLET_CONTAINERD_RESTART=none; containerd configuration is managed out of band'
 
 restart_calls="$(mktemp)"
 health_calls="$(mktemp)"
@@ -251,9 +435,28 @@ fi
 assert_contains "containerd" "$health_calls"
 assert_contains "handler" "$health_calls"
 
+# An unchanged but inactive configuration is restarted and re-probed.
+: >"$restart_calls"
+(
+  BREWLET_VALIDATE=false
+  BREWLET_CONTAINERD_RESTART=validated
+  CONTAINERD_CONFIG_CHANGED=0
+  CONTAINERD_HEALTH_ATTEMPTS=1
+  health_count=0
+  restart_containerd_service() { printf 'restart\n' >>"$restart_calls"; }
+  containerd_healthy() {
+    health_count=$((health_count + 1))
+    [[ "$health_count" -gt 1 ]]
+  }
+  brewlet_handler_healthy() { return 0; }
+  activate_containerd_config
+)
+[[ "$(grep -c '^restart$' "$restart_calls")" == "1" ]]
+
 # Legacy modes remain explicit and skip redundant signals.
 : >"$restart_calls"
 (
+  BREWLET_VALIDATE=false
   BREWLET_CONTAINERD_RESTART=sighup
   CONTAINERD_CONFIG_CHANGED=1
   reload_containerd() { printf 'sighup\n' >>"$restart_calls"; }

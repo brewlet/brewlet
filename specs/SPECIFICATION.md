@@ -583,7 +583,11 @@ DaemonSet — remains for the no-operator path (§5.5).
    java-compatible launchers overlaid into the sandbox and prepended to `PATH`.
    These are independent of the JDK roots, so any launcher composes over any JDK.
    See §5.4.
-3. Appends a runtime entry to `/etc/containerd/config.toml`:
+3. Registers a runtime entry through
+   `/etc/containerd/config.toml.d/99-brewlet.toml` when the host's primary
+   configuration imports that drop-in directory. Hosts without an enabled
+   import use an in-place append to `/etc/containerd/config.toml` and retain the
+   original as `config.toml.brewlet.bak`:
    ```toml
    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.brewlet]
      runtime_type = "io.containerd.brewlet.v2"
@@ -602,17 +606,22 @@ DaemonSet — remains for the no-operator path (§5.5).
 4. Applies the readiness smoke gate and configured containerd lifecycle. Unless
    validation is disabled, it runs `java -version` inside every configured JDK
    root and a deterministic one-shot probe for every configured launcher layer
-   (`JAZ_PRINT_VERSION=1` for `jaz`). In the default `validated` mode, probes run
-   before the provisioner restarts containerd through the host service manager,
-   verifies the containerd socket and `brewlet` runtime handler, and
-   automatically restores the prior primary config (or removes the new drop-in)
-   before restarting and verifying recovery after a failure. The node remains
-   unready and `brewlet.sh/provision-error` distinguishes restart, health-check,
-   runtime-handler, rollback, and bounded launcher-specific failures. The
-   explicit `sighup` mode retains the legacy reload path; `none` leaves
-   containerd configuration untouched. Both apply the smoke gate before
-   readiness is advertised. Unchanged valid configuration is health-checked
-   without another restart.
+   (`JAZ_PRINT_VERSION=1` for `jaz`). In the default `validated` mode, these
+   probes run before `containerd config dump` validates the
+   effective host configuration and requires both a successful parse and the
+   exact `brewlet` runtime handler before restarting containerd through the host
+   service manager. An invalid new render is restored or removed, leaves the
+   node unready, and is reported through
+   `brewlet.sh/provision-error`. After restart, it verifies the containerd socket
+   and live `brewlet` runtime handler, and automatically restores the prior
+   primary config (or drop-in) before restarting and verifying recovery after a
+   failure. The node remains unready and `brewlet.sh/provision-error`
+   distinguishes restart, health-check, runtime-handler, rollback, and bounded
+   launcher-specific failures. The explicit `sighup` mode retains the legacy
+   in-place reload path without the config-dump gate; `none` leaves containerd
+   configuration untouched. Both still apply the smoke gate before readiness is
+   advertised. Unchanged valid configuration is config-dump validated and
+   health-checked without another restart.
 5. Verifies the shim responds.
 6. On success, labels the node `brewlet.sh/runtime=ready` and annotates with the
    available JDKs, e.g. `brewlet.sh/jdks=temurin-17,temurin-21,temurin-25`, and
