@@ -599,15 +599,20 @@ DaemonSet — remains for the no-operator path (§5.5).
    shim translates it back into `runc` options (preserving `SystemdCgroup`) and,
    for the pod's pause/sandbox container, delegates to the embedded `runc` task
    service unchanged rather than rewriting it into a JVM launch.
-4. Applies the configured containerd reload policy and readiness smoke gate.
-   Unless validation is disabled, it runs `java -version` inside every configured
-   JDK root and a deterministic one-shot probe for every configured launcher
-   layer (`JAZ_PRINT_VERSION=1` for `jaz`). The default `validated` mode probes
-   before reload; the `sighup` and `none` modes retain their reload behavior and
-   apply the same gate before readiness is advertised. A missing or
-   non-executable launcher, or any unsuccessful probe, clears all readiness
-   advertisements and records a bounded launcher-specific
-   `brewlet.sh/provision-error` reason.
+4. Applies the readiness smoke gate and configured containerd lifecycle. Unless
+   validation is disabled, it runs `java -version` inside every configured JDK
+   root and a deterministic one-shot probe for every configured launcher layer
+   (`JAZ_PRINT_VERSION=1` for `jaz`). In the default `validated` mode, probes run
+   before the provisioner restarts containerd through the host service manager,
+   verifies the containerd socket and `brewlet` runtime handler, and
+   automatically restores the prior primary config (or removes the new drop-in)
+   before restarting and verifying recovery after a failure. The node remains
+   unready and `brewlet.sh/provision-error` distinguishes restart, health-check,
+   runtime-handler, rollback, and bounded launcher-specific failures. The
+   explicit `sighup` mode retains the legacy reload path; `none` leaves
+   containerd configuration untouched. Both apply the smoke gate before
+   readiness is advertised. Unchanged valid configuration is health-checked
+   without another restart.
 5. Verifies the shim responds.
 6. On success, labels the node `brewlet.sh/runtime=ready` and annotates with the
    available JDKs, e.g. `brewlet.sh/jdks=temurin-17,temurin-21,temurin-25`, and

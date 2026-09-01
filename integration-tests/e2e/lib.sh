@@ -109,6 +109,20 @@ wait_for() {
   return 1
 }
 
+# wait_for_seconds SECONDS CMD...: retry a predicate until a longer,
+# operation-specific deadline. Real node provisioning may include image pulls
+# and a containerd restart, so the default 30-second wait is intentionally not
+# stretched for every control-plane assertion.
+wait_for_seconds() {
+  local seconds="$1"; shift
+  local deadline=$(( $(date +%s) + seconds ))
+  while (( $(date +%s) < deadline )); do
+    if "$@" >/dev/null 2>&1; then return 0; fi
+    sleep 1
+  done
+  return 1
+}
+
 # free_port: print an unused localhost TCP port.
 free_port() {
   python3 - <<'PY' 2>/dev/null || echo 0
