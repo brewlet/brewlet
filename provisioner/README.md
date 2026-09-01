@@ -46,6 +46,8 @@ architecture and packages them with the host installation entrypoint.
 | `NODE_NAME` | downward API | Kubernetes node to label |
 | `BREWLET_PREFIX` | `/opt/brewlet` | Host installation prefix |
 | `CONTAINERD_CONFIG` | `/etc/containerd/config.toml` | containerd configuration |
+| `CONTAINERD_DROPIN_DIR` | `/etc/containerd/config.toml.d` | Host drop-in directory used when the primary config imports it |
+| `CONTAINERD_DROPIN_FILE` | `<drop-in-dir>/99-brewlet.toml` | Brewlet-managed runtime drop-in |
 | `CONTAINERD_ADDRESS` | `/run/containerd/containerd.sock` | containerd socket |
 | `CONTAINERD_NAMESPACE` | `k8s.io` | containerd namespace |
 | `BREWLET_MODE` | `provision` | `provision` installs; `cleanup` reverses it |
@@ -64,6 +66,27 @@ Provisioning is idempotent, records the source image and Java home, and
 reinstalls a token when either changes. Runtime roots retain the source image's
 filesystem modes; the shim keeps the shared lower layer and Java-home bind mount
 read-only for workloads.
+
+## Containerd configuration
+
+The default `validated` mode checks whether the host's primary containerd
+configuration imports `/etc/containerd/config.toml.d/*.toml`. When it does,
+Brewlet writes only `99-brewlet.toml`; otherwise it appends the same runtime
+block to the primary configuration and preserves the original as
+`config.toml.brewlet.bak`.
+
+Before signalling containerd, the provisioner runs
+`containerd --config /etc/containerd/config.toml config dump` in the host mount
+namespace. Provisioning fails unless the configuration parses and the dumped
+effective configuration contains the `brewlet` runtime handler. A failed render
+is removed or restored before exit, the node remains unready, and
+`brewlet.sh/provision-error` reports either a rejected config dump or a missing
+handler. Re-running an unchanged valid render still verifies the effective
+configuration but skips the reload.
+
+The compatibility modes are unchanged: `sighup` updates the primary
+configuration and signals containerd without the config-dump gate, while `none`
+updates the primary configuration but leaves activation to the platform.
 
 When Helm runtime metrics are enabled, the profile-managed DaemonSet includes a
 best-effort exporter sidecar that serves `/metrics` and listens for shim
