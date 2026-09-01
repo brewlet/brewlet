@@ -9,12 +9,12 @@ engineering rationale behind those roadmap items.
 
 - [0001 — Node profiles: per-pool cluster preparation](0001-node-profiles.md)
   — implemented
+- [0003 — Stable capability-label taxonomy for autoscaling](0003-capability-label-taxonomy.md)
+  — implemented
 
 ## Roadmap designs
 
 - [0002 — Validated containerd reconfiguration and readiness smoke gate](0002-validated-node-reconfig.md)
-  — partially implemented
-- [0003 — Stable capability-label taxonomy for autoscaling](0003-capability-label-taxonomy.md)
   — partially implemented
 - [0004 — cert-manager integration for the admission webhook](0004-cert-manager-admission.md)
   — proposed

@@ -606,6 +606,9 @@ DaemonSet — remains for the no-operator path (§5.5).
    per-capability **scheduling labels** the admission webhook matches nodeAffinity
    against (annotations can't drive nodeAffinity): `brewlet.sh/jdk.<dist>-<feature>`,
    `brewlet.sh/jdk-feature.<feature>`, and `brewlet.sh/launcher.<name>` (§8/§14).
+   Their exact keys, token grammar, presence semantics, compatibility guarantees,
+   and autoscaler integration are defined by the public
+   [capability-label contract](CAPABILITY_LABELS.md).
 
 The `brewlet.sh/runtime=ready` label is used by the `RuntimeClass` `nodeSelector`
 so workloads only schedule onto provisioned nodes.
@@ -999,15 +1002,19 @@ between a brewlet pod and the ready fleet. For every pod on CREATE with
   the container named by `brewlet.sh/artifact-container`) and, when the ref is
   digest-pinned (`repo@sha256:…`), `brewlet.sh/artifact-digest` — the annotations
   the shim resolves the JAR from containerd's content store by (§6.4).
-- **Matches** any explicitly requested JDK/launcher (pod annotations
+- **Matches** any explicitly requested JDK/launcher/architecture (pod annotations
   `brewlet.sh/jdk` = `<dist>-<feature>` or a bare feature such as `21`, and
-  `brewlet.sh/launcher`) against ready nodes, read from their `brewlet.sh/jdks` /
-  `brewlet.sh/launchers` annotations. If no ready node is compatible, admission is
-  denied with a `NoCompatibleJDK` / `NoCompatibleLauncher` reason (§14).
+  `brewlet.sh/launcher`, plus `brewlet.sh/arch` for non-portable artifacts)
+  against ready nodes, read from their `brewlet.sh/jdks` /
+  `brewlet.sh/launchers` annotations and standard `kubernetes.io/arch` label. If
+  no ready node is compatible, admission is denied with a `NoCompatibleJDK` /
+  `NoCompatibleLauncher` / `NoCompatibleArch` reason (§14).
 - **Steers** scheduling by injecting `nodeAffinity` onto the provisioner's
   per-capability labels (`brewlet.sh/jdk.<d-f>`, `brewlet.sh/jdk-feature.<f>`,
-  `brewlet.sh/launcher.<n>`), so the scheduler skips incompatible nodes rather
-  than failing at runtime.
+  `brewlet.sh/launcher.<n>`) and the standard `kubernetes.io/arch` label, using
+  the operators defined by the public
+  [capability-label contract](CAPABILITY_LABELS.md), so the scheduler skips
+  incompatible nodes rather than failing at runtime.
 
 Non-brewlet pods pass through untouched; a pod with no explicit JDK/launcher
 request is admitted with just the artifact annotations stamped, and the shim

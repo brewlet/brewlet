@@ -13,6 +13,11 @@ changes require an explicit version transition, while compatible clarifications
 and additions may land incrementally. Brewlet components and documentation cite
 requirements by section using the existing `§N` convention (for example, `§4.2`).
 
+Public reference contracts:
+
+- [Capability labels](CAPABILITY_LABELS.md) — stable node scheduling labels,
+  admission affinity semantics, and autoscaler recipes.
+
 ## Implementations
 
 - [core runtime](..) — CLI,

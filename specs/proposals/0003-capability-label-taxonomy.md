@@ -1,8 +1,8 @@
 # Proposal 0003 — Stable capability-label taxonomy for autoscaling
 
-- **Status:** partially implemented
-- **Target spec sections:** amend **§5.2**, **§8.3** (document the labels as a public,
-  versioned contract)
+- **Status:** implemented; retained as a design record
+- **Specification sections:** **§5.2**, **§7**, **§8.3**, and
+  the public [capability-label reference](../CAPABILITY_LABELS.md)
 - **Related code:** [`kubernetes/`](../../kubernetes):
   `internal/brewlet/labels.go`; [`brewlet/brewlet`](https://github.com/brewlet/brewlet):
   `provisioner/entrypoint.sh` (`label_node`)
@@ -11,24 +11,28 @@
   documentation/stability commitment, not a mechanism change; it stands on its own and
   makes 0001's heterogeneous fleets autoscaler-friendly.
 
-This roadmap design promotes existing implementation-detail labels to a supported
-public taxonomy.
+This document preserves the rationale for promoting the existing scheduling
+labels to a supported public taxonomy. The
+[capability-label reference](../CAPABILITY_LABELS.md), the
+[specification](../SPECIFICATION.md), and the shipped implementation are
+authoritative.
 
 ## Implementation status
 
-The following parts have shipped:
+The proposal is fully implemented:
 
 - The provisioner emits the exact-JDK, JDK-feature, launcher, and runtime-ready
   labels described by this proposal.
 - The label keys are centralized in `internal/brewlet/labels.go`, and the
   admission webhook injects matching node affinity for requested capabilities.
-- The specification identifies the scheduling labels and their role in node
-  selection.
-
-The proposal remains open because the documentation does not yet declare these
-keys a stable, versioned public contract, provide a dedicated capability-label
-reference with token and value semantics, or include the proposed Cluster
-Autoscaler and Karpenter configuration recipes.
+- The specification identifies the scheduling labels and links them to the
+  public contract.
+- The capability-label reference declares the contract-v1 keys, token grammar,
+  boolean-presence and `Operator: Exists` semantics, compatibility guarantees,
+  and concrete Cluster Autoscaler and Karpenter recipes.
+- The recipes reflect the shipped `NodeProfile` pool model: selecting a pool is
+  the provisioning opt-in, while `brewlet.sh/provision=true` remains only for
+  the standalone legacy manifest.
 
 ---
 
@@ -70,9 +74,11 @@ Purely documentation + a stability guarantee — no code change required:
   matched with `Operator: Exists`), and the `<dist>`/`<feature>`/`<name>` token grammar.
 - Declare the keys **stable within the `brewlet.sh/` v1 label namespace**: additions
   are allowed; renames/removals are breaking changes gated on a major version.
-- Document an **autoscaler recipe**: a Karpenter `NodePool` / Cluster Autoscaler node
-  group that carries `brewlet.sh/provision=true` on new nodes so the operator
-  provisions them, and the capability labels the workloads request.
+- Document **autoscaler recipes** that distinguish the shipped pool model from
+  the legacy standalone path: `NodeProfile.spec.nodePool` selects nodes for
+  provisioning, Cluster Autoscaler may use synthetic capability labels for
+  scheduling simulation, and Karpenter may publish those labels only when its
+  node bootstrap makes them true before kubelet registration.
 - Cross-reference from §8.3 (the webhook injects affinity on exactly these keys).
 
 ## 4. Non-goals
