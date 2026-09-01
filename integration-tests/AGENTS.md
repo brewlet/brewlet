@@ -27,9 +27,11 @@ The harness does not switch branches or modify component sources. It uses
 
 Host-only tiers 1-3 need no cluster. Tiers 4-7 and 13 exercise API-server
 behavior. Tiers 6, 8-12, 14, and 15 require local containerd nodes that Docker
-can enter, such as kind. Managed clusters skip those node-side paths. Tier 15
-installs the chart with metrics enabled, provisions one node through the real
-DaemonSet, launches a Brewlet workload, and scrapes all metrics surfaces.
+can enter, such as kind. Managed clusters skip those node-side paths. Tier 14
+installs a custom JDK and `jaz` launcher, runs a live workload through both, and
+then verifies a broken launcher probe withdraws readiness. Tier 15 installs the
+chart with metrics enabled, provisions one node through the real DaemonSet,
+launches a Brewlet workload, and scrapes all metrics surfaces.
 
 ## Cleanup and diagnostics
 

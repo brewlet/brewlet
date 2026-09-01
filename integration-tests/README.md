@@ -49,7 +49,7 @@ an exercised capability fails. The suite covers:
 | 10-11 | installed Helm stack and webhook resilience | Kubernetes |
 | 12 | runnable image pulled and unpacked by kubelet | core + fixtures |
 | 13 | NodeProfile lifecycle | Kubernetes |
-| 14 | custom JDK NodeProfile through a live Azul Zulu workload | both + fixtures |
+| 14 | custom JDK + jaz NodeProfile, live workload, and broken-launcher readiness failure | both + fixtures |
 | 15 | live opt-in Prometheus metrics through Helm, provisioner, shim, and exporter | both + fixtures |
 
 See [AGENTS.md](AGENTS.md) for cluster requirements, cleanup, and troubleshooting.

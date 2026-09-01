@@ -481,6 +481,7 @@ validate_launcher() {
       "$binary" -version >/dev/null 2>&1 \
         || die "launcher-${reason_id}-probe-failed" ;;
   esac
+  log "launcher ${name} probe passed"
 }
 
 # Before readiness is advertised, smoke-test every installed JDK and launcher
