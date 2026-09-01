@@ -24,6 +24,11 @@ type Config struct {
 	// Launchers is the comma-separated launcher inventory seeding the default
 	// profile (deprecated flag path, §5.3).
 	Launchers string
+	// MetricsPort is the node-local exporter port exposed by provisioner pods.
+	MetricsPort int
+	// MetricsEnabled controls whether managed provisioner pods run the node-local
+	// metrics exporter sidecar.
+	MetricsEnabled bool
 }
 
 // buildRuntimeClass returns the desired brewlet RuntimeClass: it schedules only
@@ -60,3 +65,5 @@ func hostPathVolume(name, path string, t *corev1.HostPathType) corev1.Volume {
 		},
 	}
 }
+
+func boolPtr(value bool) *bool { return &value }

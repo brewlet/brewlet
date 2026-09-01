@@ -301,6 +301,7 @@ install_jdk() {
   log "installing JDK ${spec} via copy-from-image -> $dest"
   mkdir -p "$stage"
   jdk_from_image "$dist" "$feature" "$stage"
+  date -u +%Y-%m-%dT%H:%M:%SZ >"$stage/.brewlet-installed-at"
   jdk_root_complete "$stage" || die "JDK ${spec} install did not produce a runnable root"
   local java_home; java_home="$(jdk_home_in_root "$stage")"
   log "JDK ${spec} ready: $(jdk_java "$stage" "$java_home" -version 2>&1 | head -1)"
@@ -737,7 +738,8 @@ main() {
   command -v kubectl >/dev/null && kubectl annotate node "$NODE_NAME" "${ANNOTATION_PROVISION_ERROR}-" >/dev/null 2>&1 || true
   log "node ${NODE_NAME} provisioned successfully"
 
-  # Keep the DaemonSet pod alive so the node stays advertised as provisioned.
+  # Keep provisioning independent from observability. The exporter runs as a
+  # sidecar in the same pod, so an exporter failure cannot reprovision the node.
   log "entering idle loop; the pod stays Ready to keep the node provisioned"
   exec sleep infinity
 }

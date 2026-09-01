@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"brewlet-operator/internal/observability"
+
 	admissionv1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -28,6 +30,7 @@ func (m *PodMutator) Handle(ctx context.Context, req admission.Request) admissio
 
 	pod := &corev1.Pod{}
 	if err := m.Decoder.Decode(req, pod); err != nil {
+		observability.ObserveAdmission("error", "decode")
 		return admission.Errored(http.StatusBadRequest, err)
 	}
 	if !IsBrewletPod(pod) {
@@ -39,21 +42,25 @@ func (m *PodMutator) Handle(ctx context.Context, req admission.Request) admissio
 		// Fail open: never block scheduling because the webhook couldn't read
 		// nodes. The shim still enforces JDK compatibility at runtime.
 		log.Error(err, "listing nodes for fleet check; allowing pod without steering")
+		observability.ObserveAdmission("fail_open", "fleet_unavailable")
 		return admission.Allowed("fleet unavailable")
 	}
 
 	res := MutatePod(pod, fleet)
 	if res.DenyReason != "" {
 		log.Info("denying brewlet pod", "reason", res.DenyReason, "message", res.DenyMessage)
+		observability.ObserveAdmission("denied", res.DenyReason)
 		return denied(res.DenyReason, res.DenyMessage)
 	}
 
 	marshaled, err := json.Marshal(pod)
 	if err != nil {
+		observability.ObserveAdmission("error", "encode")
 		return admission.Errored(http.StatusInternalServerError, err)
 	}
 	log.Info("admitted brewlet pod",
 		"artifactRef", res.ArtifactRef, "artifactDigest", res.ArtifactDigest)
+	observability.ObserveAdmission("admitted", "none")
 	return admission.PatchResponseFromRaw(req.Object.Raw, marshaled)
 }
 

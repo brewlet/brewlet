@@ -182,6 +182,10 @@ func buildProfileDaemonSet(cfg Config, profile *nodev1alpha1.NodeProfile, resolv
 	privileged := true
 	hostPathSocket := corev1.HostPathSocket
 	lbls := profileLabels(profile.Name)
+	metricsPort := cfg.MetricsPort
+	if metricsPort <= 0 {
+		metricsPort = 9090
+	}
 
 	env := []corev1.EnvVar{
 		{Name: "NODE_NAME", ValueFrom: &corev1.EnvVarSource{
@@ -216,18 +220,40 @@ func buildProfileDaemonSet(cfg Config, profile *nodev1alpha1.NodeProfile, resolv
 					HostPID:            true,
 					Tolerations:        []corev1.Toleration{{Operator: corev1.TolerationOpExists}},
 					Affinity:           profileAffinity(profile, resolvedKey, otherPools),
-					Containers: []corev1.Container{{
-						Name:            "provisioner",
-						Image:           cfg.ProvisionerImage,
-						SecurityContext: &corev1.SecurityContext{Privileged: &privileged},
-						Env:             env,
-						VolumeMounts: []corev1.VolumeMount{
-							{Name: "host-opt", MountPath: "/opt/brewlet"},
-							{Name: "containerd-conf", MountPath: "/etc/containerd"},
-							{Name: "host-bin", MountPath: "/host/usr/local/bin"},
-							{Name: "containerd-sock", MountPath: "/run/containerd/containerd.sock"},
+					Containers: []corev1.Container{
+						{
+							Name:            "provisioner",
+							Image:           cfg.ProvisionerImage,
+							SecurityContext: &corev1.SecurityContext{Privileged: &privileged},
+							Env:             env,
+							VolumeMounts: []corev1.VolumeMount{
+								{Name: "host-opt", MountPath: "/opt/brewlet"},
+								{Name: "containerd-conf", MountPath: "/etc/containerd"},
+								{Name: "host-bin", MountPath: "/host/usr/local/bin"},
+								{Name: "containerd-sock", MountPath: "/run/containerd/containerd.sock"},
+							},
 						},
-					}},
+						{
+							Name:    "metrics-exporter",
+							Image:   cfg.ProvisionerImage,
+							Command: []string{"/opt/brewlet-dist/brewlet-metrics-exporter"},
+							Args: []string{
+								"--root=/opt/brewlet",
+								fmt.Sprintf("--listen-address=:%d", metricsPort),
+							},
+							Ports: []corev1.ContainerPort{{
+								Name:          "metrics",
+								ContainerPort: int32(metricsPort),
+								Protocol:      corev1.ProtocolTCP,
+							}},
+							SecurityContext: &corev1.SecurityContext{
+								AllowPrivilegeEscalation: boolPtr(false),
+							},
+							VolumeMounts: []corev1.VolumeMount{
+								{Name: "host-opt", MountPath: "/opt/brewlet"},
+							},
+						},
+					},
 					Volumes: []corev1.Volume{
 						hostPathVolume("host-opt", "/opt/brewlet", nil),
 						hostPathVolume("containerd-conf", "/etc/containerd", nil),
@@ -243,6 +269,9 @@ func buildProfileDaemonSet(cfg Config, profile *nodev1alpha1.NodeProfile, resolv
 			Type:          appsv1.RollingUpdateDaemonSetStrategyType,
 			RollingUpdate: &appsv1.RollingUpdateDaemonSet{MaxUnavailable: mu},
 		}
+	}
+	if !cfg.MetricsEnabled {
+		ds.Spec.Template.Spec.Containers = ds.Spec.Template.Spec.Containers[:1]
 	}
 	return ds
 }
@@ -263,5 +292,6 @@ func buildCleanupDaemonSet(cfg Config, profile *nodev1alpha1.NodeProfile, resolv
 		ds.Spec.Template.Spec.Containers[0].Env,
 		corev1.EnvVar{Name: "BREWLET_MODE", Value: "cleanup"},
 	)
+	ds.Spec.Template.Spec.Containers = ds.Spec.Template.Spec.Containers[:1]
 	return ds
 }

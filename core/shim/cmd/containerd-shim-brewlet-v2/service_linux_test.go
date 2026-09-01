@@ -4,7 +4,9 @@ package main
 
 import (
 	"archive/tar"
+	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -20,6 +22,43 @@ import (
 	"github.com/brewlet/brewlet/internal/artifact"
 	kcruntime "github.com/brewlet/brewlet/internal/runtime"
 )
+
+type deleteTaskService struct {
+	taskAPI.TaskService
+	err error
+}
+
+func (s *deleteTaskService) Delete(context.Context, *taskAPI.DeleteRequest) (*taskAPI.DeleteResponse, error) {
+	return &taskAPI.DeleteResponse{}, s.err
+}
+
+func TestDeleteCleansPendingLaunch(t *testing.T) {
+	service := &brewletTaskService{
+		TaskService: &deleteTaskService{},
+		pending:     map[string]launchInfo{"task-1": {entryMode: "jar"}},
+	}
+
+	if _, err := service.Delete(context.Background(), &taskAPI.DeleteRequest{ID: "task-1"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := service.pending["task-1"]; ok {
+		t.Fatal("successful task deletion left stale pending launch state")
+	}
+}
+
+func TestDeleteKeepsPendingLaunchWhenDeleteFails(t *testing.T) {
+	service := &brewletTaskService{
+		TaskService: &deleteTaskService{err: errors.New("delete failed")},
+		pending:     map[string]launchInfo{"task-1": {entryMode: "jar"}},
+	}
+
+	if _, err := service.Delete(context.Background(), &taskAPI.DeleteRequest{ID: "task-1"}); err == nil {
+		t.Fatal("Delete succeeded unexpectedly")
+	}
+	if _, ok := service.pending["task-1"]; !ok {
+		t.Fatal("failed task deletion removed pending launch state")
+	}
+}
 
 func testResolved() resolvedArtifact {
 	return resolvedArtifact{

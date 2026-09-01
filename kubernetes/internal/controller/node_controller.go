@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"brewlet-operator/internal/brewlet"
+	"brewlet-operator/internal/observability"
 
 	nodev1alpha1 "brewlet-operator/api/nodeprofile/v1alpha1"
 
@@ -151,12 +152,14 @@ func (r *NodeReconciler) markReady(ctx context.Context, node *corev1.Node) error
 	launchers := prettyInventory(node.Annotations[brewlet.AnnotationLaunchers])
 	r.Recorder.Eventf(node, corev1.EventTypeNormal, brewlet.ReasonNodeReady,
 		"node provisioned; JDKs=[%s] launchers=[%s]", jdks, launchers)
+	observability.ObserveProvisionTransition(brewlet.StateReady)
 	return r.setState(ctx, node, brewlet.StateReady)
 }
 
 func (r *NodeReconciler) markFailed(ctx context.Context, node *corev1.Node, reason string) error {
 	if node.Annotations[brewlet.AnnotationProvisionState] != brewlet.StateFailed {
 		r.Recorder.Event(node, corev1.EventTypeWarning, brewlet.ReasonProvisionFailed, reason)
+		observability.ObserveProvisionTransition(brewlet.StateFailed)
 	}
 	return r.setState(ctx, node, brewlet.StateFailed)
 }
@@ -165,6 +168,7 @@ func (r *NodeReconciler) markProvisioning(ctx context.Context, node *corev1.Node
 	if node.Annotations[brewlet.AnnotationProvisionState] != brewlet.StateProvisioning {
 		r.Recorder.Event(node, corev1.EventTypeNormal, brewlet.ReasonProvisioning,
 			"provisioning requested; waiting for the node to advertise the brewlet runtime")
+		observability.ObserveProvisionTransition(brewlet.StateProvisioning)
 	}
 	return r.setState(ctx, node, brewlet.StateProvisioning)
 }

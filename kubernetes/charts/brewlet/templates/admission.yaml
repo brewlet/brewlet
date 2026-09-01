@@ -72,12 +72,20 @@ metadata:
   namespace: {{ $ns }}
   labels:
     {{- include "brewlet.labels" . | nindent 4 }}
+    {{- if .Values.metrics.enabled }}
+    brewlet.sh/metrics: "true"
+    {{- end }}
 spec:
   selector: { app: brewlet-admission }
   ports:
     - name: https
       port: 443
       targetPort: {{ .Values.admission.port }}
+    {{- if .Values.metrics.enabled }}
+    - name: metrics
+      port: 8080
+      targetPort: metrics
+    {{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -111,9 +119,16 @@ spec:
             - --webhook-port={{ .Values.admission.port }}
             - --cert-dir=/tmp/k8s-webhook-server/serving-certs
             - --health-probe-bind-address=:8081
+            {{- if .Values.metrics.enabled }}
+            - --metrics-bind-address=:8080
+            {{- else }}
+            - --metrics-bind-address=0
+            {{- end }}
           ports:
             - { name: https, containerPort: {{ .Values.admission.port }} }
+            {{- if .Values.metrics.enabled }}
             - { name: metrics, containerPort: 8080 }
+            {{- end }}
           livenessProbe:
             httpGet: { path: /healthz, port: 8081 }
             initialDelaySeconds: 15

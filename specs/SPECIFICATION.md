@@ -1208,6 +1208,28 @@ descriptor's `jvm.args`.
 - **Logs:** JVM stdout/stderr → containerd → `kubectl logs`.
 - **Metrics/Tracing:** JMX/Micrometer/OTel work as usual; JFR can be enabled via
   `jvm.args`.
+- **Brewlet runtime metrics:** runtime metrics are opt-in and disabled by
+  default. When enabled, every long-lived provisioner pod also runs a node-local
+  Prometheus exporter. The Runtime v2 shim emits best-effort,
+  bounded-cardinality events over a Unix datagram socket under `/opt/brewlet`;
+  exporter loss never changes launch behavior. The endpoint reports launch phase
+  latency/outcomes, artifact-resolution behavior, AppCDS regeneration decisions,
+  and installed JDK/launcher inventory. `overlay_setup` measures preparation of
+  the overlay mount configuration; `runc_create` includes applying that mount and
+  creating the sandbox. The operator and admission webhook add
+  NodeProfile readiness/provisioning metrics and admission outcomes (including
+  `NoCompatibleJDK`, `NoCompatibleLauncher`, and `NoCompatibleArch`) to their
+  controller-runtime endpoints.
+- **Metric discovery:** with `metrics.enabled=true`, the Helm chart creates
+  Services for node, operator, and admission metrics.
+  `metrics.serviceMonitor.enabled` and
+  `metrics.grafanaDashboard.enabled` add optional Prometheus Operator and Grafana
+  resources.
+- **Scope:** the shim cannot reliably determine whether kubelet/containerd
+  satisfied an earlier image pull from cache, so Brewlet reports resolution
+  duration/backend/format rather than a false cache-hit signal. JDK metrics expose
+  exact build/source and node installation time; installation age is not presented
+  as the upstream patch release age.
 - **Probes & exec:** `kubectl exec`, ephemeral debug containers, and all probe types
   work because runc backs the sandbox.
 - **Upgrades:** JDK roots are versioned and additive on nodes; old versions retained

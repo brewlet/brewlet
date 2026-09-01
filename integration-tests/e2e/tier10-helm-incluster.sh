@@ -187,6 +187,12 @@ tier10_helm_incluster() {
   else
     fail "helm(in-cluster): shipped ClusterRoleBindings present"
   fi
+  if kubectl get service brewlet-operator-metrics -n "$T10_NS" >/dev/null 2>&1 \
+     || kubectl get service brewlet-node-metrics -n "$T10_NS" >/dev/null 2>&1; then
+    fail "helm(in-cluster): optional metrics Services absent by default"
+  else
+    pass "helm(in-cluster): optional metrics Services absent by default"
+  fi
 
   # --- default NodeProfile converges the cluster singletons ------------------
   # Apply a catch-all default profile now that the webhook endpoint is live.

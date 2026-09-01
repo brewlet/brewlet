@@ -265,8 +265,19 @@ YAML
       assert_contains "helm: renders provisioner RBAC" "$tmpl" "ServiceAccount"
       assert_contains "helm: renders the default NodeProfile CR" "$tmpl" "kind: NodeProfile"
       assert_contains "helm: renders the NodeProfile validating webhook" "$tmpl" "/validate-nodeprofiles"
+      assert_not_contains "helm: omits operator metrics Service by default" "$tmpl" "brewlet-operator-metrics"
+      assert_not_contains "helm: omits node metrics Service by default" "$tmpl" "brewlet-node-metrics"
     else
       fail "helm: template render" "see $WORK/t4-helm-template.log"
+    fi
+    if tmpl="$(helm template brewlet "$BREWLET_KUBERNETES_DIR/charts/brewlet" \
+          --set metrics.enabled=true \
+          --set metrics.serviceMonitor.enabled=true \
+          --set metrics.grafanaDashboard.enabled=true 2>>"$WORK/t4-helm-template.log")"; then
+      assert_contains "helm: optionally renders ServiceMonitor" "$tmpl" "kind: ServiceMonitor"
+      assert_contains "helm: optionally renders Grafana dashboard" "$tmpl" "brewlet-grafana-dashboard"
+    else
+      fail "helm: optional metrics template render" "see $WORK/t4-helm-template.log"
     fi
     if helm install brewlet "$BREWLET_KUBERNETES_DIR/charts/brewlet" --dry-run --namespace "$T4_NS_OP" \
          >"$WORK/t4-helm-dryrun.log" 2>&1; then

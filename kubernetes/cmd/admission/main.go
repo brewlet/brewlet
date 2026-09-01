@@ -39,7 +39,7 @@ func main() {
 		certDir     string
 		webhookPort int
 	)
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "address the metric endpoint binds to")
+	flag.StringVar(&metricsAddr, "metrics-bind-address", "0", "address the metric endpoint binds to; 0 disables metrics")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "address the health probe endpoint binds to")
 	flag.StringVar(&certDir, "cert-dir", "/tmp/k8s-webhook-server/serving-certs", "directory holding tls.crt/tls.key for the webhook server")
 	flag.IntVar(&webhookPort, "webhook-port", 9443, "port the webhook server listens on")
