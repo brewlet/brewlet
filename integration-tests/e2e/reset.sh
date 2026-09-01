@@ -28,7 +28,7 @@ fi
 # Fixed namespaces the tiers use for their fixtures. Throwaway per-run
 # namespaces (tiers 5/6/10/11) are random and self-cleaned by their RETURN
 # traps; we only need to sweep the deterministic ones here.
-E2E_FIXED_NS=(brewlet brewlet-e2e brewlet-e2e-app brewlet-custom-jdk)
+E2E_FIXED_NS=(brewlet brewlet-e2e brewlet-e2e-app brewlet-custom-jdk brewlet-metrics-e2e)
 
 # scrub_node_labels: remove every brewlet.sh/* label and annotation from every
 # node. These are advertised by the provisioner (or simulated by tiers) and are
@@ -87,7 +87,7 @@ scrub_cluster_objects() {
 # any. Used by the preflight to nudge the user toward `--reset` without deleting
 # anything itself.
 detect_leftovers() {
-  kubectl get clusterrole,clusterrolebinding,runtimeclass,crd,mutatingwebhookconfiguration \
+  kubectl get clusterrole,clusterrolebinding,runtimeclass,crd,mutatingwebhookconfiguration,validatingwebhookconfiguration \
     -o name 2>/dev/null | grep -iE 'brewlet' || true
 }
 

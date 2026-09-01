@@ -7,7 +7,7 @@ manifests, and specifications remain in their owning monorepo directories.
 ## Layout
 
 ```text
-e2e/       runner, reset helper, shared library, and tiers 1-14
+e2e/       runner, reset helper, shared library, and tiers 1-15
 fixtures/  harness-owned Java demo applications and PetClinic build fixture
 ```
 
@@ -26,7 +26,7 @@ testing external checkouts.
 ## Running
 
 ```bash
-integration-tests/e2e/run.sh                 # all 14 tiers
+integration-tests/e2e/run.sh                 # all 15 tiers
 integration-tests/e2e/run.sh --list          # tier catalog
 integration-tests/e2e/run.sh --tier 4        # one tier
 integration-tests/e2e/run.sh --reset         # remove Brewlet test state
@@ -50,5 +50,6 @@ an exercised capability fails. The suite covers:
 | 12 | runnable image pulled and unpacked by kubelet | core + fixtures |
 | 13 | NodeProfile lifecycle | Kubernetes |
 | 14 | custom JDK NodeProfile through a live Azul Zulu workload | both + fixtures |
+| 15 | live opt-in Prometheus metrics through Helm, provisioner, shim, and exporter | both + fixtures |
 
 See [AGENTS.md](AGENTS.md) for cluster requirements, cleanup, and troubleshooting.
