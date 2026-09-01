@@ -17,11 +17,7 @@ the Brewlet runtime shim.
 
 This repository contains the complete Brewlet implementation: the CLI and
 runtime, Kubernetes platform, node provisioner, Maven plugin, specifications,
-and integration tests.
-
-> [!IMPORTANT]
-> User-facing documentation is maintained in
-> [`brewlet/site`](https://github.com/brewlet/site), not in this repository.
+integration tests, website, and user-facing documentation.
 
 - [Documentation](https://brewlet.sh/)
 - [Getting started](https://brewlet.sh/docs/getting-started/)
@@ -70,7 +66,8 @@ Maven plugin or Brewlet CLI  --->  OCI registry  --->  provisioned node
 | Maven plugin | [`maven-plugin/`](maven-plugin/) | Builds and publishes Brewlet OCI artifacts and generates Kubernetes workload manifests directly from Maven projects. |
 | Specifications | [`specs/`](specs/) | Defines the architecture, artifact formats, runtime contracts, APIs, and compatibility rules. Future work is tracked in the [roadmap](ROADMAP.md). |
 | Integration tests | [`integration-tests/`](integration-tests/) | Exercises the CLI, JVM execution, shim, Kubernetes control plane, node provisioning, Helm installation, and representative workloads. |
-| User documentation | [`brewlet/site`](https://github.com/brewlet/site) | Hosts installation, configuration, operations, workload deployment, troubleshooting, and workshop guidance published at [brewlet.sh](https://brewlet.sh/). |
+| Website | [`site/`](site/) | Contains the static landing page, installer, branding assets, and MkDocs configuration published at [brewlet.sh](https://brewlet.sh/). |
+| User documentation | [`docs/`](docs/) | Contains installation, configuration, operations, workload deployment, troubleshooting, and workshop guidance. |
 
 ## Quick start
 

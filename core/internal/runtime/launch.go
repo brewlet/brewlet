@@ -53,7 +53,7 @@ type Plan struct {
 // descriptor's job via jvm.args. The only launch flags derived from the artifact
 // are the app-intrinsic correctness knobs (preview features, module-system
 // access, system properties) and, when present, the optional AppCDS archive
-// (https://github.com/brewlet/site/blob/main/docs/appcds.md). The container-aware JDK reads the sandbox cgroup limits
+// (https://github.com/brewlet/brewlet/blob/main/docs/appcds.md). The container-aware JDK reads the sandbox cgroup limits
 // directly. This performs no filesystem access, so it is safe for bundle
 // generation targeting a remote node's JDK.
 //
@@ -66,7 +66,7 @@ type Plan struct {
 // brewlet.sh/cds-regenerate annotation / --appcds-regenerate flag), not anything
 // in the artifact: when set, the shipped-archive args are suppressed here because
 // the node injects -XX:+AutoCreateSharedArchive against its own cache separately
-// (https://github.com/brewlet/site/blob/main/docs/appcds.md §4.3), and a shipped archive becomes seed data rather than a
+// (https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §4.3), and a shipped archive becomes seed data rather than a
 // consumed /app/<archive> mount.
 func BuildJVMArgs(cfg artifact.JVMConfig, jarPath string, extraArgs []string, regenerateCDS bool) ([]string, error) {
 	if err := cfg.Validate(); err != nil {
@@ -77,11 +77,11 @@ func BuildJVMArgs(cfg artifact.JVMConfig, jarPath string, extraArgs []string, re
 	// AppCDS (optional): mount-point is /app/<archive>, i.e. beside the JAR, so
 	// derive it from jarPath. `-Xshare:auto` (never `:on`) is deliberate — a
 	// build/version/classpath mismatch falls back to base CDS instead of failing,
-	// preserving Brewlet's safe-fallback posture. See https://github.com/brewlet/site/blob/main/docs/appcds.md §5, §7.
+	// preserving Brewlet's safe-fallback posture. See https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §5, §7.
 	//
 	// Skipped when the deployment opts into node-side regeneration: in that case
 	// the node injects the regeneration args (-XX:+AutoCreateSharedArchive against
-	// the node cache) separately (https://github.com/brewlet/site/blob/main/docs/appcds.md §4.3), so BuildJVMArgs must not
+	// the node cache) separately (https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §4.3), so BuildJVMArgs must not
 	// also point -XX:SharedArchiveFile at a /app/<archive> that isn't mounted.
 	if cfg.CDS != nil && !regenerateCDS && cfg.CDS.Archive != "" {
 		archivePath := filepath.Join(filepath.Dir(jarPath), cfg.CDS.Archive)
@@ -135,7 +135,7 @@ func BuildJVMArgs(cfg artifact.JVMConfig, jarPath string, extraArgs []string, re
 // just the main JAR (today's behavior). Otherwise each entry is resolved relative
 // to the app directory (the directory holding jarPath, i.e. /app in the sandbox)
 // and joined in order with the node path separator ":". The JVM expands any
-// trailing "lib/*" wildcard itself. See https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md.
+// trailing "lib/*" wildcard itself. See https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md.
 func classPath(cfg artifact.JVMConfig, jarPath string) string {
 	return joinAppPaths(cfg.Entry.ClassPath, jarPath)
 }
@@ -145,7 +145,7 @@ func classPath(cfg artifact.JVMConfig, jarPath string) string {
 // JAR case); otherwise each /app-relative entry (e.g. "orders.jar", "mods") is
 // resolved against the app directory and joined in order with ":". A directory
 // entry (e.g. the /app/mods modulepath layer) contributes every JAR it holds.
-// See https://github.com/brewlet/site/blob/main/docs/jpms-support.md.
+// See https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md.
 func modulePath(cfg artifact.JVMConfig, jarPath string) string {
 	return joinAppPaths(cfg.Entry.ModulePath, jarPath)
 }
@@ -170,7 +170,7 @@ func joinAppPaths(entries []string, jarPath string) string {
 // BuildPlan resolves the node JDK/launcher and assembles the launch argv. The
 // launcher name comes from the deployment descriptor (not the artifact); pass
 // "" or "java" for the vanilla OpenJDK launcher. regenerateCDS reflects the
-// deployment's node-side AppCDS regeneration choice (https://github.com/brewlet/site/blob/main/docs/appcds.md §4.3); the
+// deployment's node-side AppCDS regeneration choice (https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §4.3); the
 // caller injects the regeneration args separately.
 func BuildPlan(cfg artifact.JVMConfig, jarPath, jdkHome, launcherName string, extraArgs []string, regenerateCDS bool) (Plan, error) {
 	_, home, err := resolveJDK(jdkHome)
@@ -302,10 +302,10 @@ func AssembleSandbox(cfg artifact.JVMConfig, jarSrc string, classpathTars, modul
 // (cfg.CDS.Archive) so a `-XX:SharedArchiveFile=/app/<archive>` launch finds it,
 // mirroring the shim's read-only archive bind-mount. Pass "" for the common
 // no-CDS case. regenerate reflects the deployment's node-side regeneration
-// choice (https://github.com/brewlet/site/blob/main/docs/appcds.md §4.3): when set, the JAR mtime is pinned to the
+// choice (https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §4.3): when set, the JAR mtime is pinned to the
 // canonical value even without a shipped archive, so a node-regenerated archive
 // keeps mapping across runs (CDS validates classpath entries by basename+size+
-// mtime). See https://github.com/brewlet/site/blob/main/docs/appcds.md.
+// mtime). See https://github.com/brewlet/brewlet/blob/main/docs/appcds.md.
 func AssembleSandboxWithCDS(cfg artifact.JVMConfig, jarSrc string, classpathTars, modulepathTars []string, cdsSrc string, regenerate bool) (sandboxDir, jarPath string, err error) {
 	pinMtime := shipsCDS(cfg) || regenerate
 	sandboxDir, err = os.MkdirTemp("", "brewlet-sandbox-*")
@@ -380,7 +380,7 @@ func AssembleSandboxWithCDS(cfg artifact.JVMConfig, jarSrc string, classpathTars
 // the sandbox. It is the shared implementation used by both the CLI/harness
 // bundle path (GenerateBundleWithLauncher) and the production containerd shim's
 // Create() hook, keeping layered-classpath deployment
-// (https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md) identical across both.
+// (https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md) identical across both.
 func StageClasspathLayers(classpathTars []string, libDir string) error {
 	return stageLayers(classpathTars, libDir, "classpath")
 }
@@ -388,7 +388,7 @@ func StageClasspathLayers(classpathTars []string, libDir string) error {
 // StageModulepathLayers extracts each modulepath-layer tar into modsDir (creating
 // it if needed), so the directory can be bind-mounted read-only at /app/mods in
 // the sandbox and fed to `java --module-path`. It is the module-path twin of
-// StageClasspathLayers. See https://github.com/brewlet/site/blob/main/docs/jpms-support.md.
+// StageClasspathLayers. See https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md.
 func StageModulepathLayers(modulepathTars []string, modsDir string) error {
 	return stageLayers(modulepathTars, modsDir, "modulepath")
 }

@@ -32,7 +32,7 @@ public final class MediaTypes {
      * Media type for an optional classpath (dependency) layer: a tar of extra
      * JARs the shim unpacks under {@code /app/lib} for layered class-path
      * deployment. See
-     * https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md.
+     * https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md.
      */
     public static final String CLASSPATH_LAYER_MEDIA_TYPE =
             "application/vnd.brewlet.classpath.layer.v1+tar";
@@ -74,7 +74,7 @@ public final class MediaTypes {
      * Media type for an optional modulepath (library-module) layer: a tar of
      * library module JARs the shim unpacks under {@code /app/mods} for modular
      * (JPMS) deployment; the module-path twin of {@link #CLASSPATH_LAYER_MEDIA_TYPE}.
-     * See https://github.com/brewlet/site/blob/main/docs/jpms-support.md.
+     * See https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md.
      */
     public static final String MODULEPATH_LAYER_MEDIA_TYPE =
             "application/vnd.brewlet.modulepath.layer.v1+tar";
@@ -83,7 +83,7 @@ public final class MediaTypes {
      * Media type for an optional AppCDS archive layer: a single {@code .jsa}
      * file mounted at {@code /app/<archive>} and consumed with
      * {@code -Xshare:auto -XX:SharedArchiveFile=...}. See
-     * https://github.com/brewlet/site/blob/main/docs/appcds.md.
+     * https://github.com/brewlet/brewlet/blob/main/docs/appcds.md.
      */
     public static final String CDS_LAYER_MEDIA_TYPE =
             "application/vnd.brewlet.cds.layer.v1+jsa";
@@ -103,7 +103,7 @@ public final class MediaTypes {
     // containerd/kubelet pull + unpack it with no special config; the Brewlet
     // launch contract rides in the JVM_CONFIG_ANNOTATION manifest annotation and
     // each layer's Brewlet role rides in the LAYER_ROLE_ANNOTATION. See
-    // https://github.com/brewlet/site/blob/main/docs/runnable-image.md and
+    // https://github.com/brewlet/brewlet/blob/main/docs/runnable-image.md and
     // https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md#44-oci-artifact-format.
     // -----------------------------------------------------------------------
 

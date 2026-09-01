@@ -20,18 +20,18 @@ const (
 	JarLayerMediaType = "application/vnd.brewlet.jar.layer.v1+jar"
 	// ClasspathLayerMediaType marks an optional layer carrying a tar of extra
 	// JARs (dependency layers) that the shim unpacks under /app/lib for
-	// layered class-path deployment. See https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md.
+	// layered class-path deployment. See https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md.
 	ClasspathLayerMediaType = "application/vnd.brewlet.classpath.layer.v1+tar"
 	// ModulepathLayerMediaType marks an optional layer carrying a tar of library
 	// module JARs that the shim unpacks under /app/mods for modular (JPMS)
 	// deployment; the directory becomes part of the `--module-path`. It is the
-	// module-path twin of ClasspathLayerMediaType. See https://github.com/brewlet/site/blob/main/docs/jpms-support.md.
+	// module-path twin of ClasspathLayerMediaType. See https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md.
 	ModulepathLayerMediaType = "application/vnd.brewlet.modulepath.layer.v1+tar"
 	// CDSLayerMediaType marks an optional layer carrying a single Application
 	// Class-Data Sharing archive (`.jsa`) that the shim bind-mounts read-only at
 	// /app/<archive>; launch then adds `-Xshare:auto -XX:SharedArchiveFile=…` to
 	// speed startup. It is best-effort seed data: a build/version/classpath
-	// mismatch falls back to base CDS rather than failing. See https://github.com/brewlet/site/blob/main/docs/appcds.md.
+	// mismatch falls back to base CDS rather than failing. See https://github.com/brewlet/brewlet/blob/main/docs/appcds.md.
 	CDSLayerMediaType = "application/vnd.brewlet.cds.layer.v1+jsa"
 
 	ociManifestMediaType = "application/vnd.oci.image.manifest.v1+json"
@@ -49,8 +49,8 @@ const (
 // field: resource/environment tuning (heap, GC, agents, …) belongs in the
 // descriptor's jvm.args. The only launch knobs here are the app-intrinsic
 // correctness flags below (preview features, module-system access, system
-// properties the code assumes). See https://github.com/brewlet/site/blob/main/docs/jdk-management.md and
-// https://github.com/brewlet/site/blob/main/docs/resource-tuning.md.
+// properties the code assumes). See https://github.com/brewlet/brewlet/blob/main/docs/jdk-management.md and
+// https://github.com/brewlet/brewlet/blob/main/docs/resource-tuning.md.
 type JVMConfig struct {
 	SchemaVersion int `json:"schemaVersion"`
 	// MainJar is the physical FILENAME the artifact's single primary JAR blob is
@@ -90,7 +90,7 @@ type JVMConfig struct {
 	// Leave it UNSET for the common case: a pure-bytecode JAR is
 	// architecture-neutral and runs unchanged on any provisioned arch, so an
 	// empty Arch means "runs anywhere" (today's default behavior). See
-	// https://github.com/brewlet/site/blob/main/docs/multi-arch.md.
+	// https://github.com/brewlet/brewlet/blob/main/docs/multi-arch.md.
 	Arch []string `json:"arch,omitempty"`
 	// CDS is an OPTIONAL Application Class-Data Sharing hint. When set, the
 	// artifact ships a `.jsa` archive (as a cds.layer.v1+jsa layer) that the shim
@@ -99,12 +99,12 @@ type JVMConfig struct {
 	// It is a best-effort startup accelerator, never a correctness or scheduling
 	// constraint: the archive is bound to the exact JDK build + classpath layout,
 	// and `-Xshare:auto` makes any mismatch fall back to base CDS instead of
-	// failing. Leave it UNSET for the common case. See https://github.com/brewlet/site/blob/main/docs/appcds.md.
+	// failing. Leave it UNSET for the common case. See https://github.com/brewlet/brewlet/blob/main/docs/appcds.md.
 	CDS *CDS `json:"cds,omitempty"`
 }
 
 // CDS carries the optional Application Class-Data Sharing archive hint (see
-// JVMConfig.CDS and https://github.com/brewlet/site/blob/main/docs/appcds.md).
+// JVMConfig.CDS and https://github.com/brewlet/brewlet/blob/main/docs/appcds.md).
 type CDS struct {
 	// Archive is the bare filename the `.jsa` archive is materialized as under
 	// /app (e.g. "app.jsa"). It must be a plain filename — no path separators,
@@ -114,7 +114,7 @@ type CDS struct {
 	// Mode records how the archive was produced ("dynamic" via
 	// -XX:ArchiveClassesAtExit, or "static" via -Xshare:dump). It is
 	// informational only — consumption is identical either way — and may be
-	// omitted. See https://github.com/brewlet/site/blob/main/docs/appcds.md §2.
+	// omitted. See https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §2.
 	Mode string `json:"mode,omitempty"`
 }
 
@@ -169,7 +169,7 @@ type Entry struct {
 	// In "module" mode entry.classPath is optional: when set it adds a supplementary
 	// class path (`-cp`) alongside the module path (`-p`) for mixed modular apps that
 	// carry automatic-module or non-modular libraries on the class path. See
-	// https://github.com/brewlet/site/blob/main/docs/jpms-support.md and https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md §8.
+	// https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md and https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md §8.
 	Mode string `json:"mode"`
 	// MainClass is the fully-qualified entry-point class. It is required in
 	// "classpath" mode and ignored in "jar" mode, where the JAR manifest's
@@ -183,7 +183,7 @@ type Entry struct {
 	// JVM launcher. It is used in "classpath" mode (where, when empty, launch falls
 	// back to the single MainJar) and, optionally, in "module" mode to add a
 	// supplementary class path next to the module path (the mixed form). See
-	// https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md.
+	// https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md.
 	ClassPath []string `json:"classPath,omitempty"`
 	// Module is the root module name launched when Mode == "module" (the `-m`
 	// argument). Required in "module" mode; forbidden in the other modes.
@@ -194,7 +194,7 @@ type Entry struct {
 	// separator, in order, and passed to `java -p`. When empty, module mode falls
 	// back to the single MainJar (the single modular JAR case). A directory entry
 	// (e.g. "mods", from a modulepath layer) contributes every JAR it contains.
-	// See https://github.com/brewlet/site/blob/main/docs/jpms-support.md.
+	// See https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md.
 	ModulePath []string `json:"modulePath,omitempty"`
 }
 
@@ -241,7 +241,7 @@ func (c JVMConfig) Validate() error {
 		// both a module path (`-p`) and a supplementary class path (`-cp`) — e.g.
 		// automatic-module or non-modular libraries carried on the class path. The
 		// mixed form launches `java -cp <classPath> -p <modulePath> -m <module>`.
-		// See https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md §8.
+		// See https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md §8.
 	default:
 		return fmt.Errorf("unknown entry.mode %q (expected \"jar\", \"classpath\", or \"module\")", e.Mode)
 	}
@@ -297,7 +297,7 @@ func (c JVMConfig) Validate() error {
 	// resolves to /app/<archive> (dependency layers unpack under lib/ or mods/;
 	// the archive always lives at the /app top level). Reject path separators,
 	// parent refs and wildcards so a malformed hint fails at publish time rather
-	// than as an opaque JVM error at launch. See https://github.com/brewlet/site/blob/main/docs/appcds.md.
+	// than as an opaque JVM error at launch. See https://github.com/brewlet/brewlet/blob/main/docs/appcds.md.
 	if c.CDS != nil {
 		a := strings.TrimSpace(c.CDS.Archive)
 		if a == "" {
@@ -423,7 +423,7 @@ func (s Store) Push(ref string, cfg JVMConfig, jarPath string) (Descriptor, erro
 // classpath layers (tars of dependency JARs, in order), then tags the manifest as
 // ref in index.json. The classpath layers are appended to Manifest.Layers after
 // the JAR layer, each as its own blob so the registry and node content store dedup
-// them by digest. See https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md.
+// them by digest. See https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md.
 func (s Store) PushWithLayers(ref string, cfg JVMConfig, jarPath string, classpathTars []string) (Descriptor, error) {
 	return s.PushWithTypedLayers(ref, cfg, jarPath, classpathTars, nil)
 }
@@ -432,7 +432,7 @@ func (s Store) PushWithLayers(ref string, cfg JVMConfig, jarPath string, classpa
 // classpath layers (unpacked to /app/lib, fed to `-cp`) and optional modulepath
 // layers (unpacked to /app/mods, fed to `-p`), in that order, and tags the
 // manifest as ref. Each tar becomes its own blob so registry/content stores dedup
-// by digest. See https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md and https://github.com/brewlet/site/blob/main/docs/jpms-support.md.
+// by digest. See https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md and https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md.
 func (s Store) PushWithTypedLayers(ref string, cfg JVMConfig, jarPath string, classpathTars, modulepathTars []string) (Descriptor, error) {
 	return s.PushWithCDS(ref, cfg, jarPath, classpathTars, modulepathTars, "")
 }
@@ -443,7 +443,7 @@ func (s Store) PushWithTypedLayers(ref string, cfg JVMConfig, jarPath string, cl
 // modulepath layers), and the launch config MUST carry a matching cds.archive
 // hint (whose basename equals the archive's basename) so the shim mounts it at
 // /app/<archive> and launch adds `-Xshare:auto -XX:SharedArchiveFile=…`. Pass ""
-// for the common no-CDS case. See https://github.com/brewlet/site/blob/main/docs/appcds.md.
+// for the common no-CDS case. See https://github.com/brewlet/brewlet/blob/main/docs/appcds.md.
 func (s Store) PushWithCDS(ref string, cfg JVMConfig, jarPath string, classpathTars, modulepathTars []string, cdsArchivePath string) (Descriptor, error) {
 	if err := cfg.Validate(); err != nil {
 		return Descriptor{}, fmt.Errorf("invalid launch config: %w", err)
@@ -692,7 +692,7 @@ func (m Manifest) ClasspathLayers() []Descriptor {
 
 // ModulepathLayers returns the descriptors of the optional modulepath (library
 // module) layers, in manifest order. Empty unless the artifact ships a multi-JAR
-// modular (JPMS) app. See https://github.com/brewlet/site/blob/main/docs/jpms-support.md.
+// modular (JPMS) app. See https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md.
 func (m Manifest) ModulepathLayers() []Descriptor {
 	var out []Descriptor
 	for _, l := range m.Layers {
@@ -706,7 +706,7 @@ func (m Manifest) ModulepathLayers() []Descriptor {
 // CDSLayer returns the descriptor of the optional Application Class-Data Sharing
 // archive layer and true when present, or a zero descriptor and false otherwise.
 // An artifact ships at most one CDS archive (the first is returned). See
-// https://github.com/brewlet/site/blob/main/docs/appcds.md.
+// https://github.com/brewlet/brewlet/blob/main/docs/appcds.md.
 func (m Manifest) CDSLayer() (Descriptor, bool) {
 	for _, l := range m.Layers {
 		if l.MediaType == CDSLayerMediaType {

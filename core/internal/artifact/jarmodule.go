@@ -1,6 +1,6 @@
 // This file inspects a JAR for a JPMS module descriptor (module-info.class),
 // so the CLI can auto-detect a modular application and default entry.mode=module
-// with the module name and (optional) main class. See https://github.com/brewlet/site/blob/main/docs/jpms-support.md.
+// with the module name and (optional) main class. See https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md.
 package artifact
 
 import (

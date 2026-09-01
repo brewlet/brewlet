@@ -36,7 +36,7 @@ engineering designs retained under [`proposals/`](proposals/).
 
 ## Supporting project areas
 
-- [brewlet/site](https://github.com/brewlet/site) — user and operator documentation
+- [user and operator documentation](../docs/)
 - [integration tests](../integration-tests) — cross-component validation and
   fixture applications
 

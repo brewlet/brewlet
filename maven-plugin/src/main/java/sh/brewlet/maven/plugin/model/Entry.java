@@ -10,7 +10,7 @@ import java.util.List;
  * manifest); {@code "classpath"} → {@code java -cp <classPath> <mainClass>};
  * {@code "module"} → {@code java [-cp <classPath>] -p <modulePath> -m <module>[/<mainClass>]}
  * (JPMS, optionally with a supplementary class path for the mixed form —
- * see https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md#8-shim-resolution-algorithm).
+ * see https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md#8-shim-resolution-algorithm).
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class Entry {
@@ -33,7 +33,7 @@ public class Entry {
      * {@code "classpath"} mode and, optionally, in {@code "module"} mode to add a
      * supplementary class path next to the module path (the mixed form). Omitted
      * when null/empty. Must stay in sync with the Go {@code Entry.ClassPath} field.
-     * See https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md.
+     * See https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md.
      */
     @JsonProperty("classPath")
     private List<String> classPath;
@@ -42,7 +42,7 @@ public class Entry {
      * Root module name launched when {@code mode == "module"} (the {@code -m}
      * argument). Required in {@code "module"} mode; forbidden otherwise. Must stay
      * in sync with the Go {@code Entry.Module} field. See
-     * https://github.com/brewlet/site/blob/main/docs/jpms-support.md.
+     * https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md.
      */
     @JsonProperty("module")
     private String module;
@@ -52,7 +52,7 @@ public class Entry {
      * {@code mode == "module"} (e.g. {@code ["orders.jar", "mods"]}); the
      * module-path twin of {@code classPath}. Omitted when null/empty. Must stay in
      * sync with the Go {@code Entry.ModulePath} field. See
-     * https://github.com/brewlet/site/blob/main/docs/jpms-support.md.
+     * https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md.
      */
     @JsonProperty("modulePath")
     private List<String> modulePath;

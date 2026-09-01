@@ -103,7 +103,7 @@ spec:
                           default: false
                           description: >-
                             Opt into node-side AppCDS regeneration (see
-                            https://github.com/brewlet/site): the node maintains a per-(artifact, JDK-build)
+                            https://github.com/brewlet/brewlet): the node maintains a per-(artifact, JDK-build)
                             archive cache via -XX:+AutoCreateSharedArchive (JDK 19+)
                             that self-heals on every central JDK patch. Any archive
                             shipped in the artifact becomes optional seed data.

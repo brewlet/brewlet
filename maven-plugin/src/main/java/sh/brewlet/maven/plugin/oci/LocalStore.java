@@ -84,7 +84,7 @@ public class LocalStore {
      * Assembles and writes the full Brewlet OCI artifact, optionally with one or
      * more classpath (dependency) layers appended after the main JAR layer for
      * layered class-path deployment. See
-     * https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md.
+     * https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md.
      *
      * @param ref              OCI reference ({@code name:tag} or full registry ref)
      * @param cfg              launch descriptor

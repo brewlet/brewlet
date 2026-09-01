@@ -459,7 +459,7 @@ func applyBrewletLaunch(spec *specs.Spec, ra resolvedArtifact, bundleDir string)
 
 	jvmArgs, _ := kcruntime.BuildJVMArgs(ra.Config, inSandboxJar, nil, regenerate)
 
-	// Node-side AppCDS regeneration (https://github.com/brewlet/site/blob/main/docs/appcds.md §4.3): when the deployment
+	// Node-side AppCDS regeneration (https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §4.3): when the deployment
 	// opts in, resolve a per-(artifact, JDK-build) archive from the node cache and
 	// prepend its -XX:+AutoCreateSharedArchive / -XX:SharedArchiveFile args. The
 	// cache dir is bind-mounted at InSandboxCDSDir (rw only for the elected
@@ -563,7 +563,7 @@ func applyBrewletLaunch(spec *specs.Spec, ra resolvedArtifact, bundleDir string)
 		{Destination: inSandboxJar, Type: "bind", Source: jarSource, Options: []string{"rbind", "ro"}},
 	}
 	// Optional AppCDS archive: bind-mount read-only at /app/<archive> so the
-	// -XX:SharedArchiveFile path BuildJVMArgs emitted resolves. See https://github.com/brewlet/site/blob/main/docs/appcds.md.
+	// -XX:SharedArchiveFile path BuildJVMArgs emitted resolves. See https://github.com/brewlet/brewlet/blob/main/docs/appcds.md.
 	// Skipped under node-side regeneration: there the shipped archive is only seed
 	// data for the node cache (bind-mounted at InSandboxCDSDir instead).
 	if !regenerate && ra.CDSHostPath != "" && ra.Config.CDS != nil && ra.Config.CDS.Archive != "" {
@@ -581,7 +581,7 @@ func applyBrewletLaunch(spec *specs.Spec, ra resolvedArtifact, bundleDir string)
 }
 
 // mountClasspathLayers implements the §6.1 rootfs step for layered-classpath
-// deployment (https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md): it stages each optional
+// deployment (https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md): it stages each optional
 // classpath.layer.v1+tar into a per-container host dir and bind-mounts it
 // read-only at /app/lib, so a `-cp /app/app.jar:/app/lib/*` launch resolves the
 // dependency JARs. This mirrors runtime.GenerateBundleWithLauncher so the
@@ -617,7 +617,7 @@ func mountClasspathLayers(spec *specs.Spec, ra resolvedArtifact, bundleDir strin
 // bind-mounts it read-only at /app/mods, so a `-p /app/app.jar:/app/mods` launch
 // resolves the library modules. This mirrors runtime.GenerateBundleWithLauncher
 // so the production shim and the CLI/harness bundle path behave identically. A
-// no-op when the artifact carries no modulepath layers. See https://github.com/brewlet/site/blob/main/docs/jpms-support.md.
+// no-op when the artifact carries no modulepath layers. See https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md.
 func mountModulepathLayers(spec *specs.Spec, ra resolvedArtifact, bundleDir string) error {
 	if len(ra.ModulepathHostPaths) == 0 {
 		return nil

@@ -64,7 +64,7 @@ import java.util.regex.Pattern;
  * ({@code -p <mainJar>:mods -m …}, dependencies staged into {@code mods/}) — run
  * the goal with the same {@code -Dbrewlet.layered=true} you push with. All staged
  * files get a canonical mtime so the archive maps against the shim's layout.
- * See https://github.com/brewlet/site/blob/main/docs/appcds.md#42-turnkey-generation-in-the-maven-plugin--cli.
+ * See https://github.com/brewlet/brewlet/blob/main/docs/appcds.md#42-turnkey-generation-in-the-maven-plugin--cli.
  */
 @Mojo(name = "appcds",
       requiresProject = true,
@@ -101,7 +101,7 @@ public class AppCdsMojo extends AbstractBrewletMojo {
     /**
      * JDK used for training. Defaults to the JDK running Maven
      * ({@code java.home}); turnkey AppCDS requires JDK 21+ per
-     * https://github.com/brewlet/site/blob/main/docs/appcds.md#22-minimum-jdk-version.
+     * https://github.com/brewlet/brewlet/blob/main/docs/appcds.md#22-minimum-jdk-version.
      */
     @Parameter(property = "brewlet.appcds.javaHome")
     private File trainingJavaHome;
@@ -197,7 +197,7 @@ public class AppCdsMojo extends AbstractBrewletMojo {
         int feature = detectTrainingJdkFeature(java);
         if (feature < 21) {
             throw new MojoExecutionException("brewlet:appcds requires a JDK 21+ training runtime "
-                    + "(https://github.com/brewlet/site/blob/main/docs/appcds.md#22-minimum-jdk-version); "
+                    + "(https://github.com/brewlet/brewlet/blob/main/docs/appcds.md#22-minimum-jdk-version); "
                     + java.getAbsolutePath()
                     + " reports feature " + feature + ".");
         }

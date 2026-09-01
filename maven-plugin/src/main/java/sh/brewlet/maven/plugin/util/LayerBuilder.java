@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * Builds ordered, reproducible classpath (dependency) layers from a project's
  * resolved dependency tree. Implements the artifact side of
- * https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md:
+ * https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md:
  * instead of shipping one opaque
  * fat JAR, the dependencies are packed into their own OCI layer(s) — split
  * stable&nbsp;&rarr;&nbsp;volatile so a code-only rebuild re-pushes just the thin

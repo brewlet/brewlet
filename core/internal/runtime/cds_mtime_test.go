@@ -225,7 +225,7 @@ func TestGenerateBundleNoCDSMountsOriginalJar(t *testing.T) {
 
 func TestCDSModTimeValue(t *testing.T) {
 	// Must match the Maven plugin's canonical value (epoch second 946684800 =
-	// 2000-01-01T00:00:00Z). Keep the two in lockstep — see https://github.com/brewlet/site/blob/main/docs/appcds.md.
+	// 2000-01-01T00:00:00Z). Keep the two in lockstep — see https://github.com/brewlet/brewlet/blob/main/docs/appcds.md.
 	if got := CDSModTime.Unix(); got != 946684800 {
 		t.Errorf("CDSModTime = %d, want 946684800 (2000-01-01T00:00:00Z)", got)
 	}

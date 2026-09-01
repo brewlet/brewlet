@@ -36,7 +36,7 @@ const (
 	annRequestedJDK      = "brewlet.sh/jdk"
 	annRequestedLauncher = "brewlet.sh/launcher"
 	// annCDSRegenerate opts the workload into node-side AppCDS regeneration
-	// (https://github.com/brewlet/site/blob/main/docs/appcds.md §4.3). Value "true" (set by the operator from
+	// (https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §4.3). Value "true" (set by the operator from
 	// spec.jvm.cds.regenerate, or by the user on a raw Deployment) tells the shim
 	// to maintain a per-(artifact, JDK-build) archive cache with
 	// -XX:+AutoCreateSharedArchive rather than consume a shipped archive. It is a
@@ -72,7 +72,7 @@ type imageConfig struct {
 	// CDSRegenerate mirrors the brewlet.sh/cds-regenerate pod annotation (set by
 	// the operator from spec.jvm.cds.regenerate): opt into node-side AppCDS
 	// regeneration. Like JDKRequest/LauncherName it is a deployment decision
-	// carried on the pod, not read from the artifact. See https://github.com/brewlet/site/blob/main/docs/appcds.md §4.3.
+	// carried on the pod, not read from the artifact. See https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §4.3.
 	CDSRegenerate bool `json:"cdsRegenerate,omitempty"`
 
 	// Content-store resolution (production path). When Backend is "containerd"

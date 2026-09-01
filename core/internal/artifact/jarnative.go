@@ -2,7 +2,7 @@
 // infers the architecture(s) they target, so the CLI and Maven plugin can
 // default the optional launch-config `arch` constraint for NON-portable
 // artifacts. A pure-bytecode JAR bundles no natives and yields no arch (runs
-// anywhere). See https://github.com/brewlet/site/blob/main/docs/multi-arch.md.
+// anywhere). See https://github.com/brewlet/brewlet/blob/main/docs/multi-arch.md.
 package artifact
 
 import (

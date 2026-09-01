@@ -1,0 +1,324 @@
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap");
+
+:root {
+  --brewlet-coffee: #6f4e37;
+  --brewlet-coffee-dark: #553524;
+  --brewlet-coffee-deep: #3b241a;
+  --brewlet-k8s: #326ce5;
+  --brewlet-cream: #f5e6c8;
+  --brewlet-cream-soft: #fbf4e6;
+  --brewlet-ink: #2a1f18;
+  --brewlet-muted: #6b5d51;
+  --brewlet-line: #e7dcc9;
+  --brewlet-bg: #fffdf9;
+  --brewlet-rail-primary: #fff;
+  --brewlet-rail-secondary: #fff;
+  --brewlet-panel: #f8efe0;
+  --brewlet-panel-hover: #f1e3cd;
+  --brewlet-focus: rgba(50, 108, 229, 0.4);
+
+  --md-primary-fg-color: var(--brewlet-coffee);
+  --md-primary-fg-color--light: #8a6244;
+  --md-primary-fg-color--dark: var(--brewlet-coffee-dark);
+  --md-accent-fg-color: var(--brewlet-k8s);
+  --md-default-bg-color: var(--brewlet-bg);
+  --md-default-fg-color: var(--brewlet-ink);
+  --md-default-fg-color--light: var(--brewlet-muted);
+  --md-typeset-a-color: var(--brewlet-k8s);
+}
+
+body {
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+}
+
+:focus-visible {
+  outline: 3px solid var(--brewlet-focus);
+  outline-offset: 2px;
+}
+
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4,
+.md-typeset h5,
+.md-typeset h6,
+.md-header__title,
+.md-nav__title {
+  font-family: "Bricolage Grotesque", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.md-header {
+  background: rgba(255, 253, 249, 0.9);
+  border-bottom: 1px solid var(--brewlet-line);
+  color: var(--brewlet-ink);
+}
+
+.md-header__button,
+.md-header__topic,
+.md-search__icon,
+.md-search__input::placeholder {
+  color: var(--brewlet-ink);
+}
+
+.md-header__title {
+  color: inherit;
+}
+
+.md-tabs {
+  background: var(--brewlet-coffee-deep);
+}
+
+.md-search__form {
+  background: var(--brewlet-cream-soft);
+}
+
+.md-nav,
+.md-nav__source {
+  background: transparent;
+}
+
+/* Keep both navigation rails quiet so the article remains the focal point. */
+@media screen and (min-width: 76.25em) {
+  .md-nav__list {
+    display: grid;
+    gap: 0.12rem;
+  }
+
+  .md-grid {
+    max-width: 78rem;
+  }
+
+  .md-main__inner {
+    background:
+      linear-gradient(
+        to right,
+        var(--brewlet-rail-primary) 0 13.5rem,
+        var(--brewlet-bg) 13.5rem calc(100% - 13.5rem),
+        var(--brewlet-rail-secondary) calc(100% - 13.5rem)
+      );
+  }
+
+  .md-sidebar {
+    background: transparent;
+    width: 13.5rem;
+  }
+
+  .md-sidebar--primary {
+    border-right: 1px solid var(--brewlet-line);
+  }
+
+  .md-sidebar--secondary {
+    border-left: 1px solid var(--brewlet-line);
+  }
+
+  .md-sidebar__scrollwrap {
+    margin: 0;
+    scrollbar-color: rgba(111, 78, 55, 0.25) transparent;
+    scrollbar-width: thin;
+  }
+
+  .md-sidebar--primary .md-sidebar__inner {
+    padding: 1.5rem 1.25rem 2.5rem 0.5rem;
+  }
+
+  .md-sidebar--secondary .md-sidebar__inner {
+    padding: 1.5rem 0.5rem 2.5rem 1.25rem;
+  }
+}
+
+.md-nav__title {
+  background: transparent;
+  box-shadow: none;
+  color: var(--brewlet-ink);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.055em;
+  line-height: 1.3;
+  padding: 0 0.6rem 0.75rem;
+  text-transform: uppercase;
+}
+
+.md-nav__item {
+  padding: 0;
+}
+
+.md-nav__link {
+  align-items: center;
+  border-radius: 0.45rem;
+  color: var(--brewlet-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  margin: 0;
+  min-height: 2rem;
+  padding: 0.38rem 0.6rem;
+  transition: background-color 140ms ease-out, color 140ms ease-out;
+}
+
+.md-nav__link:hover {
+  background: var(--brewlet-panel);
+  color: var(--brewlet-coffee-dark);
+}
+
+.md-nav__link:focus-visible {
+  outline: 3px solid var(--brewlet-focus);
+  outline-offset: -1px;
+}
+
+.md-nav__link--active,
+.md-nav__link[aria-current="page"] {
+  background: var(--brewlet-panel-hover);
+  color: var(--brewlet-coffee-dark);
+  font-weight: 700;
+}
+
+/* Primary navigation: section labels establish rhythm without looking clickable. */
+.md-nav--primary > .md-nav__list > .md-nav__item {
+  margin-top: 0.9rem;
+}
+
+.md-nav--primary > .md-nav__list > .md-nav__item:first-child {
+  margin-top: 0;
+}
+
+.md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link {
+  color: var(--brewlet-coffee);
+  font-family: "Bricolage Grotesque", "Segoe UI", -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 0.69rem;
+  font-weight: 800;
+  letter-spacing: 0.045em;
+  min-height: auto;
+  padding-bottom: 0.25rem;
+  padding-top: 0.25rem;
+  text-transform: uppercase;
+}
+
+.md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link:hover {
+  background: transparent;
+  color: var(--brewlet-coffee-dark);
+}
+
+.md-nav--primary .md-nav__item .md-nav__list {
+  padding-left: 0;
+}
+
+.md-nav--primary .md-nav__item .md-nav__item .md-nav__link {
+  color: var(--brewlet-ink);
+}
+
+.md-nav--primary .md-nav__item .md-nav__item .md-nav__link:hover {
+  color: var(--brewlet-coffee-dark);
+}
+
+.md-nav--primary .md-nav__item .md-nav__item .md-nav__link--active,
+.md-nav--primary .md-nav__item .md-nav__item .md-nav__link[aria-current="page"] {
+  color: var(--brewlet-coffee-dark);
+}
+
+/* Secondary navigation: a compact outline with a precise active marker. */
+.md-nav--primary .md-nav__title,
+.md-nav--secondary .md-nav__title {
+  background: transparent;
+  box-shadow: none;
+}
+
+.md-nav--secondary .md-nav__title {
+  border-bottom: 1px solid var(--brewlet-line);
+  margin: 0 0 0.65rem;
+}
+
+.md-nav--secondary .md-nav__link {
+  font-size: 0.71rem;
+  min-height: 1.8rem;
+  padding-bottom: 0.32rem;
+  padding-top: 0.32rem;
+}
+
+.md-nav--secondary .md-nav__link--active,
+.md-nav--secondary .md-nav__link[aria-current="location"] {
+  background: transparent;
+  color: var(--brewlet-k8s);
+  font-weight: 700;
+}
+
+.md-nav--secondary .md-nav__link--active::before,
+.md-nav--secondary .md-nav__link[aria-current="location"]::before {
+  background: currentcolor;
+  border-radius: 50%;
+  content: "";
+  flex: 0 0 auto;
+  height: 0.35rem;
+  margin-right: 0.1rem;
+  width: 0.35rem;
+}
+
+.md-nav--secondary .md-nav .md-nav__link {
+  padding-left: 1.15rem;
+}
+
+@media screen and (max-width: 76.234375em) {
+  .md-nav--primary .md-nav__list {
+    display: block;
+  }
+
+  /* Keep the full information architecture visible instead of using
+     Material's intermediate-width drill-down pages. */
+  .md-nav--primary > .md-nav__list > .md-nav__item > .md-nav {
+    background: transparent;
+    display: block;
+    height: auto;
+    opacity: 1;
+    position: static;
+    transform: none;
+    visibility: visible;
+  }
+
+  .md-nav--primary > .md-nav__list > .md-nav__item > .md-nav > .md-nav__title {
+    display: none;
+  }
+
+  .md-nav--primary .md-nav__title[for="__drawer"] {
+    background: var(--brewlet-cream-soft);
+    border-bottom: 1px solid var(--brewlet-line);
+    color: var(--brewlet-coffee-deep);
+  }
+
+  .md-nav__title {
+    padding: 1rem 0.8rem;
+  }
+
+  .md-nav__link {
+    border-radius: 0;
+    font-size: 0.78rem;
+    min-height: 2.4rem;
+    padding-left: 0.8rem;
+    padding-right: 0.8rem;
+  }
+
+  .md-nav--primary > .md-nav__list > .md-nav__item {
+    margin-top: 0;
+  }
+
+  .md-nav--primary > .md-nav__list > .md-nav__item > .md-nav__link {
+    border-top: 1px solid var(--brewlet-line);
+    min-height: 2.4rem;
+    padding-bottom: 0.55rem;
+    padding-top: 0.55rem;
+  }
+
+  .md-nav--primary > .md-nav__list > .md-nav__item:first-child > .md-nav__link {
+    border-top: 0;
+  }
+
+  .md-nav--primary .md-nav__item .md-nav__item .md-nav__link {
+    min-height: 2.2rem;
+    padding-bottom: 0.45rem;
+    padding-left: 1.2rem;
+    padding-top: 0.45rem;
+  }
+}
+
+.md-typeset code {
+  background: rgba(111, 78, 55, 0.09);
+  color: var(--brewlet-coffee-dark);
+  border-radius: 6px;
+}

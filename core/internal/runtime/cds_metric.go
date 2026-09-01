@@ -11,7 +11,7 @@ import (
 
 // recordRegenMetric writes a best-effort node-local record of the AppCDS
 // regeneration role chosen for a launch. It is the shim-side half of the metrics
-// design in https://github.com/brewlet/site/blob/main/docs/metrics-exporter.md
+// design in https://github.com/brewlet/brewlet/blob/main/docs/metrics-exporter.md
 // (Option A). The current exporter consumes the socket event. The optional file
 // remains for compatibility with external Prometheus textfile collectors. It
 // NEVER fails a launch: every error is swallowed, and an empty dir disables

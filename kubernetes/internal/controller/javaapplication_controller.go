@@ -119,7 +119,7 @@ func (r *JavaApplicationReconciler) reconcileHPA(ctx context.Context, app *appsv
 }
 
 // validateSpec enforces spec invariants that the developer-facing contract
-// documents (https://github.com/brewlet/site) but that a structural CRD schema
+// documents (https://github.com/brewlet/brewlet) but that a structural CRD schema
 // cannot fully express on its own. It runs before any object is built so an
 // invalid spec surfaces as a clear Ready=False/event instead of a rejected or
 // nonsensical HorizontalPodAutoscaler. It is belt-and-suspenders behind the

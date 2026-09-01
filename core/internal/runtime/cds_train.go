@@ -58,7 +58,7 @@ func AppCDSTrainingArgs(cfg artifact.JVMConfig, jarName, archivePath string, tra
 // scratch directory and runs the training JVM there with that directory as its
 // working dir, so the JAR classpath entry is recorded as a bare relative token —
 // exactly how the shim presents /app/<jar> at runtime (see CDSModTime and
-// https://github.com/brewlet/site/blob/main/docs/appcds.md §4.4). The archive is written directly to outArchive (its parent
+// https://github.com/brewlet/brewlet/blob/main/docs/appcds.md §4.4). The archive is written directly to outArchive (its parent
 // is created if needed); the scratch directory is removed on return.
 //
 // javaBin is the java executable to invoke. timeout bounds the run: a

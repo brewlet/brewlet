@@ -20,7 +20,7 @@
 // `runtimeClassName: brewlet` pod set `image: <ref>` and Just Work, like a
 // SpinKube does for a Spin-compatible Wasm application. See
 // https://github.com/brewlet/brewlet/tree/main/specs §4 and
-// https://github.com/brewlet/site/blob/main/docs/runnable-image.md.
+// https://github.com/brewlet/brewlet/blob/main/docs/runnable-image.md.
 package artifact
 
 import (
@@ -131,7 +131,7 @@ type RunnableImageOptions struct {
 // The launch contract (cfg) is carried verbatim on each platform manifest under
 // the brewlet.sh/jvm-config annotation; the shim reads it from there instead of
 // a Brewlet config blob. Pass "" for cdsArchivePath when the app ships no CDS
-// archive. See https://github.com/brewlet/site/blob/main/docs/runnable-image.md.
+// archive. See https://github.com/brewlet/brewlet/blob/main/docs/runnable-image.md.
 func (s Store) PushRunnableImage(ref string, cfg JVMConfig, jarPath string, classpathTars, modulepathTars []string, cdsArchivePath string) (Descriptor, error) {
 	return s.PushRunnableImageWithOptions(ref, cfg, jarPath, classpathTars, modulepathTars, cdsArchivePath, RunnableImageOptions{})
 }

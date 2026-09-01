@@ -118,7 +118,7 @@ const (
 	AnnotationRequestedArch = "brewlet.sh/arch"
 
 	// AnnotationCDSRegenerate optionally opts a pod into node-side AppCDS
-	// regeneration (https://github.com/brewlet/site). Value "true" tells the shim to maintain
+	// regeneration (https://github.com/brewlet/brewlet). Value "true" tells the shim to maintain
 	// a per-(artifact, JDK-build) archive cache with -XX:+AutoCreateSharedArchive
 	// instead of consuming a shipped archive verbatim. It imposes no scheduling
 	// constraint (every ready node can regenerate, or safely skips on JDK < 19),

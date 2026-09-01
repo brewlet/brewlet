@@ -85,7 +85,7 @@ public class RegistryClient {
      * more classpath (dependency) layers appended after the main JAR layer for
      * layered class-path deployment. Each layer is uploaded as its own blob so
      * unchanged dependency layers dedup by digest across rebuilds and apps.
-     * See https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md.
+     * See https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md.
      *
      * @param reference        OCI tag or digest reference, e.g. {@code "1.0.0"}
      * @param cfg              the JVM launch descriptor
@@ -171,7 +171,7 @@ public class RegistryClient {
      * object is a multi-arch OCI image index, so containerd/kubelet pull and
      * unpack it with no special configuration. The launch contract rides in each
      * platform manifest's {@code brewlet.sh/jvm-config} annotation. See
-     * https://github.com/brewlet/site/blob/main/docs/runnable-image.md.
+     * https://github.com/brewlet/brewlet/blob/main/docs/runnable-image.md.
      *
      * @param reference        OCI tag reference, e.g. {@code "1.0.0"}
      * @param cfg              the JVM launch descriptor

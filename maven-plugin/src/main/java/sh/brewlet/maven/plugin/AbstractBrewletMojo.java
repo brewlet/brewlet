@@ -70,7 +70,7 @@ public abstract class AbstractBrewletMojo extends AbstractMojo {
      * The archive is mounted read-only at {@code /app/<name>} and launch uses
      * {@code -Xshare:auto -XX:SharedArchiveFile=/app/<name>} as a best-effort
      * accelerator. Mirrors the CLI's {@code --appcds-archive}; see
-     * https://github.com/brewlet/site/blob/main/docs/appcds.md.
+     * https://github.com/brewlet/brewlet/blob/main/docs/appcds.md.
      */
     @Parameter(property = "brewlet.cdsArchive")
     protected File cdsArchive;
@@ -198,13 +198,13 @@ public abstract class AbstractBrewletMojo extends AbstractMojo {
      *       forces {@code entry.mode=classpath} and sets
      *       {@code entry.classPath=[mainJar, "lib/*"]} so the shim launches
      *       {@code java -cp /app/app.jar:/app/lib/* <mainClass>}. See
-     *       https://github.com/brewlet/site/blob/main/docs/layered-classpath-deployment.md.</li>
+     *       https://github.com/brewlet/brewlet/blob/main/docs/layered-classpath-deployment.md.</li>
      *   <li><b>modular (JPMS) apps</b> (a JAR with a root {@code module-info.class},
      *       or {@code <entryMode>module</entryMode>}): a single
      *       {@code modulepath.layer.v1+tar} (named {@code mods}) unpacked to
      *       {@code /app/mods} and sets {@code entry.modulePath=[mainJar, "mods"]}
      *       so the shim launches {@code java -p /app/app.jar:/app/mods -m <module>}.
-     *       See https://github.com/brewlet/site/blob/main/docs/jpms-support.md.</li>
+     *       See https://github.com/brewlet/brewlet/blob/main/docs/jpms-support.md.</li>
      * </ul>
      *
      * <p>Unchanged dependency layers dedup by digest across rebuilds and apps, so
@@ -244,7 +244,7 @@ public abstract class AbstractBrewletMojo extends AbstractMojo {
      *       unpack it, so it must be delivered to nodes out of band (not by
      *       kubelet).</li>
      * </ul>
-     * See https://github.com/brewlet/site/blob/main/docs/runnable-image.md.
+     * See https://github.com/brewlet/brewlet/blob/main/docs/runnable-image.md.
      */
     @Parameter(property = "brewlet.format", defaultValue = "image")
     protected String format;
@@ -441,7 +441,7 @@ public abstract class AbstractBrewletMojo extends AbstractMojo {
         // Optional arch constraint (non-portable artifacts): an explicit <arch>
         // wins; otherwise scan the JAR for bundled natives and default the
         // constraint, unless auto-detection is disabled. See
-        // https://github.com/brewlet/site/blob/main/docs/multi-arch.md.
+        // https://github.com/brewlet/brewlet/blob/main/docs/multi-arch.md.
         if (arch != null && !arch.isEmpty()) {
             cfg.setArch(arch);
         } else if (detectNativeArch) {
