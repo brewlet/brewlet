@@ -15,3 +15,4 @@ engineering rationale behind those roadmap items.
 - [0003 — Stable capability-label taxonomy for autoscaling](0003-capability-label-taxonomy.md)
 - [0004 — cert-manager integration for the admission webhook](0004-cert-manager-admission.md)
 - [0005 — Replica coalescing: fewer, larger JVMs](0005-replica-coalescing.md)
+- [0006 — Sandbox isolation tiers](0006-sandbox-isolation-tiers.md)
