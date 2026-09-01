@@ -1,5 +1,6 @@
 # Proposal 0001 — Node profiles: per-pool cluster preparation
 
+- **Status:** implemented; retained as a design record
 - **Specification sections:** **§5.6** (Node profiles), **§8.1**, **§8.3**, and
   **§14**.
 - **Related code:** [`kubernetes/`](../../kubernetes):

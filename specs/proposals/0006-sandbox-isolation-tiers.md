@@ -1,6 +1,7 @@
 # Proposal 0006 — Sandbox isolation tiers
 
-- **Status:** research recommendation; no runtime implementation is proposed yet
+- **Status:** research complete; runtime implementation is gated on a successful
+  compatibility and performance prototype
 - **Related roadmap item:** stronger sandbox options
 - **Related issue:** [#1](https://github.com/brewlet/brewlet/issues/1)
 - **Current execution path:** [`core/shim`](../../core/shim),

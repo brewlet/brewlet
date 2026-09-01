@@ -1,5 +1,6 @@
 # Proposal 0005 — Replica coalescing: fewer, larger JVMs
 
+- **Status:** proposed; not implemented
 - **Target spec sections:** amend **§8.2**, **§9**, and **§10**
 - **Related code:** [`kubernetes/`](../../kubernetes):
   `api/v1alpha1`, `internal/controller`

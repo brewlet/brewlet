@@ -1,5 +1,6 @@
 # Proposal 0003 — Stable capability-label taxonomy for autoscaling
 
+- **Status:** partially implemented
 - **Target spec sections:** amend **§5.2**, **§8.3** (document the labels as a public,
   versioned contract)
 - **Related code:** [`kubernetes/`](../../kubernetes):
@@ -12,6 +13,22 @@
 
 This roadmap design promotes existing implementation-detail labels to a supported
 public taxonomy.
+
+## Implementation status
+
+The following parts have shipped:
+
+- The provisioner emits the exact-JDK, JDK-feature, launcher, and runtime-ready
+  labels described by this proposal.
+- The label keys are centralized in `internal/brewlet/labels.go`, and the
+  admission webhook injects matching node affinity for requested capabilities.
+- The specification identifies the scheduling labels and their role in node
+  selection.
+
+The proposal remains open because the documentation does not yet declare these
+keys a stable, versioned public contract, provide a dedicated capability-label
+reference with token and value semantics, or include the proposed Cluster
+Autoscaler and Karpenter configuration recipes.
 
 ---
 

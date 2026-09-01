@@ -1,5 +1,6 @@
 # Proposal 0004 — cert-manager integration for the admission webhook
 
+- **Status:** proposed; not implemented
 - **Target spec sections:** amend **§8.3** (webhook serving cert)
 - **Related code:** [`kubernetes/`](../../kubernetes):
   `charts/brewlet` (admission templates + values), `cmd/admission`
