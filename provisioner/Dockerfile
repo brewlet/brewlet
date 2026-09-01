@@ -32,12 +32,13 @@ FROM debian:bookworm-slim
 ARG TARGETARCH
 ARG KUBECTL_VERSION=v1.31.0
 ARG CONTAINERD_VERSION=2.0.5
+ARG CRICTL_VERSION=v1.31.1
 
 # Host-mutation tooling: ca-certificates for TLS, curl to fetch kubectl at build
-# time, kubectl to label the node, and the containerd `ctr` client used to copy
-# JDK/launcher trees out of vendor images via the host containerd socket
-# (copy-from-image). The socket is bind-mounted from the host at runtime; the
-# `ctr` client itself is baked in here so it is always present and version-matched.
+# time, kubectl to label the node, the containerd `ctr` client used to copy
+# JDK/launcher trees out of vendor images, and crictl to query the live CRI
+# runtime-handler configuration after restart. The host socket is bind-mounted
+# at runtime, so the clients are baked in and do not depend on host packaging.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends bash curl ca-certificates procps util-linux \
  && curl -fsSL "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/${TARGETARCH}/kubectl" \
@@ -45,7 +46,9 @@ RUN apt-get update \
  && chmod 0755 /usr/local/bin/kubectl \
  && curl -fsSL "https://github.com/containerd/containerd/releases/download/v${CONTAINERD_VERSION}/containerd-${CONTAINERD_VERSION}-linux-${TARGETARCH}.tar.gz" \
       | tar -xz -C /usr/local bin/ctr \
- && chmod 0755 /usr/local/bin/ctr \
+ && curl -fsSL "https://github.com/kubernetes-sigs/cri-tools/releases/download/${CRICTL_VERSION}/crictl-${CRICTL_VERSION}-linux-${TARGETARCH}.tar.gz" \
+      | tar -xz -C /usr/local/bin crictl \
+ && chmod 0755 /usr/local/bin/ctr /usr/local/bin/crictl \
  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # The shim binary the provisioner installs onto the node.

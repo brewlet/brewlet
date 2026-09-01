@@ -65,6 +65,20 @@ reinstalls a token when either changes. Runtime roots retain the source image's
 filesystem modes; the shim keeps the shared lower layer and Java-home bind mount
 read-only for workloads.
 
+In the default `validated` restart mode, a changed containerd configuration is
+activated with `systemctl restart containerd` from the host PID namespace. The
+provisioner then checks the containerd socket and queries the live CRI status to
+verify that the `brewlet` runtime handler is registered. A restart or
+health-check failure restores the primary configuration backup (or removes the
+renderer's drop-in), restarts containerd, verifies ordinary containerd recovery,
+leaves the node unready, and sets an actionable
+`brewlet.sh/provision-error`. A recovery failure is reported separately as
+`rollback-failed`.
+
+`sighup` retains legacy reload behavior, while `none` is the immutable-image
+mode and does not mutate or signal containerd. Unchanged configuration is
+health-checked without an unnecessary restart.
+
 When Helm runtime metrics are enabled, the profile-managed DaemonSet includes a
 best-effort exporter sidecar that serves `/metrics` and listens for shim
 telemetry on `/opt/brewlet/metrics/telemetry.sock`. It also reads the installed
