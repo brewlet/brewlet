@@ -142,7 +142,7 @@ spec:
           trap 'rm -f "\$HOST_CTR" "\$HOST_CRICTL"' EXIT;
           source /usr/local/bin/brewlet-provision;
           clear_node_advertisement;
-          patch_containerd;
+          patch_containerd_in_place;
           validated_restart
       env:
         - name: NODE_NAME
