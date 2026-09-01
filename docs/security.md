@@ -122,7 +122,10 @@ Mitigations and guardrails:
 
 ## Hardening checklist
 
-- [ ] Provision only platform-owned node pools; scope `brewlet.sh/provision`.
+- [ ] Provision only platform-owned node pools; use named `NodeProfile`s for
+      operator-managed installations or `brewlet.sh/provision` only for the
+      legacy standalone path. See
+      [Capability labels and autoscaling](capability-labels-and-autoscaling.md).
 - [ ] Pin component images and OCI artifacts to **digests**.
 - [ ] Run workloads `runAsNonRoot`, drop capabilities, `readOnlyRootFilesystem`.
 - [ ] Use **cert-manager** for the admission webhook serving cert in production

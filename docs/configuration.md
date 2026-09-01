@@ -4,8 +4,11 @@ Every knob Brewlet exposes, in one place: Helm chart values, node-provisioner
 environment variables, operator/admission flags, the `RuntimeClass`, and how the
 different layers relate. For *how* to install, see [Installation](installation.md);
 for JDKs and launchers specifically, see [JDK management](jdk-management.md) and
-[Launchers](launchers.md). For the operational workflow behind the metrics
-values, see [Runtime metrics and Grafana dashboards](runtime-metrics.md).
+[Launchers](launchers.md). For how the resulting node labels drive scheduling
+and autoscaling, see
+[Capability labels and autoscaling](capability-labels-and-autoscaling.md).
+For the operational workflow behind the metrics values, see
+[Runtime metrics and Grafana dashboards](runtime-metrics.md).
 
 ---
 
@@ -24,7 +27,7 @@ Operator flags (--jdks / --launchers)
 Provisioner env (JDKS / LAUNCHERS)
         │  drive what gets installed on each node
         ▼
-Node state: /opt/brewlet/jdks/<dist>-<feature>/ + labels/annotations
+Node state: /opt/brewlet/jdks/<dist>-<feature>/ + capability labels/annotations
 ```
 
 If you use Helm, set values. If you run the operator directly, set flags. If you
@@ -156,6 +159,12 @@ mutating+validating. For every pod on CREATE with `runtimeClassName: brewlet` it
   `NoCompatibleJDK` / `NoCompatibleLauncher`;
 - **steers** scheduling via `nodeAffinity` onto per-capability node labels.
 
+Admission matches JDK and launcher capability keys with `Operator: Exists`.
+The [Capability labels and autoscaling](capability-labels-and-autoscaling.md)
+guide explains the end-to-end scheduling flow and autoscaler integration. The
+[canonical capability-label contract](https://github.com/brewlet/brewlet/blob/main/specs/CAPABILITY_LABELS.md)
+defines the complete key grammar and compatibility guarantees.
+
 Non-brewlet pods pass through untouched. With `admission.failurePolicy: Ignore`
 (default) a webhook outage never blocks workloads.
 
@@ -223,6 +232,8 @@ footprint.
 - **[JDK management](jdk-management.md)** — the copy-from-image mechanics and the
   curated distribution → image matrix.
 - **[Launchers](launchers.md)** — installing and choosing `jaz`.
+- **[Capability labels and autoscaling](capability-labels-and-autoscaling.md)** —
+  connect `NodeProfile` inventories to workload affinity and node-pool scaling.
 - **[Deploying workloads](deploying-workloads.md)** — put these knobs to use.
 - **[Runtime metrics and Grafana dashboards](runtime-metrics.md)** — enable,
   scrape, query, visualize, and troubleshoot Brewlet telemetry.

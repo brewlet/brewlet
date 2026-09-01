@@ -80,6 +80,8 @@ kubectl get nodes -L brewlet.sh/runtime -w
 > chart's default profile (`--set defaultProfile.enabled=false`) and define named
 > `NodeProfile`s scoped to those pools — see [Configuration](configuration.md#helm-chart-values)
 > (`profiles` / `defaultProfile`) and [SPECIFICATION §5.6](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md).
+> For the labels those profiles publish and their autoscaler implications, see
+> [Capability labels and autoscaling](capability-labels-and-autoscaling.md).
 
 Point the chart at your own registry or image digests if required:
 
@@ -239,6 +241,8 @@ helm uninstall brewlet
 ## Next steps
 
 - **[Configuration](configuration.md)** — tune every knob.
+- **[Capability labels and autoscaling](capability-labels-and-autoscaling.md)** —
+  connect node-pool provisioning to workload scheduling.
 - **[JDK management](jdk-management.md)** — add/patch JDK roots (copy-from-image),
   go multi-arch.
 - **[Launchers](launchers.md)** — install and use `jaz`.

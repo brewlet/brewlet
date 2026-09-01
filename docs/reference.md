@@ -1,9 +1,10 @@
 # Reference
 
-Quick-lookup tables for the identifiers, formats, and paths Brewlet uses. Sources:
-[`internal/brewlet/labels.go`](https://github.com/brewlet/brewlet/blob/main/kubernetes/internal/brewlet/labels.go),
-[`core/internal/artifact/`](https://github.com/brewlet/brewlet/tree/main/core/internal/artifact/), and
-[SPECIFICATION](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md).
+Quick-lookup tables for the identifiers, formats, and paths Brewlet uses.
+Normative sources include the
+[capability-label contract](https://github.com/brewlet/brewlet/blob/main/specs/CAPABILITY_LABELS.md),
+[`core/internal/artifact/`](https://github.com/brewlet/brewlet/tree/main/core/internal/artifact/),
+and [SPECIFICATION](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md).
 
 ---
 
@@ -11,16 +12,18 @@ Quick-lookup tables for the identifiers, formats, and paths Brewlet uses. Source
 
 ### Node labels (set by the provisioner; drive scheduling)
 
-| Key | Value | Meaning |
-|---|---|---|
-| `brewlet.sh/provision` | `true` | Opt a node in. The platform team sets it; the operator manages the provisioner DaemonSet for matching nodes. |
-| `brewlet.sh/runtime` | `ready` | Set once the shim + a JDK are installed and the runtime is registered. The `RuntimeClass` `nodeSelector` matches on it. |
-| `brewlet.sh/jdk.<dist>-<feature>` | *(present)* | Boolean-presence label: this exact JDK root is installed (e.g. `brewlet.sh/jdk.temurin-21`). |
-| `brewlet.sh/jdk-feature.<feature>` | *(present)* | Some JDK of that feature is installed (e.g. `brewlet.sh/jdk-feature.21`), for distro-agnostic requests. |
-| `brewlet.sh/launcher.<name>` | *(present)* | This launcher layer is installed (e.g. `brewlet.sh/launcher.jaz`). |
+The
+[canonical capability-label contract](https://github.com/brewlet/brewlet/blob/main/specs/CAPABILITY_LABELS.md)
+defines the stable runtime, JDK, launcher, and architecture keys, their token
+grammar, and compatibility guarantees. JDK and launcher capabilities are
+boolean-presence labels: admission matches their keys with `Operator: Exists`,
+not by requiring the current value `true`.
 
-The admission webhook matches the per-capability labels with `Operator: Exists` when
-injecting `nodeAffinity`.
+`brewlet.sh/provision=true` is the legacy activation label for the standalone
+provisioner manifest. Operator-managed installations select nodes through
+`NodeProfile.spec.nodePool`; they do not require that label. See
+[Capability labels and autoscaling](capability-labels-and-autoscaling.md) for
+the provisioning, affinity, Cluster Autoscaler, and Karpenter workflows.
 
 ### Node annotations
 
@@ -220,4 +223,6 @@ The provisioner appends this to `/etc/containerd/config.toml`:
 ## See also
 
 - [Concepts & architecture](concepts.md) · [Configuration](configuration.md) ·
-  [CLI reference](cli-reference.md) · [SPECIFICATION](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md).
+  [Capability labels and autoscaling](capability-labels-and-autoscaling.md) ·
+  [CLI reference](cli-reference.md) ·
+  [SPECIFICATION](https://github.com/brewlet/brewlet/blob/main/specs/SPECIFICATION.md).

@@ -4,8 +4,9 @@ The JDK is the part Brewlet moves **off** your image and **onto** the node. This
 page covers how JDK runtime roots get installed, versioned, patched, and served to
 workloads — the platform team's core operational surface.
 
-Related: [Configuration](configuration.md) · [Launchers](launchers.md) ·
-[Security](security.md).
+Related: [Configuration](configuration.md) ·
+[Capability labels and autoscaling](capability-labels-and-autoscaling.md) ·
+[Launchers](launchers.md) · [Security](security.md).
 
 ---
 
@@ -61,7 +62,11 @@ kubectl get node node-1 -o jsonpath='{.metadata.annotations.brewlet\.sh/jdks}{"\
 …and emits per-capability scheduling labels the admission webhook matches against
 (`brewlet.sh/jdk.temurin-21`, `brewlet.sh/jdk-feature.21`, …). A pod requesting a
 JDK that no ready node provides fails admission with `NoCompatibleJDK`
-([Troubleshooting](troubleshooting.md)).
+([Troubleshooting](troubleshooting.md)). See
+[Capability labels and autoscaling](capability-labels-and-autoscaling.md) for
+the `NodeProfile`-to-label workflow and supported autoscaler patterns, and the
+[canonical capability-label contract](https://github.com/brewlet/brewlet/blob/main/specs/CAPABILITY_LABELS.md)
+for the complete key grammar and compatibility guarantees.
 
 ---
 
@@ -314,5 +319,7 @@ as needed.
 
 - **[Launchers](launchers.md)** — install `jaz` alongside your JDKs.
 - **[Configuration](configuration.md)** — where the inventory is set.
+- **[Capability labels and autoscaling](capability-labels-and-autoscaling.md)** —
+  connect the inventory to scheduling and node-pool scaling.
 - **[Observability & day‑2](observability.md)** — upgrade choreography and GC of old
   roots.
