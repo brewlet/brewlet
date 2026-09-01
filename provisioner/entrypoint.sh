@@ -469,6 +469,35 @@ render_containerd_runtime() {
 EOF
 }
 
+# Keep launcher-derived provision-error reasons concise and bounded even if a
+# future inventory source passes an invalid or unexpectedly long token.
+launcher_reason_id() {
+  local name="$1"
+  name="${name//[^[:alnum:]._-]/_}"
+  printf '%.48s' "$name"
+}
+
+validate_launcher() {
+  local name="$1" root binary reason_id
+  [[ "$name" != "java" ]] || return 0
+  root="$PREFIX/launchers/${name}"
+  binary="$root/bin/${name}"
+  reason_id="$(launcher_reason_id "$name")"
+
+  [[ -e "$binary" ]] || die "launcher-${reason_id}-missing"
+  [[ -x "$binary" ]] || die "launcher-${reason_id}-not-executable"
+
+  case "$name" in
+    jaz)
+      JAZ_PRINT_VERSION=1 JAZ_EXIT_WITHOUT_FLUSH=1 "$binary" >/dev/null 2>&1 \
+        || die "launcher-${reason_id}-probe-failed" ;;
+    *)
+      "$binary" -version >/dev/null 2>&1 \
+        || die "launcher-${reason_id}-probe-failed" ;;
+  esac
+  log "launcher ${name} probe passed"
+}
+
 containerd_config_has_runtime() {
   grep -Eq '^[[:space:]]*\[[^]]*containerd\.runtimes\.brewlet\][[:space:]]*$' "$1"
 }
@@ -599,15 +628,14 @@ configure_containerd_validated() {
   fi
 }
 
-# validate_runtime is the "validated" restart gate: before we ask containerd to
-# pick up the brewlet runtime, smoke-test every installed JDK root so a broken
-# copy-from-image never gets flipped live. Honors BREWLET_VALIDATE=false (skip).
+# Before readiness is advertised, smoke-test every installed JDK and launcher
+# root. Honors BREWLET_VALIDATE=false (skip).
 validate_runtime() {
   if [[ "${BREWLET_VALIDATE}" == "false" ]]; then
     log "validation disabled (BREWLET_VALIDATE=false); skipping smoke test"
     return 0
   fi
-  local spec dist feature root java_home
+  local spec dist feature root java_home launcher
   IFS=',' read -ra _jdks <<<"$JDKS"
   for spec in "${_jdks[@]}"; do
     [[ -n "$spec" ]] || continue
@@ -617,7 +645,11 @@ validate_runtime() {
     jdk_root_complete "$root" \
       || die "validation failed: '${java_home%/}/bin/java -version' errored inside ${root} for ${spec}"
   done
-  log "validation passed: all JDK roots smoke-tested"
+  IFS=',' read -ra _launchers <<<"$LAUNCHERS"
+  for launcher in "${_launchers[@]}"; do
+    [[ -n "$launcher" ]] && validate_launcher "$launcher"
+  done
+  log "validation passed: all JDK and launcher roots smoke-tested"
 }
 
 # Render the selected configuration. Validated mode owns drop-in detection and
@@ -657,6 +689,16 @@ activate_containerd_config() {
       validated_restart ;;
     *)
       die "invalid BREWLET_CONTAINERD_RESTART='${BREWLET_CONTAINERD_RESTART}' (want: validated|sighup|none)" ;;
+  esac
+}
+
+# The validated mode probes before its restart. Other modes retain their
+# lifecycle behavior and apply the same gate afterward, immediately before labels.
+validate_readiness_after_activation() {
+  case "${BREWLET_CONTAINERD_RESTART}" in
+    sighup) validate_runtime ;;
+    validated|""|none) ;;
+    *) die "invalid BREWLET_CONTAINERD_RESTART='${BREWLET_CONTAINERD_RESTART}' (want: validated|sighup|none)" ;;
   esac
 }
 
@@ -1000,6 +1042,7 @@ main() {
 
   configure_containerd
   activate_containerd_config
+  validate_readiness_after_activation
   verify_shim
   label_node || die "could not publish node runtime inventory"
   # Clear any stale provision-error from a previous failed attempt now we're good.

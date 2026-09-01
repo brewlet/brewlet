@@ -52,7 +52,7 @@ architecture and packages them with the host installation entrypoint.
 | `CONTAINERD_NAMESPACE` | `k8s.io` | containerd namespace |
 | `BREWLET_MODE` | `provision` | `provision` installs; `cleanup` reverses it |
 | `BREWLET_CONTAINERD_RESTART` | `validated` | `validated`, `sighup`, or `none` |
-| `BREWLET_VALIDATE` | `true` | Run JDK smoke tests before readiness |
+| `BREWLET_VALIDATE` | `true` | Run JDK and launcher smoke tests before readiness |
 | `MIRRORS` | empty | Registry mirror mappings |
 
 The curated JDK distributions are `temurin` and `microsoft`. A `NodeProfile` can
@@ -109,6 +109,22 @@ default.
 Copy-from-image commands run through the bundled `ctr` client in the host mount
 namespace. This is required because the provisioner connects to the host
 containerd socket and unpack mounts must be visible in the node's namespace.
+
+## Readiness validation
+
+With `BREWLET_VALIDATE=true`, the provisioner runs a deterministic one-shot
+probe for every configured runtime component before it advertises runtime or
+capability labels:
+
+- each JDK root runs `bin/java -version` inside its installed root;
+- each `jaz` launcher layer runs with `JAZ_PRINT_VERSION=1` and
+  `JAZ_EXIT_WITHOUT_FLUSH=1`.
+
+A missing or non-executable launcher, or a failed probe, leaves the node
+unready and records a bounded launcher-specific reason such as
+`launcher-jaz-probe-failed` in `brewlet.sh/provision-error`. No JDK or launcher
+capability labels are retained after failure. `BREWLET_VALIDATE=false` skips
+both JDK and launcher probes and preserves the opt-out behavior.
 
 > The provisioner is privileged and host-mutating. Run it only on nodes
 > controlled by the platform team.
