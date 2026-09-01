@@ -36,6 +36,11 @@ T15_JDK_PREEXISTING=""
 T15_JDK_ACTIVE_PREEXISTING=""
 T15_JDK_ACTIVE_SNAPSHOT=""
 T15_CONTAINERD_CONFIG_SNAPSHOT=""
+T15_CONTAINERD_BACKUP_PREEXISTING=""
+T15_CONTAINERD_BACKUP_SNAPSHOT=""
+T15_CONTAINERD_DROPIN_PREEXISTING=""
+T15_CONTAINERD_DROPIN_SNAPSHOT=""
+T15_CONTAINERD_DROPIN_CHANGED=""
 T15_ARTIFACT_DIGEST=""
 T15_CDS_SNAPSHOT=""
 declare -a T15_LOADED_NODES=()
@@ -71,9 +76,10 @@ _t15_force_host_cleanup() {
       rm -f "${config}.brewlet.bak"
     elif grep -q "containerd.runtimes.brewlet" "$config" 2>/dev/null; then
       sed -i.brewlet-cleanup \
-        "/# --- added by brewlet-node-provisioner/,/# --- end brewlet ---/d" "$config"
+        "/# --- added by .*brewlet/,/# --- end brewlet ---/d" "$config"
       rm -f "${config}.brewlet-cleanup"
     fi
+    rm -f /etc/containerd/config.toml.d/99-brewlet.toml
     rm -f /opt/brewlet/bin/containerd-shim-brewlet-v2 \
       /usr/local/bin/containerd-shim-brewlet-v2 /usr/local/bin/brewlet-ctr
     systemctl restart containerd
@@ -93,14 +99,80 @@ _t15_restore_containerd_config() {
   docker exec "$T15_NODE" cat /etc/containerd/config.toml >"$current" 2>/dev/null ||
     return 1
   if cmp -s "$T15_CONTAINERD_CONFIG_SNAPSHOT" "$current"; then
-    docker exec "$T15_NODE" rm -f /etc/containerd/config.toml.brewlet.bak \
-      >/dev/null 2>&1 || true
-    return 0
+    _t15_restore_containerd_backup || return 1
+    T15_CONTAINERD_DROPIN_CHANGED=""
+    _t15_restore_containerd_dropin || return 1
+    [[ -z "$T15_CONTAINERD_DROPIN_CHANGED" ]] && return 0
+    docker exec "$T15_NODE" systemctl restart containerd >/dev/null 2>&1 || return 1
+    while (( tries-- > 0 )); do
+      docker exec "$T15_NODE" ctr version >/dev/null 2>&1 && return 0
+      sleep 1
+    done
+    return 1
   fi
   docker exec -i "$T15_NODE" sh -c \
-    'cat > /etc/containerd/config.toml; rm -f /etc/containerd/config.toml.brewlet.bak' \
+    'cat > /etc/containerd/config.toml' \
     <"$T15_CONTAINERD_CONFIG_SNAPSHOT" >/dev/null 2>&1 || return 1
+  _t15_restore_containerd_backup || return 1
+  _t15_restore_containerd_dropin || return 1
   docker exec "$T15_NODE" systemctl restart containerd >/dev/null 2>&1 || return 1
+  while (( tries-- > 0 )); do
+    docker exec "$T15_NODE" ctr version >/dev/null 2>&1 && return 0
+    sleep 1
+  done
+  return 1
+}
+
+_t15_restore_containerd_backup() {
+  if [[ -n "$T15_CONTAINERD_BACKUP_PREEXISTING" ]]; then
+    docker exec -i "$T15_NODE" sh -c \
+      'cat > /etc/containerd/config.toml.brewlet.bak' \
+      <"$T15_CONTAINERD_BACKUP_SNAPSHOT" >/dev/null 2>&1
+  else
+    docker exec "$T15_NODE" rm -f /etc/containerd/config.toml.brewlet.bak \
+      >/dev/null 2>&1
+  fi
+}
+
+_t15_restore_containerd_dropin() {
+  local current="$WORK/t15-containerd-dropin-after.toml"
+  if [[ -n "$T15_CONTAINERD_DROPIN_PREEXISTING" ]]; then
+    if docker exec "$T15_NODE" cat /etc/containerd/config.toml.d/99-brewlet.toml \
+        >"$current" 2>/dev/null &&
+       cmp -s "$T15_CONTAINERD_DROPIN_SNAPSHOT" "$current"; then
+      return 0
+    fi
+    docker exec "$T15_NODE" mkdir -p /etc/containerd/config.toml.d >/dev/null 2>&1 &&
+      docker exec -i "$T15_NODE" sh -c \
+        'cat > /etc/containerd/config.toml.d/99-brewlet.toml' \
+        <"$T15_CONTAINERD_DROPIN_SNAPSHOT" >/dev/null 2>&1 || return 1
+    T15_CONTAINERD_DROPIN_CHANGED=1
+  else
+    if docker exec "$T15_NODE" test -e /etc/containerd/config.toml.d/99-brewlet.toml \
+        >/dev/null 2>&1; then
+      docker exec "$T15_NODE" rm -f /etc/containerd/config.toml.d/99-brewlet.toml \
+        >/dev/null 2>&1 || return 1
+      T15_CONTAINERD_DROPIN_CHANGED=1
+    fi
+  fi
+}
+
+_t15_prepare_containerd_fallback_baseline() {
+  docker exec "$T15_NODE" sh -c '
+    set -e
+    config=/etc/containerd/config.toml
+    if [ -f "${config}.brewlet.bak" ]; then
+      cp -a "${config}.brewlet.bak" "$config"
+    elif grep -Eq "^[[:space:]]*\\[[^]]*containerd\\.runtimes\\.brewlet\\][[:space:]]*$" "$config"; then
+      sed -i.brewlet-baseline \
+        "/# --- added by .*brewlet/,/# --- end brewlet ---/d" "$config"
+      rm -f "${config}.brewlet-baseline"
+    fi
+    rm -f "${config}.brewlet.bak" /etc/containerd/config.toml.d/99-brewlet.toml
+    ! grep -Eq "^[[:space:]]*\\[[^]]*containerd\\.runtimes\\.brewlet\\][[:space:]]*$" "$config"
+  ' >/dev/null 2>&1 || return 1
+  docker exec "$T15_NODE" systemctl restart containerd >/dev/null 2>&1 || return 1
+  local tries=30
   while (( tries-- > 0 )); do
     docker exec "$T15_NODE" ctr version >/dev/null 2>&1 && return 0
     sleep 1
@@ -210,6 +282,47 @@ _t15_node_arch() {
     x86_64|amd64) echo amd64 ;;
     *) echo "" ;;
   esac
+}
+
+_t15_provisioner_pod() {
+  kubectl get pods -n "$T15_NS" \
+    -l "brewlet.sh/nodeprofile=$T15_PROFILE" \
+    --field-selector "spec.nodeName=$T15_NODE" \
+    -o jsonpath='{.items[0].metadata.name}' 2>/dev/null
+}
+
+_t15_recreate_provisioner_pod() {
+  local old_pod="$1" tries=120 pod
+  kubectl delete pod "$old_pod" -n "$T15_NS" --wait=false \
+    >>"$WORK/t15-profile.log" 2>&1 || return 1
+  while (( tries-- > 0 )); do
+    pod="$(_t15_provisioner_pod)"
+    if [[ -n "$pod" && "$pod" != "$old_pod" ]] &&
+       kubectl logs "$pod" -n "$T15_NS" -c provisioner 2>/dev/null |
+         grep -Fq "node ${T15_NODE} provisioned successfully" &&
+       kubectl wait pod/"$pod" -n "$T15_NS" --for=condition=Ready \
+         --timeout=5s >>"$WORK/t15-profile.log" 2>&1; then
+      printf '%s' "$pod"
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+_t15_containerd_runtime_type() {
+  docker exec "$T15_NODE" containerd --config /etc/containerd/config.toml config dump 2>/dev/null |
+    awk '
+      /^[[:space:]]*\[[^]]*containerd\.runtimes\.brewlet\][[:space:]]*$/ { in_brewlet=1; next }
+      in_brewlet && /^[[:space:]]*\[/ { exit }
+      in_brewlet && /^[[:space:]]*runtime_type[[:space:]]*=/ {
+        value=$0
+        sub(/^[^=]*=[[:space:]]*/, "", value)
+        gsub(/["'\'']/, "", value)
+        print value
+        exit
+      }
+    '
 }
 
 _t15_build_load_kubernetes_image() {
@@ -374,8 +487,37 @@ tier15_metrics_incluster() {
       fail "tier15: snapshot the node's containerd configuration"
       return 0
     }
-  for n in $nodes; do T15_LOADED_NODES+=("$n"); done
+  T15_CONTAINERD_BACKUP_SNAPSHOT="$WORK/t15-containerd-backup-before.toml"
+  if docker exec "$T15_NODE" test -f /etc/containerd/config.toml.brewlet.bak \
+      >/dev/null 2>&1; then
+    docker exec "$T15_NODE" cat /etc/containerd/config.toml.brewlet.bak \
+      >"$T15_CONTAINERD_BACKUP_SNAPSHOT" || {
+        fail "tier15: snapshot the node's containerd backup"
+        return 0
+      }
+    T15_CONTAINERD_BACKUP_PREEXISTING=1
+  else
+    : >"$T15_CONTAINERD_BACKUP_SNAPSHOT"
+  fi
+  T15_CONTAINERD_DROPIN_SNAPSHOT="$WORK/t15-containerd-dropin-before.toml"
+  if docker exec "$T15_NODE" test -f /etc/containerd/config.toml.d/99-brewlet.toml \
+      >/dev/null 2>&1; then
+    docker exec "$T15_NODE" cat /etc/containerd/config.toml.d/99-brewlet.toml \
+      >"$T15_CONTAINERD_DROPIN_SNAPSHOT" || {
+        fail "tier15: snapshot the node's Brewlet containerd drop-in"
+        return 0
+      }
+    T15_CONTAINERD_DROPIN_PREEXISTING=1
+  else
+    : >"$T15_CONTAINERD_DROPIN_SNAPSHOT"
+  fi
+  T15_NODE_TOUCHED=1
   trap _t15_cleanup RETURN
+  if ! _t15_prepare_containerd_fallback_baseline; then
+    fail "tier15: establish a clean containerd fallback baseline"
+    return 0
+  fi
+  for n in $nodes; do T15_LOADED_NODES+=("$n"); done
 
   : >"$WORK/t15-build.log"
   : >"$WORK/t15-load.log"
@@ -462,7 +604,6 @@ tier15_metrics_incluster() {
     return 0
   fi
 
-  T15_NODE_TOUCHED=1
   label_node "$T15_NODE" --overwrite \
     "$T15_POOL_KEY=$T15_POOL" brewlet.sh/provision=true \
     >>"$WORK/t15-profile.log" 2>&1
@@ -520,6 +661,112 @@ YAML
     return 0
   fi
   pass "tier15: exporter is listening on /opt/brewlet/metrics/telemetry.sock"
+
+  local provisioner_pod provisioner_logs config_checksum dropin_checksum
+  provisioner_pod="$(_t15_provisioner_pod)"
+  if [[ -z "$provisioner_pod" ]]; then
+    fail "tier15: locate the live provisioner pod"
+    return 0
+  fi
+  if docker exec "$T15_NODE" containerd --config /etc/containerd/config.toml config dump \
+      >"$WORK/t15-containerd-fallback-dump.toml" 2>"$WORK/t15-containerd-fallback-dump.log"; then
+    pass "tier15: validated fallback effective config passes containerd config dump"
+  else
+    fail "tier15: validated fallback effective config passes containerd config dump" \
+      "see $WORK/t15-containerd-fallback-dump.log"
+    return 0
+  fi
+  assert_eq "tier15: effective config exposes the exact Brewlet handler and runtime type" \
+    "$(_t15_containerd_runtime_type)" "io.containerd.brewlet.v2"
+  if ! check "tier15: fallback preserved the original containerd config backup" \
+      docker exec "$T15_NODE" test -f /etc/containerd/config.toml.brewlet.bak; then
+    return 0
+  fi
+  if [[ -n "$T15_CONTAINERD_DROPIN_PREEXISTING" ]]; then
+    docker exec "$T15_NODE" cat /etc/containerd/config.toml.d/99-brewlet.toml \
+      >"$WORK/t15-containerd-dropin-fallback.toml" 2>/dev/null || true
+    if cmp -s "$T15_CONTAINERD_DROPIN_SNAPSHOT" \
+        "$WORK/t15-containerd-dropin-fallback.toml"; then
+      pass "tier15: fallback left the preexisting containerd drop-in unchanged"
+    else
+      fail "tier15: fallback left the preexisting containerd drop-in unchanged"
+    fi
+  else
+    if ! check "tier15: fallback did not create a containerd drop-in" \
+        docker exec "$T15_NODE" test ! -e /etc/containerd/config.toml.d/99-brewlet.toml; then
+      return 0
+    fi
+  fi
+  provisioner_logs="$(kubectl logs "$provisioner_pod" -n "$T15_NS" -c provisioner 2>/dev/null)"
+  assert_contains "tier15: provisioner reported successful config-dump validation" \
+    "$provisioner_logs" "containerd config validation passed: brewlet runtime handler is present"
+
+  config_checksum="$(docker exec "$T15_NODE" sha256sum /etc/containerd/config.toml | awk '{print $1}')"
+  if ! provisioner_pod="$(_t15_recreate_provisioner_pod "$provisioner_pod")"; then
+    fail "tier15: recreate provisioner pod for fallback idempotency" \
+      "see $WORK/t15-profile.log"
+    return 0
+  fi
+  assert_eq "tier15: validated fallback rerun leaves the primary config unchanged" \
+    "$(docker exec "$T15_NODE" sha256sum /etc/containerd/config.toml | awk '{print $1}')" \
+    "$config_checksum"
+  provisioner_logs="$(kubectl logs "$provisioner_pod" -n "$T15_NS" -c provisioner 2>/dev/null)"
+  assert_contains "tier15: unchanged validated fallback skips containerd reload" \
+    "$provisioner_logs" "containerd configuration is unchanged; skipping reload"
+
+  if ! docker exec "$T15_NODE" sh -c '
+    set -e
+    config=/etc/containerd/config.toml
+    cp -a "${config}.brewlet.bak" "$config"
+    rm -f "${config}.brewlet.bak"
+    mkdir -p /etc/containerd/config.toml.d
+    {
+      printf "%s\n" "imports = [\"/etc/containerd/config.toml.d/*.toml\"]"
+      cat "$config"
+    } >"${config}.brewlet-import"
+    mv "${config}.brewlet-import" "$config"
+  ' >>"$WORK/t15-profile.log" 2>&1; then
+    fail "tier15: enable the host containerd drop-in import" \
+      "see $WORK/t15-profile.log"
+    return 0
+  fi
+  if ! provisioner_pod="$(_t15_recreate_provisioner_pod "$provisioner_pod")"; then
+    fail "tier15: recreate provisioner pod for drop-in rendering" \
+      "see $WORK/t15-profile.log"
+    return 0
+  fi
+  if ! check "tier15: supported host renders the Brewlet containerd drop-in" \
+      docker exec "$T15_NODE" test -f /etc/containerd/config.toml.d/99-brewlet.toml; then
+    return 0
+  fi
+  if ! check "tier15: drop-in path leaves the primary config without a Brewlet handler" \
+      docker exec "$T15_NODE" sh -c \
+        '! grep -Eq "^[[:space:]]*\\[[^]]*containerd\\.runtimes\\.brewlet\\][[:space:]]*$" /etc/containerd/config.toml'; then
+    return 0
+  fi
+  if docker exec "$T15_NODE" containerd --config /etc/containerd/config.toml config dump \
+      >"$WORK/t15-containerd-dropin-dump.toml" 2>"$WORK/t15-containerd-dropin-dump.log"; then
+    pass "tier15: drop-in effective config passes containerd config dump"
+  else
+    fail "tier15: drop-in effective config passes containerd config dump" \
+      "see $WORK/t15-containerd-dropin-dump.log"
+    return 0
+  fi
+  assert_eq "tier15: drop-in dump exposes the exact Brewlet handler and runtime type" \
+    "$(_t15_containerd_runtime_type)" "io.containerd.brewlet.v2"
+
+  dropin_checksum="$(docker exec "$T15_NODE" sha256sum /etc/containerd/config.toml.d/99-brewlet.toml | awk '{print $1}')"
+  if ! provisioner_pod="$(_t15_recreate_provisioner_pod "$provisioner_pod")"; then
+    fail "tier15: recreate provisioner pod for drop-in idempotency" \
+      "see $WORK/t15-profile.log"
+    return 0
+  fi
+  assert_eq "tier15: validated drop-in rerun leaves the drop-in unchanged" \
+    "$(docker exec "$T15_NODE" sha256sum /etc/containerd/config.toml.d/99-brewlet.toml | awk '{print $1}')" \
+    "$dropin_checksum"
+  provisioner_logs="$(kubectl logs "$provisioner_pod" -n "$T15_NS" -c provisioner 2>/dev/null)"
+  assert_contains "tier15: unchanged validated drop-in skips containerd reload" \
+    "$provisioner_logs" "containerd configuration is unchanged; skipping reload"
 
   local node_metrics
   node_metrics="$(_t15_scrape_until \
