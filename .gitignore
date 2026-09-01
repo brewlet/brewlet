@@ -8,3 +8,8 @@
 # Editor and operating-system state
 .vscode/
 .DS_Store
+
+# Local tooling caches
+/.impeccable/hook.cache.json
+__pycache__/
+*.py[cod]
