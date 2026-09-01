@@ -18,8 +18,14 @@ accepted and implemented.
 - **Managed admission certificates.** Add an opt-in cert-manager integration for
   webhook certificate issuance and rotation. See
   [proposal 0004](specs/proposals/0004-cert-manager-admission.md).
-- **Stronger sandbox options.** Evaluate supported gVisor and Kata Containers
-  configurations for workloads that need stronger isolation than runc.
+- **Stronger sandbox options.** Prototype gVisor as the leading stronger-isolation
+  candidate before committing runtime or API support. The current Brewlet shim
+  cannot assume that `BinaryName=runsc` is a supported composition, and Kata's
+  VM-local kernel and page cache conflict with the node-shared JDK model enough
+  that it is deferred as a separate architecture. See
+  [proposal 0006](specs/proposals/0006-sandbox-isolation-tiers.md).
+- **Node-level runtime metrics.** Export per-sandbox resource and JVM runtime
+  metrics from the node runtime.
 - **Node profile refinements.** Evaluate profile-managed taints and tolerations,
   an operator-synthesized default profile, a documented bare-metal pool label,
   and garbage collection for JDK roots no longer used by ready workloads.
