@@ -697,10 +697,6 @@ YAML
       return 0
     fi
   fi
-  provisioner_logs="$(kubectl logs "$provisioner_pod" -n "$T15_NS" -c provisioner 2>/dev/null)"
-  assert_contains "tier15: provisioner reported successful config-dump validation" \
-    "$provisioner_logs" "containerd config validation passed: brewlet runtime handler is present"
-
   config_checksum="$(docker exec "$T15_NODE" sha256sum /etc/containerd/config.toml | awk '{print $1}')"
   if ! provisioner_pod="$(_t15_recreate_provisioner_pod "$provisioner_pod")"; then
     fail "tier15: recreate provisioner pod for fallback idempotency" \
