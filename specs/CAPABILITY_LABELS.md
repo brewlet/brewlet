@@ -46,10 +46,12 @@ Capability keys are derived from the inventory declared by the platform team:
 - `<distribution>-<feature>` is limited to 59 characters so that
   `jdk.<distribution>-<feature>` fits the 63-character Kubernetes label-name
   segment.
-- `<name>` is a launcher identifier. Supported names use lowercase DNS-1123
-  label syntax and are limited to 54 characters so that `launcher.<name>` fits
-  the Kubernetes label-name segment. `java` is reserved for the built-in OpenJDK
-  launcher.
+- `<name>` is a launcher identifier. To produce a valid capability label, names
+  use lowercase DNS-1123 label syntax and are limited to 54 characters so that
+  `launcher.<name>` fits the Kubernetes label-name segment. `java` is reserved
+  for the built-in OpenJDK launcher. The current `NodeProfile` webhook does not
+  validate launcher tokens, so an invalid name is accepted initially but causes
+  node provisioning to fail when the provisioner publishes its label.
 - `<architecture>` is a Kubernetes architecture token such as `amd64` or
   `arm64`.
 
@@ -130,8 +132,9 @@ Admission first verifies explicit requests against the current ready fleet. If
 no ready node advertises the requested JDK, launcher, or architecture, the pod
 is denied with `NoCompatibleJDK`, `NoCompatibleLauncher`, or
 `NoCompatibleArch`. Consequently, a dynamically provisioned capability pool
-must retain at least one ready node; current Brewlet admission does not support
-waking a completely zero-sized capability fleet.
+must retain at least one ready node advertising the requested capability;
+current Brewlet admission does not support waking a completely zero-sized
+capability fleet.
 
 ## Autoscaler recipes
 
