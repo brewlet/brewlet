@@ -16,9 +16,11 @@ T14_REF="demo/hello:custom-jdk-e2e"
 T14_APP="zulu-orders"
 T14_PORT=8080
 T14_PROVISIONER_IMAGE="localhost/brewlet-node-provisioner:zulu-e2e"
+T14_ROLLBACK_POD="brewlet-rollback-probe"
 T14_MGR_PID=""
 T14_NODE=""
 T14_RC_CREATED=""
+T14_CONTAINERD_SNAPSHOT=""
 
 _t14_cleanup() {
   info "tier14: cleaning up"
@@ -33,6 +35,8 @@ _t14_cleanup() {
   kubectl delete daemonset -n "$T14_NS_OP" \
     "brewlet-node-provisioner-$T14_PROFILE" "brewlet-cleanup-$T14_PROFILE" \
     --ignore-not-found >/dev/null 2>&1 || true
+  kubectl delete pod -n "$T14_NS_OP" "$T14_ROLLBACK_POD" \
+    --ignore-not-found --wait=false >/dev/null 2>&1 || true
   kubectl delete clusterrolebinding brewlet-node-provisioner --ignore-not-found >/dev/null 2>&1 || true
   kubectl delete clusterrole brewlet-node-provisioner --ignore-not-found >/dev/null 2>&1 || true
   kubectl delete runtimeclass brewlet --ignore-not-found >/dev/null 2>&1 || true
@@ -40,6 +44,15 @@ _t14_cleanup() {
   kubectl delete crd nodeprofiles.node.brewlet.sh javaapplications.apps.brewlet.sh \
     --ignore-not-found --wait=false >/dev/null 2>&1 || true
   if [[ -n "$T14_NODE" ]]; then
+    if [[ -n "$T14_CONTAINERD_SNAPSHOT" && -f "$T14_CONTAINERD_SNAPSHOT" ]]; then
+      docker cp "$T14_CONTAINERD_SNAPSHOT" \
+        "$T14_NODE:/etc/containerd/config.toml" >/dev/null 2>&1 || true
+      docker exec "$T14_NODE" systemctl restart containerd >/dev/null 2>&1 || true
+      docker exec "$T14_NODE" rm -f \
+        /etc/containerd/config.toml.brewlet.bak \
+        /usr/local/bin/brewlet-ctr-rollback-probe \
+        /usr/local/bin/brewlet-crictl-rollback-probe >/dev/null 2>&1 || true
+    fi
     docker exec "$T14_NODE" sh -c \
       'chmod -R u+w "$1" 2>/dev/null || true; rm -rf "$1"' \
       sh "/opt/brewlet/jdks/$T14_JDK" >/dev/null 2>&1 || true
@@ -85,6 +98,120 @@ _t14_ensure_operator_namespace() {
   kubectl get namespace "$T14_NS_OP" >/dev/null 2>&1
 }
 
+_t14_wait_crd_not_terminating() {
+  local crd="$1" deleting
+  deleting="$(kubectl get crd "$crd" \
+    -o jsonpath='{.metadata.deletionTimestamp}' 2>/dev/null || true)"
+  [[ -z "$deleting" ]] || wait_for_seconds 60 bash -c \
+    "! kubectl get crd '$crd' >/dev/null 2>&1"
+}
+
+_t14_prove_restart_rollback() {
+  local before="$WORK/t14-containerd-before.toml"
+  local after="$WORK/t14-containerd-after.toml"
+  local error ready logs failed=0
+
+  if docker exec "$T14_NODE" grep -q \
+      'io.containerd.grpc.v1.cri".containerd.runtimes.brewlet' /etc/containerd/config.toml; then
+    skip "tier14: induced post-restart failure rolls back containerd" \
+      "node already had a Brewlet-managed runtime block"
+    return 0
+  fi
+  docker cp "$T14_NODE:/etc/containerd/config.toml" "$before" >/dev/null
+  T14_CONTAINERD_SNAPSHOT="$before"
+
+  kubectl apply -f - >"$WORK/t14-rollback.log" 2>&1 <<YAML
+apiVersion: v1
+kind: Pod
+metadata:
+  name: $T14_ROLLBACK_POD
+  namespace: $T14_NS_OP
+spec:
+  nodeName: $T14_NODE
+  serviceAccountName: brewlet-node-provisioner
+  hostPID: true
+  restartPolicy: Never
+  containers:
+    - name: rollback-probe
+      image: $T14_PROVISIONER_IMAGE
+      imagePullPolicy: IfNotPresent
+      command: ["/bin/bash", "-c"]
+      args:
+        - install -m 0755 /usr/local/bin/ctr "\$HOST_CTR";
+          install -m 0755 /bin/false "\$HOST_CRICTL";
+          trap 'rm -f "\$HOST_CTR" "\$HOST_CRICTL"' EXIT;
+          source /usr/local/bin/brewlet-provision;
+          clear_node_advertisement;
+          patch_containerd_in_place;
+          validated_restart
+      env:
+        - name: NODE_NAME
+          value: $T14_NODE
+        - name: HOST_CTR
+          value: /host/usr/local/bin/brewlet-ctr-rollback-probe
+        - name: HOST_CTR_PATH
+          value: /usr/local/bin/brewlet-ctr-rollback-probe
+        - name: HOST_CRICTL
+          value: /host/usr/local/bin/brewlet-crictl-rollback-probe
+        - name: HOST_CRICTL_PATH
+          value: /usr/local/bin/brewlet-crictl-rollback-probe
+        - name: CONTAINERD_HEALTH_ATTEMPTS
+          value: "1"
+        - name: CONTAINERD_RECOVERY_ATTEMPTS
+          value: "30"
+      securityContext:
+        privileged: true
+      volumeMounts:
+        - { name: containerd-conf, mountPath: /etc/containerd }
+        - { name: host-bin, mountPath: /host/usr/local/bin }
+        - { name: containerd-sock, mountPath: /run/containerd/containerd.sock }
+  volumes:
+    - { name: containerd-conf, hostPath: { path: /etc/containerd } }
+    - { name: host-bin, hostPath: { path: /usr/local/bin } }
+    - { name: containerd-sock, hostPath: { path: /run/containerd/containerd.sock, type: Socket } }
+YAML
+
+  if ! wait_for_seconds 90 bash -c \
+      "[[ \"\$(kubectl get pod '$T14_ROLLBACK_POD' -n '$T14_NS_OP' -o jsonpath='{.status.phase}' 2>/dev/null)\" == Failed ]]"; then
+    fail "tier14: induced rollback probe reached the expected failure" \
+      "see $WORK/t14-rollback.log"
+    return 1
+  fi
+  logs="$(kubectl logs -n "$T14_NS_OP" "$T14_ROLLBACK_POD" 2>&1 || true)"
+  printf '%s\n' "$logs" >>"$WORK/t14-rollback.log"
+  assert_contains "tier14: post-restart handler failure was induced" "$logs" \
+    "runtime-handler-health-check-failed: configuration rolled back and containerd recovered" \
+    || failed=1
+
+  docker cp "$T14_NODE:/etc/containerd/config.toml" "$after" >/dev/null
+  if cmp -s "$before" "$after"; then
+    pass "tier14: failed post-restart activation restored containerd config"
+  else
+    fail "tier14: failed post-restart activation restored containerd config"
+    failed=1
+  fi
+  check "tier14: containerd recovered after rollback" \
+    docker exec "$T14_NODE" ctr version || failed=1
+
+  ready="$(kubectl get node "$T14_NODE" \
+    -o jsonpath='{.metadata.labels.brewlet\.sh/runtime}' 2>/dev/null || true)"
+  assert_eq "tier14: rollback left the node without runtime readiness" "$ready" "" \
+    || failed=1
+  error="$(kubectl get node "$T14_NODE" \
+    -o jsonpath='{.metadata.annotations.brewlet\.sh/provision-error}' 2>/dev/null || true)"
+  assert_contains "tier14: rollback published the provision error" "$error" \
+    "runtime-handler-health-check-failed" || failed=1
+
+  kubectl delete pod -n "$T14_NS_OP" "$T14_ROLLBACK_POD" \
+    --ignore-not-found --wait=true >/dev/null 2>&1 || true
+  annotate_node "$T14_NODE" brewlet.sh/provision-error- >/dev/null 2>&1 || true
+  docker exec "$T14_NODE" rm -f \
+    /etc/containerd/config.toml.brewlet.bak \
+    /usr/local/bin/brewlet-ctr-rollback-probe \
+    /usr/local/bin/brewlet-crictl-rollback-probe >/dev/null 2>&1 || true
+  (( failed == 0 ))
+}
+
 tier14_custom_jdk() {
   section "Tier 14 — custom JDK NodeProfile (Azul Zulu)"
   if ! have kubectl || ! k8s_reachable; then skip "tier14: custom JDK" "no reachable cluster"; return 0; fi
@@ -126,6 +253,12 @@ tier14_custom_jdk() {
     fail "tier14: prepare operator namespace" "namespace $T14_NS_OP remained terminating"
     return 0
   fi
+  _t14_wait_crd_not_terminating nodeprofiles.node.brewlet.sh || {
+    fail "tier14: wait for previous NodeProfile CRD deletion"; return 0
+  }
+  _t14_wait_crd_not_terminating javaapplications.apps.brewlet.sh || {
+    fail "tier14: wait for previous JavaApplication CRD deletion"; return 0
+  }
   if kubectl apply -f "$BREWLET_KUBERNETES_DIR/deploy/nodeprofile-crd.yaml" >"$WORK/t14-control.log" 2>&1 &&
     kubectl apply -f "$BREWLET_KUBERNETES_DIR/deploy/javaapplication-crd.yaml" >>"$WORK/t14-control.log" 2>&1 &&
     kubectl wait --for=condition=Established --timeout=30s crd/nodeprofiles.node.brewlet.sh >>"$WORK/t14-control.log" 2>&1; then
@@ -156,6 +289,10 @@ roleRef:
 subjects:
   - { kind: ServiceAccount, name: brewlet-node-provisioner, namespace: $T14_NS_OP }
 YAML
+
+  if ! _t14_prove_restart_rollback; then
+    return 0
+  fi
 
   # Run the checked-out operator and target only the selected local node.
   if ! (cd "$BREWLET_KUBERNETES_DIR" && go build -o "$WORK/t14-manager" ./cmd/manager) \
@@ -192,12 +329,13 @@ spec:
     validate: true
     containerdRestart: validated
 YAML
-  if wait_for _t14_node_ready; then
+  if wait_for_seconds 180 _t14_node_ready; then
     pass "tier14: NodeProfile installed and advertised zulu-21"
   else
     kubectl logs -n "$T14_NS_OP" -l "brewlet.sh/nodeprofile=$T14_PROFILE" --tail=120 \
       >"$WORK/t14-provisioner.log" 2>&1 || true
-    fail "tier14: NodeProfile installed and advertised zulu-21" "see $WORK/t14-profile.log and t14-provisioner.log"
+    fail "tier14: NodeProfile installed and advertised zulu-21" \
+      "provision-error=$(kubectl get node "$T14_NODE" -o jsonpath='{.metadata.annotations.brewlet\.sh/provision-error}' 2>/dev/null); see $WORK/t14-profile.log and t14-provisioner.log"
     return 0
   fi
 

@@ -605,8 +605,10 @@ tier15_metrics_incluster() {
   fi
 
   label_node "$T15_NODE" --overwrite \
-    "$T15_POOL_KEY=$T15_POOL" brewlet.sh/provision=true \
+    "$T15_POOL_KEY=$T15_POOL" brewlet.sh/provision=true brewlet.sh/runtime- \
     >>"$WORK/t15-profile.log" 2>&1
+  annotate_node "$T15_NODE" brewlet.sh/provision-state- brewlet.sh/provision-error- \
+    >>"$WORK/t15-profile.log" 2>&1 || true
   T15_PROFILE_CREATED=1
   if ! kubectl apply -f - >>"$WORK/t15-profile.log" 2>&1 <<YAML
 apiVersion: node.brewlet.sh/v1alpha1
@@ -651,9 +653,10 @@ YAML
     return 0
   fi
   pass "tier15: real provisioner and exporter sidecar became Ready"
-  if ! wait_for bash -c \
+  if ! wait_for_seconds 180 bash -c \
     "[[ \"\$(kubectl get node '$T15_NODE' -o jsonpath='{.metadata.labels.brewlet\\.sh/runtime}' 2>/dev/null)\" == ready ]]"; then
-    fail "tier15: provisioner advertised the node as runtime-ready"
+    fail "tier15: provisioner advertised the node as runtime-ready" \
+      "provision-error=$(kubectl get node "$T15_NODE" -o jsonpath='{.metadata.annotations.brewlet\.sh/provision-error}' 2>/dev/null); diag: $(save_pod_diag t15-provisioner-ready "$T15_NS" "brewlet.sh/nodeprofile=$T15_PROFILE")"
     return 0
   fi
   if ! wait_for docker exec "$T15_NODE" test -S /opt/brewlet/metrics/telemetry.sock; then
@@ -708,7 +711,7 @@ YAML
     "$config_checksum"
   provisioner_logs="$(kubectl logs "$provisioner_pod" -n "$T15_NS" -c provisioner 2>/dev/null)"
   assert_contains "tier15: unchanged validated fallback skips containerd reload" \
-    "$provisioner_logs" "containerd configuration is unchanged; skipping reload"
+    "$provisioner_logs" "containerd configuration unchanged; skipping service restart"
 
   if ! docker exec "$T15_NODE" sh -c '
     set -e
@@ -762,7 +765,7 @@ YAML
     "$dropin_checksum"
   provisioner_logs="$(kubectl logs "$provisioner_pod" -n "$T15_NS" -c provisioner 2>/dev/null)"
   assert_contains "tier15: unchanged validated drop-in skips containerd reload" \
-    "$provisioner_logs" "containerd configuration is unchanged; skipping reload"
+    "$provisioner_logs" "containerd configuration unchanged; skipping service restart"
 
   local node_metrics
   node_metrics="$(_t15_scrape_until \

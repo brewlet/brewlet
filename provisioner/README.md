@@ -75,18 +75,29 @@ Brewlet writes only `99-brewlet.toml`; otherwise it appends the same runtime
 block to the primary configuration and preserves the original as
 `config.toml.brewlet.bak`.
 
-Before signalling containerd, the provisioner runs
+Before activation, the provisioner runs
 `containerd --config /etc/containerd/config.toml config dump` in the host mount
 namespace. Provisioning fails unless the configuration parses and the dumped
 effective configuration contains the `brewlet` runtime handler. A failed render
 is removed or restored before exit, the node remains unready, and
 `brewlet.sh/provision-error` reports either a rejected config dump or a missing
-handler. Re-running an unchanged valid render still verifies the effective
-configuration but skips the reload.
+handler.
 
-The compatibility modes are unchanged: `sighup` updates the primary
-configuration and signals containerd without the config-dump gate, while `none`
-updates the primary configuration but leaves activation to the platform.
+In the default `validated` restart mode, a changed containerd configuration is
+activated with `systemctl restart containerd` from the host PID namespace. The
+provisioner then checks the containerd socket and queries the live CRI status to
+verify that the `brewlet` runtime handler is registered. A restart or
+health-check failure restores the primary configuration backup (or removes the
+renderer's drop-in), restarts containerd, verifies ordinary containerd recovery,
+leaves the node unready, and sets an actionable
+`brewlet.sh/provision-error`. A recovery failure is reported separately as
+`rollback-failed`.
+
+Re-running an unchanged valid render still verifies the effective configuration
+and health-checks containerd without an unnecessary restart. `sighup` retains
+the legacy in-place render and reload behavior without the config-dump gate,
+while `none` is the immutable-image mode and does not mutate or signal
+containerd.
 
 When Helm runtime metrics are enabled, the profile-managed DaemonSet includes a
 best-effort exporter sidecar that serves `/metrics` and listens for shim

@@ -605,11 +605,18 @@ DaemonSet — remains for the no-operator path (§5.5).
    service unchanged rather than rewriting it into a JVM launch.
 4. In the default `validated` mode, runs `containerd config dump` against the
    effective host configuration and requires both a successful parse and the
-   `brewlet` runtime handler before reloading containerd. An invalid new render
+   exact `brewlet` runtime handler before restarting containerd through the host
+   service manager. An invalid new render
    is restored or removed, leaves the node unready, and is reported through
-   `brewlet.sh/provision-error`. An unchanged valid render is not reloaded.
-   Compatibility modes retain the legacy in-place behavior: `sighup` reloads
-   without the config-dump gate and `none` leaves activation out of band.
+   `brewlet.sh/provision-error`. After restart, it verifies the containerd socket
+   and live `brewlet` runtime handler, and automatically restores the prior
+   primary config (or drop-in) before restarting and verifying recovery after a
+   failure. The node remains
+   unready and `brewlet.sh/provision-error` distinguishes restart, health-check,
+   runtime-handler, and rollback failures. The explicit `sighup` mode retains
+   the legacy in-place reload path without the config-dump gate; `none` leaves
+   containerd configuration untouched. Unchanged valid configuration is
+   config-dump validated and health-checked without another restart.
 5. On success, labels the node `brewlet.sh/runtime=ready` and annotates with the
    available JDKs, e.g. `brewlet.sh/jdks=temurin-17,temurin-21,temurin-25`, and
    any installed launchers, e.g. `brewlet.sh/launchers=java,jaz`. It also emits
