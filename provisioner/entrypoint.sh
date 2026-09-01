@@ -38,8 +38,8 @@ SHIM_SRC="${SHIM_SRC:-/opt/brewlet-dist/containerd-shim-brewlet-v2}"  # baked in
 SHIM_NAME="containerd-shim-brewlet-v2"
 CTR_SRC="${CTR_SRC:-/usr/local/bin/ctr}"
 CRICTL="${CRICTL:-/usr/local/bin/crictl}"
-HOST_CTR="$HOST_BIN/brewlet-ctr"
-HOST_CTR_PATH="/usr/local/bin/brewlet-ctr"
+HOST_CTR="${HOST_CTR:-$HOST_BIN/brewlet-ctr}"
+HOST_CTR_PATH="${HOST_CTR_PATH:-/usr/local/bin/brewlet-ctr}"
 JDK_HOME_METADATA=".brewlet-java-home"
 JDK_SOURCE_METADATA=".brewlet-source"
 JDK_ACTIVE_INVENTORY=".brewlet-active"
@@ -71,6 +71,7 @@ BREWLET_MODE="${BREWLET_MODE:-provision}"
 #   none                = do not mutate or signal containerd (immutable-image mode)
 BREWLET_CONTAINERD_RESTART="${BREWLET_CONTAINERD_RESTART:-validated}"
 CONTAINERD_HEALTH_ATTEMPTS="${CONTAINERD_HEALTH_ATTEMPTS:-10}"
+CONTAINERD_RECOVERY_ATTEMPTS="${CONTAINERD_RECOVERY_ATTEMPTS:-30}"
 CONTAINERD_HEALTH_INTERVAL="${CONTAINERD_HEALTH_INTERVAL:-1}"
 
 # Renderer-to-lifecycle contract. patch_containerd sets these only when it
@@ -543,10 +544,10 @@ brewlet_handler_healthy() {
 }
 
 wait_for_health() {
-  local probe="$1" attempt
-  for ((attempt = 1; attempt <= CONTAINERD_HEALTH_ATTEMPTS; attempt++)); do
+  local probe="$1" attempts="${2:-$CONTAINERD_HEALTH_ATTEMPTS}" attempt
+  for ((attempt = 1; attempt <= attempts; attempt++)); do
     "$probe" && return 0
-    if (( attempt < CONTAINERD_HEALTH_ATTEMPTS )); then
+    if (( attempt < attempts )); then
       sleep "$CONTAINERD_HEALTH_INTERVAL"
     fi
   done
@@ -574,7 +575,7 @@ rollback_and_recover() {
   local original_reason="$1"
   if ! rollback_containerd_config \
       || ! restart_containerd_service \
-      || ! wait_for_health containerd_healthy; then
+      || ! wait_for_health containerd_healthy "$CONTAINERD_RECOVERY_ATTEMPTS"; then
     die "rollback-failed: could not recover containerd after ${original_reason}"
   fi
   die "${original_reason}: configuration rolled back and containerd recovered"
