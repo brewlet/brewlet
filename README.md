@@ -15,6 +15,11 @@ control the JDK distributions and launchers installed on each node. Kubernetes
 schedules the workload onto a compatible node and containerd starts it through
 the Brewlet runtime shim.
 
+At fleet scale, this model is intended to lower the cost per Java workload,
+accelerate runtime security remediation, and reduce operational boilerplate for
+both developers and AI-assisted delivery workflows. It also gives platform teams
+a central control point for JDK policy, runtime optimization, and upgrades.
+
 This repository contains the complete Brewlet implementation: the CLI and
 runtime, Kubernetes platform, node provisioner, Maven plugin, specifications,
 integration tests, website, and user-facing documentation.
